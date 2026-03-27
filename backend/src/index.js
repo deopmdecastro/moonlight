@@ -153,19 +153,32 @@ const loginSchema = z.object({
   password: z.string().min(1).max(200),
 })
 
+function optionalNullableTrimmedString({ min, max }) {
+  return z.preprocess(
+    (value) => {
+      if (value === undefined || value === null) return value
+      if (typeof value !== 'string') return value
+      const trimmed = value.trim()
+      return trimmed.length === 0 ? null : trimmed
+    },
+    z.string().min(min).max(max).nullable().optional(),
+  )
+}
+
 const updateMeSchema = z
   .object({
-    full_name: z.string().min(1).max(200).nullable().optional(),
-    phone: z.string().min(3).max(30).nullable().optional(),
-    address_line1: z.string().min(1).max(200).nullable().optional(),
-    address_line2: z.string().min(1).max(200).nullable().optional(),
-    city: z.string().min(1).max(120).nullable().optional(),
-    postal_code: z.string().min(1).max(30).nullable().optional(),
-    country: z.string().min(1).max(80).nullable().optional(),
+    full_name: optionalNullableTrimmedString({ min: 1, max: 200 }),
+    phone: optionalNullableTrimmedString({ min: 3, max: 30 }),
+    address_line1: optionalNullableTrimmedString({ min: 1, max: 200 }),
+    address_line2: optionalNullableTrimmedString({ min: 1, max: 200 }),
+    city: optionalNullableTrimmedString({ min: 1, max: 120 }),
+    postal_code: optionalNullableTrimmedString({ min: 1, max: 30 }),
+    country: optionalNullableTrimmedString({ min: 1, max: 80 }),
     newsletter_opt_in: z.boolean().optional(),
     order_updates_email: z.boolean().optional(),
   })
-  .strict()
+  // Don't fail if the frontend sends extra keys; we only persist known fields.
+  .passthrough()
 
 const passwordResetRequestSchema = z.object({
   email: z.string().email().max(320),

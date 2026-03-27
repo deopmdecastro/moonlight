@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Heart, Search, Menu, X, User } from 'lucide-react';
 import { useCart } from '@/lib/CartContext';
+import zanaLogo from '@/img/zana_logo_primary.svg';
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -25,9 +26,13 @@ export default function Navbar() {
           </button>
 
           {/* Logo */}
-          <Link to="/" className="flex flex-col items-center">
-            <span className="font-heading text-2xl md:text-3xl font-semibold tracking-[0.3em] text-primary">ZANA</span>
-            <span className="text-[9px] md:text-[10px] tracking-[0.4em] text-muted-foreground font-body uppercase -mt-1">acessórios</span>
+          <Link to="/" className="flex items-center" aria-label="Zana">
+            <img
+              src={zanaLogo}
+              alt="Zana Acessórios"
+              className="h-8 md:h-10 w-auto"
+              loading="eager"
+            />
           </Link>
 
           {/* Desktop Nav */}

@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { Heart, Trash2, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/lib/CartContext';
+import { toastApiPromise } from '@/lib/toast';
 
 export default function WishlistPage() {
   const queryClient = useQueryClient();
@@ -19,6 +20,15 @@ export default function WishlistPage() {
     mutationFn: (id) => base44.entities.Wishlist.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
   });
+
+  const handleDelete = async (e, id) => {
+    e.preventDefault();
+    await toastApiPromise(deleteMutation.mutateAsync(id), {
+      loading: 'A remover dos favoritos...',
+      success: 'Removido dos favoritos.',
+      error: 'Não foi possível remover dos favoritos.',
+    });
+  };
 
   if (isLoading) {
     return <div className="min-h-[60vh] flex items-center justify-center"><div className="w-8 h-8 border-4 border-secondary border-t-primary rounded-full animate-spin" /></div>;
@@ -50,7 +60,7 @@ export default function WishlistPage() {
                 )}
                 <div className="absolute top-2 right-2 flex flex-col gap-1">
                   <button
-                    onClick={(e) => { e.preventDefault(); deleteMutation.mutate(item.id); }}
+                    onClick={(e) => handleDelete(e, item.id)}
                     className="w-7 h-7 bg-card/90 rounded-full flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
                   >
                     <Trash2 className="w-3 h-3" />

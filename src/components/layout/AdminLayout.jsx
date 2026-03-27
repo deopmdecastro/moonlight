@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Package, ShoppingCart, Users, BarChart3, ArrowLeft } from 'lucide-react';
+import zanaLogo from '@/img/zana_logo.svg';
 
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
@@ -21,7 +22,7 @@ export default function AdminLayout() {
           <Link to="/" className="flex items-center gap-2 text-sm font-body text-muted-foreground hover:text-primary">
             <ArrowLeft className="w-4 h-4" /> Voltar à Loja
           </Link>
-          <span className="font-heading text-lg tracking-[0.2em] text-primary">ZANA</span>
+          <img src={zanaLogo} alt="Zana" className="h-6 w-auto brightness-0" loading="eager" />
           <span className="font-body text-xs text-muted-foreground">Admin</span>
         </div>
       </div>

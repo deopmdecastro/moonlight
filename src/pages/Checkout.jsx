@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCart } from '@/lib/CartContext';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { toastApiPromise } from '@/lib/toast';
 import { CheckCircle, ShoppingBag } from 'lucide-react';
 
 export default function Checkout() {
@@ -38,24 +39,34 @@ export default function Checkout() {
       return;
     }
     setSubmitting(true);
-    await base44.entities.Order.create({
-      ...form,
-      items: items.map(i => ({
-        product_id: i.product_id,
-        product_name: i.product_name,
-        product_image: i.product_image,
-        price: i.price,
-        quantity: i.quantity,
-        color: i.color,
-      })),
-      subtotal,
-      shipping_cost: shipping,
-      total,
-      status: 'pending',
-    });
-    clearCart();
-    setSubmitting(false);
-    setStep('success');
+    try {
+      await toastApiPromise(
+        base44.entities.Order.create({
+          ...form,
+          items: items.map(i => ({
+            product_id: i.product_id,
+            product_name: i.product_name,
+            product_image: i.product_image,
+            price: i.price,
+            quantity: i.quantity,
+            color: i.color,
+          })),
+          subtotal,
+          shipping_cost: shipping,
+          total,
+          status: 'pending',
+        }),
+        {
+          loading: 'A confirmar encomenda...',
+          success: 'Encomenda confirmada com sucesso!',
+          error: 'Não foi possível confirmar a encomenda.',
+        },
+      );
+      clearCart();
+      setStep('success');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (items.length === 0 && step !== 'success') {

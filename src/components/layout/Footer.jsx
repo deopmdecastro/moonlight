@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram, Mail, MapPin } from 'lucide-react';
+import zanaLogo from '@/img/zana_logo.svg';
 
 export default function Footer() {
   return (
@@ -9,8 +10,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
-            <span className="font-heading text-2xl tracking-[0.3em]">ZANA</span>
-            <p className="text-[10px] tracking-[0.4em] uppercase mb-4">acessórios</p>
+            <img src={zanaLogo} alt="Zana Acessórios" className="h-10 w-auto mb-4" loading="lazy" />
             <p className="text-sm opacity-80 leading-relaxed">
               Elegância em cada detalhe. Bijuterias que celebram a essência da mulher moderna.
             </p>

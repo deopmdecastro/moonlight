@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/toast';
 
 const emptyPost = { title: '', content: '', excerpt: '', image_url: '', category: 'novidades', status: 'draft' };
 
@@ -27,16 +28,19 @@ export default function BlogAdmin() {
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.BlogPost.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-blog'] }); setDialogOpen(false); toast.success('Artigo criado'); },
+    onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível criar o artigo.')),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.BlogPost.update(id, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-blog'] }); setDialogOpen(false); toast.success('Artigo atualizado'); },
+    onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível atualizar o artigo.')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.BlogPost.delete(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-blog'] }); toast.success('Artigo removido'); },
+    onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível remover o artigo.')),
   });
 
   const openCreate = () => { setEditing(null); setForm(emptyPost); setDialogOpen(true); };

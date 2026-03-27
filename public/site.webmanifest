@@ -1,0 +1,17 @@
+{
+  "name": "Zana Acessórios",
+  "short_name": "Zana",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f5f2",
+  "theme_color": "#782641",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

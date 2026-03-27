@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Package, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { getErrorMessage, toastApiPromise } from '@/lib/toast';
 
 const emptyProduct = {
   name: '', description: '', price: '', original_price: '', category: 'colares',
@@ -34,16 +35,19 @@ export default function AdminProducts() {
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Product.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setDialogOpen(false); toast.success('Produto criado'); },
+    onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível criar o produto.')),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Product.update(id, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setDialogOpen(false); toast.success('Produto atualizado'); },
+    onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível atualizar o produto.')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Product.delete(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); toast.success('Produto removido'); },
+    onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível remover o produto.')),
   });
 
   const openCreate = () => { setEditing(null); setForm(emptyProduct); setDialogOpen(true); };
@@ -59,8 +63,13 @@ export default function AdminProducts() {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setForm(prev => ({ ...prev, images: [...(prev.images || []), file_url] }));
+    const res = await toastApiPromise(base44.integrations.Core.UploadFile({ file }), {
+      loading: 'A enviar imagem...',
+      success: 'Imagem adicionada.',
+      error: 'Não foi possível enviar a imagem.',
+    });
+    const fileUrl = res?.file_url;
+    if (fileUrl) setForm(prev => ({ ...prev, images: [...(prev.images || []), fileUrl] }));
   };
 
   const addImageUrl = () => {

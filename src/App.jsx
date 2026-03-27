@@ -3,6 +3,8 @@ import React, { Suspense, lazy } from 'react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 // import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import zanaLogo from '@/img/zana_logo.svg';
 
 
 import PageLoader from '@/components/ui/page-loader';
@@ -53,7 +55,7 @@ const AuthenticatedApp = () => {
       <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-          <span className="font-heading text-xl tracking-[0.3em] text-primary">ZANA</span>
+          <img src={zanaLogo} alt="Zana" className="h-12 w-auto brightness-0" />
         </div>
       </div>
     );
@@ -109,7 +111,7 @@ function App() {
               <AuthenticatedApp />
             </Suspense>
           </Router>
-  {/* <Toaster /> */}
+          <Toaster richColors closeButton position="top-right" />
         </CartProvider>
       </QueryClientProvider>
     </AuthProvider>

@@ -20,7 +20,19 @@ async function jsonRequest(path, { method = 'GET', body, token } = {}) {
   const data = isJson ? await res.json().catch(() => null) : null;
 
   if (!res.ok) {
-    const err = new Error(data?.error ?? `HTTP ${res.status}`);
+    const code = data?.error ?? `HTTP ${res.status}`;
+    const issues = Array.isArray(data?.issues) ? data.issues : null;
+    const issuesText = issues
+      ? issues
+          .map((issue) => {
+            const path = Array.isArray(issue?.path) ? issue.path.join('.') : '';
+            const msg = issue?.message ? String(issue.message) : 'invalid';
+            return path ? `${path}: ${msg}` : msg;
+          })
+          .join(' | ')
+      : '';
+
+    const err = new Error(issuesText ? `${code}: ${issuesText}` : code);
     err.status = res.status;
     err.data = data;
     throw err;

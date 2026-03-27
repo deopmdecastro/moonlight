@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useCart } from '@/lib/CartContext';
 import { toast } from 'sonner';
+import { toastApiPromise } from '@/lib/toast';
 import ProductCard from '@/components/products/ProductCard';
 
 const materialLabels = {
@@ -212,13 +213,19 @@ export default function ProductDetail() {
                 variant="outline"
                 className="rounded-none py-6 px-4"
                 onClick={async () => {
-                  await base44.entities.Wishlist.create({
-                    product_id: product.id,
-                    product_name: product.name,
-                    product_image: product.images?.[0] || '',
-                    product_price: product.price,
-                  });
-                  toast.success('Adicionado aos favoritos');
+                  await toastApiPromise(
+                    base44.entities.Wishlist.create({
+                      product_id: product.id,
+                      product_name: product.name,
+                      product_image: product.images?.[0] || '',
+                      product_price: product.price,
+                    }),
+                    {
+                      loading: 'A adicionar aos favoritos...',
+                      success: 'Adicionado aos favoritos.',
+                      error: 'Não foi possível adicionar aos favoritos.',
+                    },
+                  );
                 }}
               >
                 <Heart className="w-4 h-4" />

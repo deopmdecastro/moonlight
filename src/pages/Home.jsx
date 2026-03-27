@@ -4,6 +4,7 @@ import CategoryGrid from '@/components/home/CategoryGrid';
 import FeaturedProducts from '@/components/home/FeaturedProducts';
 import BrandBanner from '@/components/home/BrandBanner';
 import Testimonials from '@/components/home/Testimonials';
+import InstagramSection from '@/components/home/InstagramSection';
 
 export default function Home() {
   return (
@@ -14,6 +15,7 @@ export default function Home() {
       <FeaturedProducts title="Novidades" filterKey="is_new" />
       <BrandBanner />
       <Testimonials />
+      <InstagramSection />
 
       {/* Newsletter */}
       <section className="py-16 md:py-20 bg-primary">

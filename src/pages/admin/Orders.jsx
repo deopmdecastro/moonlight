@@ -10,6 +10,7 @@ import { pt } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getErrorMessage } from '@/lib/toast';
 
 const statusLabels = {
   pending: 'Pendente', confirmed: 'Confirmada', processing: 'Em preparação',
@@ -33,6 +34,7 @@ export default function AdminOrders() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-orders'] }); toast.success('Estado atualizado'); },
+    onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível atualizar o estado.')),
   });
 
   const filtered = statusFilter === 'all' ? orders : orders.filter(o => o.status === statusFilter);
