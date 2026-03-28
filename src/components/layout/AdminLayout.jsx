@@ -33,6 +33,7 @@ const navSections = [
       { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
 	      { to: '/admin/produtos', icon: Package, label: 'Produtos' },
 	      { to: '/admin/encomendas', icon: ShoppingCart, label: 'Encomendas' },
+	      { to: '/admin/financeiro', icon: Euro, label: 'Financeiro' },
 	      { to: '/admin/clientes', icon: Users, label: 'Clientes' },
 	      { to: '/admin/suporte', icon: MessageSquare, label: 'Suporte' },
 	    ],
@@ -60,7 +61,6 @@ const navSections = [
       { to: '/admin/relatorios', icon: BarChartBig, label: 'Relatórios' },
       { to: '/admin/avaliacoes', icon: MessageSquare, label: 'Avaliações' },
       { to: '/admin/logs', icon: ScrollText, label: 'Logs' },
-      { to: '/admin/financeiro', icon: Euro, label: 'Financeiro' },
     ],
   },
 ];
