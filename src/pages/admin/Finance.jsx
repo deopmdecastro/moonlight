@@ -1,12 +1,13 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Download, Euro, TrendingUp, Package, ShoppingCart } from 'lucide-react';
 
 import { base44 } from '@/api/base44Client';
+import zanaLogoPrimary from '@/img/zana_logo_primary.svg';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { downloadCsv, exportElementToPdf } from '@/lib/reportExport';
+import { downloadCsv, exportFinancePdf } from '@/lib/reportExport';
 
 function moneyPt(value) {
   const n = Number(value ?? 0) || 0;
@@ -14,7 +15,6 @@ function moneyPt(value) {
 }
 
 export default function AdminFinance() {
-  const exportRef = useRef(null);
   const title = 'Financeiro';
 
   const { data: inventory = [] } = useQuery({
@@ -92,7 +92,13 @@ export default function AdminFinance() {
   const exportPdf = async () => {
     try {
       const date = new Date().toISOString().slice(0, 10);
-      await exportElementToPdf(exportRef.current, `financeiro_${date}.pdf`, { title });
+      await exportFinancePdf({
+        filename: `financeiro_${date}.pdf`,
+        title,
+        logoUrl: zanaLogoPrimary,
+        createdAt: new Date(),
+        stats,
+      });
       toast.success('PDF exportado');
     } catch (err) {
       console.error(err);
@@ -147,7 +153,7 @@ export default function AdminFinance() {
         </div>
       </div>
 
-      <div ref={exportRef}>
+      <div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {cards.map((c) => (
             <Card key={c.title}>
@@ -233,4 +239,3 @@ export default function AdminFinance() {
     </div>
   );
 }
-

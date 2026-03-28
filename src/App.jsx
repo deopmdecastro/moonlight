@@ -34,13 +34,16 @@ const Catalog = lazy(() => import('@/pages/Catalog'));
 const ProductDetail = lazy(() => import('@/pages/ProductDetail'));
 const Cart = lazy(() => import('@/pages/Cart'));
 const Checkout = lazy(() => import('@/pages/Checkout'));
-const About = lazy(() => import('@/pages/About'));
-const Blog = lazy(() => import('@/pages/Blog'));
-	const BlogPostPage = lazy(() => import('@/pages/BlogPostPage'));
-	const Support = lazy(() => import('@/pages/Support'));
-	const Contact = lazy(() => import('@/pages/Contact'));
-	const WishlistPage = lazy(() => import('@/pages/Wishlist'));
-	const Account = lazy(() => import('@/pages/Account'));
+	const About = lazy(() => import('@/pages/About'));
+	const Blog = lazy(() => import('@/pages/Blog'));
+		const BlogPostPage = lazy(() => import('@/pages/BlogPostPage'));
+		const Support = lazy(() => import('@/pages/Support'));
+		const Contact = lazy(() => import('@/pages/Contact'));
+		const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
+		const CookiesPolicy = lazy(() => import('@/pages/CookiesPolicy'));
+		const Terms = lazy(() => import('@/pages/Terms'));
+		const WishlistPage = lazy(() => import('@/pages/Wishlist'));
+		const Account = lazy(() => import('@/pages/Account'));
 
 	// Admin
 	const Dashboard = lazy(() => import('@/pages/admin/Dashboard'));
@@ -105,10 +108,13 @@ const AuthenticatedApp = () => {
 	        <Route path="/blog/:id" element={<BlogPostPage />} />
 	        <Route path="/suporte" element={<Support />} />
 	        <Route path="/contacto" element={<Contact />} />
-	        <Route path="/faq" element={<FAQPage />} />
-	        <Route path="/favoritos" element={<WishlistPage />} />
-        <Route path="/conta" element={<Account />} />
-      </Route>
+	        <Route path="/politica-privacidade" element={<PrivacyPolicy />} />
+	        <Route path="/cookies" element={<CookiesPolicy />} />
+	        <Route path="/termos" element={<Terms />} />
+		        <Route path="/faq" element={<FAQPage />} />
+		        <Route path="/favoritos" element={<WishlistPage />} />
+	        <Route path="/conta" element={<Account />} />
+	      </Route>
 
       {/* Admin Layout */}
 	      <Route

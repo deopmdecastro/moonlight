@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import StarRating from '@/components/ui/star-rating';
 import { useCart } from '@/lib/CartContext';
 import { toast } from 'sonner';
 import { toastApiPromise } from '@/lib/toast';
@@ -308,20 +309,16 @@ export default function ProductDetail() {
           <div className="mt-6 bg-card p-6 rounded-lg border border-border">
             <h3 className="font-heading text-lg mb-4">Deixe a sua avaliação</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div>
-                <Label className="font-body text-xs">Rating</Label>
-                <select
-                  value={reviewForm.rating}
-                  onChange={(e) => setReviewForm((p) => ({ ...p, rating: Number(e.target.value) }))}
-                  className="mt-1 w-full border border-border bg-background px-3 py-2 text-sm font-body rounded-none"
-                >
-                  {[5, 4, 3, 2, 1].map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
+	              <div>
+	                <Label className="font-body text-xs">Rating</Label>
+	                <div className="mt-2">
+	                  <StarRating
+	                    value={reviewForm.rating}
+	                    onChange={(v) => setReviewForm((p) => ({ ...p, rating: v }))}
+	                    aria-label="Escolher rating"
+	                  />
+	                </div>
+	              </div>
               <div className="md:col-span-2">
                 <Label className="font-body text-xs">Comentário (opcional)</Label>
                 <Textarea
@@ -353,4 +350,3 @@ export default function ProductDetail() {
     </div>
   );
 }
-

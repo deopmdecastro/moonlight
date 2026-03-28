@@ -38,10 +38,11 @@ export default function Footer() {
             <h4 className="font-heading text-lg mb-4">Apoio ao Cliente</h4>
             <div className="space-y-2">
               {[
-                { to: '/contacto', label: 'FAQ' },
-                { to: '/contacto', label: 'Envios e Devoluções' },
-                { to: '/contacto', label: 'Política de Privacidade' },
-                { to: '/contacto', label: 'Termos e Condições' },
+                { to: '/faq', label: 'FAQ' },
+                { to: '/suporte', label: 'Suporte' },
+                { to: '/politica-privacidade', label: 'Política de Privacidade' },
+                { to: '/cookies', label: 'Política de Cookies' },
+                { to: '/termos', label: 'Termos e Condições' },
               ].map((link, i) => (
                 <Link key={i} to={link.to} className="block text-sm opacity-70 hover:opacity-100 transition-opacity">
                   {link.label}

@@ -1,8 +1,20 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Star, Quote } from 'lucide-react';
+import { Quote, Star } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
-const testimonials = [
+import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import StarRating from '@/components/ui/star-rating';
+import { getErrorMessage } from '@/lib/toast';
+
+const fallbackTestimonials = [
   {
     name: 'Maria S.',
     text: 'Peças lindíssimas e de qualidade! Já comprei várias vezes e nunca me decepcionei. A embalagem também é um encanto.',
@@ -21,6 +33,35 @@ const testimonials = [
 ];
 
 export default function Testimonials() {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ product_id: '', rating: 5, comment: '' });
+
+  const { data: reviews = [] } = useQuery({
+    queryKey: ['public-reviews-testimonials'],
+    queryFn: () => base44.entities.Review.filter({}, '-created_date', 200),
+    staleTime: 60_000,
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ['products-review-picker'],
+    queryFn: () => base44.entities.Product.filter({}, '-created_date', 200),
+    staleTime: 60_000,
+  });
+
+  const testimonials = useMemo(() => {
+    const source = (Array.isArray(reviews) ? reviews : [])
+      .filter((r) => (r?.comment ?? '').trim())
+      .map((r) => ({
+        name: r.author_name || 'Cliente',
+        text: String(r.comment ?? ''),
+        rating: Math.max(1, Math.min(5, Number(r.rating ?? 5) || 5)),
+      }));
+
+    if (source.length >= 3) return source.slice(0, 3);
+    return fallbackTestimonials;
+  }, [reviews]);
+
   return (
     <section className="py-16 md:py-24 bg-secondary/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -32,7 +73,7 @@ export default function Testimonials() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           {testimonials.map((t, i) => (
             <motion.div
-              key={i}
+              key={`${t.name}-${i}`}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -41,18 +82,110 @@ export default function Testimonials() {
             >
               <Quote className="w-8 h-8 text-accent/40 absolute top-6 right-6" />
               <div className="flex gap-0.5 mb-4">
-                {Array.from({ length: t.rating }).map((_, j) => (
-                  <Star key={j} className="w-3.5 h-3.5 fill-accent text-accent" />
+                {Array.from({ length: 5 }).map((_, j) => (
+                  <Star key={j} className={`w-3.5 h-3.5 ${j < t.rating ? 'fill-accent text-accent' : 'text-border'}`} />
                 ))}
               </div>
-              <p className="font-body text-sm text-foreground/80 leading-relaxed mb-6 italic">
-                "{t.text}"
-              </p>
+              <p className="font-body text-sm text-foreground/80 leading-relaxed mb-6 italic">"{t.text}"</p>
               <p className="font-body text-xs font-semibold tracking-wider uppercase">{t.name}</p>
             </motion.div>
           ))}
         </div>
+
+        <div className="mt-10 text-center">
+          <Button
+            className="rounded-none font-body text-sm tracking-wider"
+            onClick={() => {
+              if (!user) {
+                toast.error('Inicie sessão para avaliar.');
+                return;
+              }
+              setOpen(true);
+            }}
+          >
+            Avaliar
+          </Button>
+          <p className="font-body text-xs text-muted-foreground mt-2">As avaliações são publicadas após aprovação do admin.</p>
+        </div>
       </div>
+
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) setForm({ product_id: '', rating: 5, comment: '' });
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl">Avaliar</DialogTitle>
+          </DialogHeader>
+
+          {!user ? (
+            <div className="space-y-3">
+              <p className="font-body text-sm text-muted-foreground">Para deixar uma avaliação, inicie sessão.</p>
+              <Link to="/conta" className="inline-flex">
+                <Button className="rounded-none font-body text-sm tracking-wider">Entrar</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <Label className="font-body text-xs">Produto</Label>
+                <select
+                  value={form.product_id}
+                  onChange={(e) => setForm((p) => ({ ...p, product_id: e.target.value }))}
+                  className="mt-1 w-full border border-border bg-background px-3 py-2 text-sm font-body rounded-none"
+                >
+                  <option value="">Selecionar...</option>
+                  {(Array.isArray(products) ? products : []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label className="font-body text-xs">Rating</Label>
+                <div className="mt-2">
+                  <StarRating value={form.rating} onChange={(v) => setForm((p) => ({ ...p, rating: v }))} aria-label="Escolher rating" />
+                </div>
+              </div>
+
+              <div>
+                <Label className="font-body text-xs">Comentário (opcional)</Label>
+                <Textarea
+                  value={form.comment}
+                  onChange={(e) => setForm((p) => ({ ...p, comment: e.target.value }))}
+                  className="rounded-none mt-1 min-h-[120px]"
+                  placeholder="Conte-nos a sua experiência…"
+                />
+              </div>
+
+              <Button
+                className="w-full rounded-none font-body text-sm tracking-wider"
+                onClick={async () => {
+                  if (!form.product_id) return toast.error('Selecione um produto.');
+                  try {
+                    await base44.entities.ProductReview.create({
+                      product_id: form.product_id,
+                      rating: Number(form.rating) || 5,
+                      comment: form.comment?.trim() || null,
+                    });
+                    toast.success('Avaliação enviada (aguarda aprovação).');
+                    setOpen(false);
+                  } catch (err) {
+                    toast.error(getErrorMessage(err, 'Não foi possível enviar.'));
+                  }
+                }}
+              >
+                Enviar
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

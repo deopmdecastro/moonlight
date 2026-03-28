@@ -481,22 +481,26 @@ export const base44 = {
 	  notifications: {
 	    list: async () => authedJsonRequest('/api/notifications'),
 	  },
-	  support: {
-	    tickets: {
-	      list: async (limit = 200) => {
-	        const params = new URLSearchParams();
-	        if (limit) params.set('limit', String(limit));
-	        return authedJsonRequest(`/api/support/tickets?${params.toString()}`);
-	      },
-	      create: async (data) => authedJsonRequest('/api/support/tickets', { method: 'POST', body: data }),
-	      get: async (id) => authedJsonRequest(`/api/support/tickets/${id}`),
-	      addMessage: async (id, message) =>
-	        authedJsonRequest(`/api/support/tickets/${id}/messages`, { method: 'POST', body: { message } }),
-	    },
-	  },
-	  faq: {
-	    list: async () => jsonRequest('/api/faq'),
-	  },
+		  support: {
+		    tickets: {
+		      list: async (limit = 200) => {
+		        const params = new URLSearchParams();
+		        if (limit) params.set('limit', String(limit));
+		        return authedJsonRequest(`/api/support/tickets?${params.toString()}`);
+		      },
+		      create: async (data) => authedJsonRequest('/api/support/tickets', { method: 'POST', body: data }),
+		      get: async (id) => authedJsonRequest(`/api/support/tickets/${id}`),
+		      addMessage: async (id, message) =>
+		        authedJsonRequest(`/api/support/tickets/${id}/messages`, { method: 'POST', body: { message } }),
+		    },
+		    chat: {
+		      get: async () => authedJsonRequest('/api/support/chat'),
+		      send: async (message) => authedJsonRequest('/api/support/chat/messages', { method: 'POST', body: { message } }),
+		    },
+		  },
+		  faq: {
+		    list: async () => jsonRequest('/api/faq'),
+		  },
   instagram: {
     list: async (limit = 30) => {
       const params = new URLSearchParams();

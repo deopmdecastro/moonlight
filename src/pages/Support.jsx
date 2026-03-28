@@ -16,12 +16,21 @@ function statusLabel(status) {
   return status === 'closed' ? 'Fechado' : 'Aberto';
 }
 
+const SUPPORT_TOPICS = [
+  { value: 'encomendas', label: 'Encomendas' },
+  { value: 'pagamentos', label: 'Pagamentos' },
+  { value: 'envios', label: 'Envios' },
+  { value: 'trocas', label: 'Trocas / Devoluções' },
+  { value: 'produto', label: 'Produto' },
+  { value: 'outro', label: 'Outro' },
+];
+
 export default function Support() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newTicket, setNewTicket] = useState({ subject: '', message: '' });
+  const [newTicket, setNewTicket] = useState({ topic: '', subject: '', message: '' });
   const [reply, setReply] = useState('');
 
   const { data: tickets = [], isLoading: isLoadingTickets } = useQuery({
@@ -45,7 +54,7 @@ export default function Support() {
     onSuccess: async (res) => {
       queryClient.invalidateQueries({ queryKey: ['support-tickets'] });
       setDialogOpen(false);
-      setNewTicket({ subject: '', message: '' });
+      setNewTicket({ topic: '', subject: '', message: '' });
       const id = res?.ticket?.id;
       if (id) setSelectedId(id);
       toast.success('Pedido criado');
@@ -68,7 +77,10 @@ export default function Support() {
       toast.error('Preencha assunto e mensagem');
       return;
     }
-    createMutation.mutate({ subject: newTicket.subject.trim(), message: newTicket.message.trim() });
+    const topicLabel = SUPPORT_TOPICS.find((t) => t.value === newTicket.topic)?.label ?? '';
+    const baseSubject = newTicket.subject.trim();
+    const subject = topicLabel && !baseSubject.startsWith('[') ? `[${topicLabel}] ${baseSubject}` : baseSubject;
+    createMutation.mutate({ subject, message: newTicket.message.trim() });
   };
 
   const submitReply = () => {
@@ -213,11 +225,26 @@ export default function Support() {
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Novo pedido</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label className="font-body text-xs">Assunto</Label>
-              <Input value={newTicket.subject} onChange={(e) => setNewTicket((p) => ({ ...p, subject: e.target.value }))} className="rounded-none mt-1" />
-            </div>
+	          <div className="space-y-3">
+	            <div>
+	              <Label className="font-body text-xs">Tópico</Label>
+	              <select
+	                value={newTicket.topic}
+	                onChange={(e) => setNewTicket((p) => ({ ...p, topic: e.target.value }))}
+	                className="mt-1 w-full border border-border bg-background px-3 py-2 text-sm font-body rounded-none"
+	              >
+	                <option value="">Selecionar...</option>
+	                {SUPPORT_TOPICS.map((t) => (
+	                  <option key={t.value} value={t.value}>
+	                    {t.label}
+	                  </option>
+	                ))}
+	              </select>
+	            </div>
+	            <div>
+	              <Label className="font-body text-xs">Assunto</Label>
+	              <Input value={newTicket.subject} onChange={(e) => setNewTicket((p) => ({ ...p, subject: e.target.value }))} className="rounded-none mt-1" />
+	            </div>
             <div>
               <Label className="font-body text-xs">Mensagem</Label>
               <Textarea

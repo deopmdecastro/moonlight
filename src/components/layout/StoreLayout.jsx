@@ -4,6 +4,8 @@ import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { trackPageView } from '@/lib/analytics';
+import SupportChatWidget from '@/components/support/SupportChatWidget';
+import CookieConsent from '@/components/CookieConsent';
 
 export default function StoreLayout() {
   const location = useLocation();
@@ -12,13 +14,15 @@ export default function StoreLayout() {
     trackPageView(location.pathname + (location.search ?? ''));
   }, [location.pathname, location.search]);
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1">
-        <Outlet />
-      </main>
-      <Footer />
-    </div>
-  );
+	  return (
+	    <div className="min-h-screen flex flex-col">
+	      <Navbar />
+	      <main className="flex-1">
+	        <Outlet />
+	      </main>
+	      <Footer />
+	      <SupportChatWidget />
+	      <CookieConsent />
+	    </div>
+	  );
 }
