@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
+import { entityCode } from '@/utils/entityCode';
 
 export default function AdminCustomers() {
   const queryClient = useQueryClient();
@@ -259,15 +260,17 @@ export default function AdminCustomers() {
                   <p className="font-body text-sm text-muted-foreground">Sem encomendas</p>
                 ) : (
                   <div className="space-y-2">
-                    {(userOrdersQuery.data ?? []).map((o) => (
-                      <div key={o.id} className="p-3 rounded-md border border-border bg-secondary/20">
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                          <div>
-                            <p className="font-body text-sm font-medium">{o.id}</p>
-                            <p className="font-body text-xs text-muted-foreground">
-                              {new Date(o.created_date).toLocaleDateString('pt-PT')}
-                            </p>
-                          </div>
+	                    {(userOrdersQuery.data ?? []).map((o) => (
+	                      <div key={o.id} className="p-3 rounded-md border border-border bg-secondary/20">
+	                        <div className="flex items-center justify-between gap-4 flex-wrap">
+	                          <div>
+	                            <p className="font-body text-sm font-medium" title={String(o.id)}>
+	                              {entityCode({ entityType: 'Order', entityId: o.id, createdDate: o.created_date })}
+	                            </p>
+	                            <p className="font-body text-xs text-muted-foreground">
+	                              {new Date(o.created_date).toLocaleDateString('pt-PT')}
+	                            </p>
+	                          </div>
                           <div className="flex items-center gap-2">
                             <Badge className="bg-secondary text-foreground text-[10px]">{o.status}</Badge>
                             <span className="font-body text-sm font-semibold">{o.total?.toFixed?.(2) ?? o.total} €</span>
@@ -298,20 +301,25 @@ export default function AdminCustomers() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {(userWishlistQuery.data ?? []).map((w) => (
-                      <div key={w.id} className="flex gap-3 p-3 rounded-md border border-border bg-secondary/20">
+	                    {(userWishlistQuery.data ?? []).map((w) => (
+	                      <div key={w.id} className="flex gap-3 p-3 rounded-md border border-border bg-secondary/20">
                         <div className="w-14 h-14 rounded-md overflow-hidden bg-secondary/40 shrink-0">
                           {w.product_image ? (
                             <img src={w.product_image} alt="" className="w-full h-full object-cover" />
                           ) : null}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-body text-sm font-medium truncate">{w.product_name ?? w.product_id}</p>
-                          <p className="font-body text-xs text-muted-foreground">
-                            {w.product_price !== null && w.product_price !== undefined
-                              ? `${Number(w.product_price).toFixed(2)} €`
-                              : '-'}
-                          </p>
+	                        <div className="min-w-0">
+	                          <p className="font-body text-sm font-medium truncate">{w.product_name ?? w.product_id}</p>
+	                          {w.product_id ? (
+	                            <p className="font-body text-[11px] text-muted-foreground truncate" title={String(w.product_id)}>
+	                              {entityCode({ entityType: 'Product', entityId: w.product_id, createdDate: w.created_date })}
+	                            </p>
+	                          ) : null}
+	                          <p className="font-body text-xs text-muted-foreground">
+	                            {w.product_price !== null && w.product_price !== undefined
+	                              ? `${Number(w.product_price).toFixed(2)} €`
+	                              : '-'}
+	                          </p>
                           <p className="font-body text-xs text-muted-foreground">
                             {new Date(w.created_date).toLocaleDateString('pt-PT')}
                           </p>

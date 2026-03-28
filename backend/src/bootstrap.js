@@ -333,20 +333,22 @@ const ddl = [
 		  );
 		  `,
 	  `CREATE INDEX IF NOT EXISTS "SupportMessage_ticketId_idx" ON "SupportMessage" ("ticketId");`,
-	  `CREATE INDEX IF NOT EXISTS "SupportMessage_createdAt_idx" ON "SupportMessage" ("createdAt");`,
+  `CREATE INDEX IF NOT EXISTS "SupportMessage_createdAt_idx" ON "SupportMessage" ("createdAt");`,
 
   `
-  CREATE TABLE IF NOT EXISTS "Supplier" (
-    "id" TEXT PRIMARY KEY,
-    "name" TEXT NOT NULL,
-    "email" TEXT,
-    "phone" TEXT,
-    "address" TEXT,
-    "notes" TEXT,
-    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
-  `,
+	  CREATE TABLE IF NOT EXISTS "Supplier" (
+	    "id" TEXT PRIMARY KEY,
+	    "name" TEXT NOT NULL,
+	    "email" TEXT,
+	    "phone" TEXT,
+	    "link" TEXT,
+	    "address" TEXT,
+	    "notes" TEXT,
+	    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	  );
+	  `,
+  `ALTER TABLE IF EXISTS "Supplier" ADD COLUMN IF NOT EXISTS "link" TEXT;`,
   `CREATE INDEX IF NOT EXISTS "Supplier_createdAt_idx" ON "Supplier" ("createdAt");`,
   `CREATE INDEX IF NOT EXISTS "Supplier_name_idx" ON "Supplier" ("name");`,
 

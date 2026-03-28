@@ -328,6 +328,7 @@ model Supplier {
   name      String
   email     String?
   phone     String?
+  link      String?
   address   String?
   notes     String?
   createdAt DateTime @default(now())

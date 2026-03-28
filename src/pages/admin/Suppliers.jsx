@@ -8,15 +8,26 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
-import { Plus, Pencil, Trash2, Truck } from 'lucide-react';
+import { Eye, Plus, Pencil, Trash2, Truck } from 'lucide-react';
 
-const emptySupplier = { name: '', email: '', phone: '', address: '', notes: '' };
+const emptySupplier = { name: '', email: '', phone: '', link: '', address: '', notes: '' };
+
+function safeJson(value) {
+  if (value === null || value === undefined) return null;
+  try {
+    return typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+}
 
 export default function AdminSuppliers() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const [form, setForm] = useState(emptySupplier);
+  const [jsonText, setJsonText] = useState('');
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ['admin-suppliers'],
@@ -54,19 +65,39 @@ export default function AdminSuppliers() {
 
   const openCreate = () => {
     setEditing(null);
+    setViewing(null);
     setForm(emptySupplier);
+    setJsonText('');
     setDialogOpen(true);
   };
 
   const openEdit = (s) => {
     setEditing(s);
+    setViewing(null);
     setForm({
       name: s.name ?? '',
       email: s.email ?? '',
       phone: s.phone ?? '',
+      link: s.link ?? '',
       address: s.address ?? '',
       notes: s.notes ?? '',
     });
+    setJsonText('');
+    setDialogOpen(true);
+  };
+
+  const openView = (s) => {
+    setViewing(s);
+    setEditing(null);
+    setForm({
+      name: s.name ?? '',
+      email: s.email ?? '',
+      phone: s.phone ?? '',
+      link: s.link ?? '',
+      address: s.address ?? '',
+      notes: s.notes ?? '',
+    });
+    setJsonText('');
     setDialogOpen(true);
   };
 
@@ -75,16 +106,39 @@ export default function AdminSuppliers() {
       toast.error('Nome é obrigatório');
       return;
     }
-    const data = {
-      name: form.name.trim(),
-      email: form.email?.trim() || null,
-      phone: form.phone?.trim() || null,
-      address: form.address?.trim() || null,
-      notes: form.notes?.trim() || null,
-    };
-    if (editing) updateMutation.mutate({ id: editing.id, data });
-    else createMutation.mutate(data);
+	    const data = {
+	      name: form.name.trim(),
+	      email: form.email?.trim() || null,
+	      phone: form.phone?.trim() || null,
+	      link: form.link?.trim() || null,
+	      address: form.address?.trim() || null,
+	      notes: form.notes?.trim() || null,
+	    };
+	    if (editing) updateMutation.mutate({ id: editing.id, data });
+	    else createMutation.mutate(data);
+	  };
+
+  const applyJson = () => {
+    const parsed = safeJson(jsonText);
+    if (!parsed || typeof parsed !== 'object') {
+      toast.error('JSON inválido');
+      return;
+    }
+    const obj = parsed;
+    const link = obj.link ?? obj.url ?? obj.website ?? obj.site ?? '';
+    setForm((p) => ({
+      ...p,
+      name: obj.name ?? p.name,
+      email: obj.email ?? p.email,
+      phone: obj.phone ?? p.phone,
+      link: link ?? p.link,
+      address: obj.address ?? p.address,
+      notes: obj.notes ?? p.notes,
+    }));
+    toast.success('JSON aplicado');
   };
+
+  const isView = Boolean(viewing);
 
   return (
     <div>
@@ -111,24 +165,38 @@ export default function AdminSuppliers() {
                   <p className="font-body text-sm font-medium">{s.name}</p>
                   {s.address ? <p className="font-body text-xs text-muted-foreground mt-1">{s.address}</p> : null}
                 </td>
-                <td className="p-3 font-body text-sm text-muted-foreground">
-                  {s.email || s.phone ? (
-                    <div className="space-y-1">
-                      {s.email ? <div>{s.email}</div> : null}
-                      {s.phone ? <div>{s.phone}</div> : null}
-                    </div>
-                  ) : (
-                    '-'
-                  )}
-                </td>
-                <td className="p-3 text-right whitespace-nowrap">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Editar">
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(s.id)} title="Remover">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </td>
+	                <td className="p-3 font-body text-sm text-muted-foreground">
+	                  {s.email || s.phone ? (
+	                    <div className="space-y-1">
+	                      {s.email ? <div>{s.email}</div> : null}
+	                      {s.phone ? <div>{s.phone}</div> : null}
+	                      {s.link ? (
+	                        <a
+	                          href={s.link}
+	                          target="_blank"
+	                          rel="noreferrer"
+	                          className="underline underline-offset-2"
+	                          title={s.link}
+	                        >
+	                          Link
+	                        </a>
+	                      ) : null}
+	                    </div>
+	                  ) : (
+	                    '-'
+	                  )}
+	                </td>
+	                <td className="p-3 text-right whitespace-nowrap">
+	                  <Button variant="ghost" size="icon" onClick={() => openView(s)} title="Ver">
+	                    <Eye className="w-4 h-4" />
+	                  </Button>
+	                  <Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Editar">
+	                    <Pencil className="w-4 h-4" />
+	                  </Button>
+	                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(s.id)} title="Remover">
+	                    <Trash2 className="w-4 h-4" />
+	                  </Button>
+	                </td>
               </tr>
             ))}
           </tbody>
@@ -141,41 +209,117 @@ export default function AdminSuppliers() {
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-xl">{editing ? 'Editar' : 'Novo'} fornecedor</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label className="font-body text-xs">Nome *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-none mt-1" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <Label className="font-body text-xs">Email</Label>
-                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="rounded-none mt-1" />
-              </div>
-              <div>
-                <Label className="font-body text-xs">Telefone</Label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="rounded-none mt-1" />
-              </div>
-            </div>
-            <div>
-              <Label className="font-body text-xs">Morada</Label>
-              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="rounded-none mt-1" />
-            </div>
-            <div>
-              <Label className="font-body text-xs">Notas</Label>
-              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="rounded-none mt-1 min-h-[120px]" />
-            </div>
-            <Button onClick={submit} className="w-full rounded-none font-body text-sm tracking-wider">
-              {editing ? 'Guardar' : 'Criar'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setEditing(null);
+            setViewing(null);
+            setJsonText('');
+          }
+        }}
+      >
+	        <DialogContent className="max-w-lg">
+	          <DialogHeader>
+	            <DialogTitle className="font-heading text-xl">
+	              {viewing ? 'Fornecedor' : editing ? 'Editar' : 'Novo'} fornecedor
+	            </DialogTitle>
+	          </DialogHeader>
+	          <div className="space-y-3">
+	            {!isView ? (
+	              <div>
+	                <Label className="font-body text-xs">JSON (opcional)</Label>
+	                <Textarea
+	                  value={jsonText}
+	                  onChange={(e) => setJsonText(e.target.value)}
+	                  className="rounded-none mt-1 min-h-[90px] font-mono text-xs"
+	                  placeholder='Ex: {"name":"Fornecedor X","email":"x@ex.com","link":"https://..."}'
+	                />
+	                <div className="flex justify-end mt-2">
+	                  <Button variant="outline" className="rounded-none font-body text-xs" onClick={applyJson} disabled={!jsonText.trim()}>
+	                    Aplicar JSON
+	                  </Button>
+	                </div>
+	              </div>
+	            ) : null}
+	            <div>
+	              <Label className="font-body text-xs">Nome *</Label>
+	              <Input
+	                value={form.name}
+	                onChange={(e) => setForm({ ...form, name: e.target.value })}
+	                className="rounded-none mt-1"
+	                disabled={isView}
+	              />
+	            </div>
+	            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+	              <div>
+	                <Label className="font-body text-xs">Email</Label>
+	                <Input
+	                  value={form.email}
+	                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+	                  className="rounded-none mt-1"
+	                  disabled={isView}
+	                />
+	              </div>
+	              <div>
+	                <Label className="font-body text-xs">Telefone</Label>
+	                <Input
+	                  value={form.phone}
+	                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+	                  className="rounded-none mt-1"
+	                  disabled={isView}
+	                />
+	              </div>
+	            </div>
+	            <div>
+	              <Label className="font-body text-xs">Link</Label>
+	              <Input
+	                value={form.link}
+	                onChange={(e) => setForm({ ...form, link: e.target.value })}
+	                className="rounded-none mt-1"
+	                disabled={isView}
+	              />
+	              {isView && form.link ? (
+	                <a href={form.link} target="_blank" rel="noreferrer" className="text-xs underline underline-offset-2 mt-2 inline-block">
+	                  Abrir link
+	                </a>
+	              ) : null}
+	            </div>
+	            <div>
+	              <Label className="font-body text-xs">Morada</Label>
+	              <Input
+	                value={form.address}
+	                onChange={(e) => setForm({ ...form, address: e.target.value })}
+	                className="rounded-none mt-1"
+	                disabled={isView}
+	              />
+	            </div>
+	            <div>
+	              <Label className="font-body text-xs">Notas</Label>
+	              <Textarea
+	                value={form.notes}
+	                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+	                className="rounded-none mt-1 min-h-[120px]"
+	                disabled={isView}
+	              />
+	            </div>
+	            {isView ? (
+	              <Button
+	                variant="outline"
+	                className="w-full rounded-none font-body text-sm tracking-wider"
+	                onClick={() => openEdit(viewing)}
+	              >
+	                Editar
+	              </Button>
+	            ) : (
+	              <Button onClick={submit} className="w-full rounded-none font-body text-sm tracking-wider">
+	                {editing ? 'Guardar' : 'Criar'}
+	              </Button>
+	            )}
+	          </div>
+	        </DialogContent>
+	      </Dialog>
     </div>
   );
 }
-

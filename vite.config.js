@@ -10,6 +10,12 @@ export default defineConfig({
       '/health': 'http://localhost:3001',
     },
   },
+  preview: {
+    proxy: {
+      '/api': 'http://localhost:3001',
+      '/health': 'http://localhost:3001',
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

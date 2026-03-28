@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
+import { entityCode } from '@/utils/entityCode';
 
 function statusLabel(status) {
   return status === 'closed' ? 'Fechado' : 'Aberto';
@@ -117,7 +118,11 @@ export default function SupportAdmin() {
             <div>
               <div className="font-heading text-lg">Conversa</div>
               <div className="font-body text-xs text-muted-foreground mt-1">
-                {selectedId ? `Ticket: ${selectedId}` : 'Selecione um ticket à esquerda.'}
+                {selectedId && thread?.ticket
+                  ? `Ticket: ${entityCode({ entityType: 'SupportTicket', entityId: selectedId, createdDate: thread.ticket.created_date })}`
+                  : selectedId
+                    ? `Ticket: ${selectedId}`
+                    : 'Selecione um ticket à esquerda.'}
               </div>
               {ticket?.customer_email ? (
                 <div className="font-body text-xs text-muted-foreground mt-1">Cliente: {ticket.customer_email}</div>
@@ -189,4 +194,3 @@ export default function SupportAdmin() {
     </div>
   );
 }
-

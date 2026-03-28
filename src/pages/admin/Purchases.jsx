@@ -12,6 +12,15 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 import { Plus, Pencil, CheckCircle } from 'lucide-react';
 
+function safeJson(value) {
+  if (value === null || value === undefined) return null;
+  try {
+    return typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+}
+
 const statusColors = {
   draft: 'bg-secondary text-foreground',
   received: 'bg-green-100 text-green-800',
@@ -32,6 +41,7 @@ export default function AdminPurchases() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyPurchase);
+  const [jsonText, setJsonText] = useState('');
 
   const { data: purchases = [] } = useQuery({
     queryKey: ['admin-purchases'],
@@ -81,6 +91,7 @@ export default function AdminPurchases() {
   const openCreate = () => {
     setEditing(null);
     setForm({ ...emptyPurchase, purchased_at: new Date().toISOString() });
+    setJsonText('');
     setDialogOpen(true);
   };
 
@@ -99,7 +110,40 @@ export default function AdminPurchases() {
         quantity: it.quantity ?? 1,
       })),
     });
+    setJsonText('');
     setDialogOpen(true);
+  };
+
+  const applyJson = () => {
+    const parsed = safeJson(jsonText);
+    if (!parsed || typeof parsed !== 'object') {
+      toast.error('JSON inválido');
+      return;
+    }
+
+    const obj = parsed;
+    const supplierId = obj.supplier_id ?? obj.supplierId ?? obj.supplier?.id ?? null;
+    const purchasedAt = obj.purchased_at ?? obj.purchasedAt ?? null;
+    const items = Array.isArray(obj.items) ? obj.items : null;
+
+    setForm((p) => ({
+      ...p,
+      supplier_id: supplierId ?? p.supplier_id,
+      reference: obj.reference ?? p.reference,
+      status: obj.status ?? p.status,
+      purchased_at: purchasedAt ? new Date(purchasedAt).toISOString() : p.purchased_at,
+      notes: obj.notes ?? p.notes,
+      items: items
+        ? items.map((it) => ({
+            product_id: it.product_id ?? it.productId ?? it.product?.id ?? null,
+            product_name: it.product_name ?? it.productName ?? it.product?.name ?? '',
+            unit_cost: String(it.unit_cost ?? it.unitCost ?? it.cost ?? ''),
+            quantity: it.quantity ?? 1,
+          }))
+        : p.items,
+    }));
+
+    toast.success('JSON aplicado');
   };
 
   const updateItem = (idx, patch) => {
@@ -212,13 +256,29 @@ export default function AdminPurchases() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">{editing ? 'Editar' : 'Nova'} compra</DialogTitle>
-          </DialogHeader>
+	          </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <Label className="font-body text-xs">Fornecedor</Label>
-                <Select
+	          <div className="space-y-4">
+	            {!isLocked ? (
+	              <div>
+	                <Label className="font-body text-xs">JSON (opcional)</Label>
+	                <Textarea
+	                  value={jsonText}
+	                  onChange={(e) => setJsonText(e.target.value)}
+	                  className="rounded-none mt-1 min-h-[90px] font-mono text-xs"
+	                  placeholder='Ex: {"supplier_id":"...","status":"draft","items":[{"product_id":"...","unit_cost":5,"quantity":2}]}'
+	                />
+	                <div className="flex justify-end mt-2">
+	                  <Button variant="outline" className="rounded-none font-body text-xs" onClick={applyJson} disabled={!jsonText.trim()}>
+	                    Aplicar JSON
+	                  </Button>
+	                </div>
+	              </div>
+	            ) : null}
+	            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+	              <div>
+	                <Label className="font-body text-xs">Fornecedor</Label>
+	                <Select
                   value={form.supplier_id ?? 'none'}
                   onValueChange={(v) => setForm((p) => ({ ...p, supplier_id: v === 'none' ? null : v }))}
                   disabled={isLocked}

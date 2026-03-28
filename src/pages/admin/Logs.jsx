@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronUp, FileText, Search, TrendingUp, MapPin, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { entityCode } from '@/utils/entityCode';
 
 function safeJson(value) {
   if (value === null || value === undefined) return null;
@@ -152,6 +153,21 @@ export default function AdminLogs() {
     queryKey: ['admin-logs', limit],
     queryFn: () => base44.admin.logs.list(limit),
   });
+
+  const entityFirstSeen = useMemo(() => {
+    const seen = new Map();
+    (Array.isArray(logs) ? logs : []).forEach((l) => {
+      const entityType = l?.entity_type;
+      const entityId = l?.entity_id;
+      if (!entityType || !entityId) return;
+      const key = `${entityType}:${entityId}`;
+      const date = new Date(l?.created_date);
+      if (Number.isNaN(date.getTime())) return;
+      const current = seen.get(key);
+      if (!current || date < current) seen.set(key, date);
+    });
+    return seen;
+  }, [logs]);
 
   const { data: analytics } = useQuery({
     queryKey: ['admin-analytics-summary'],
@@ -316,9 +332,15 @@ export default function AdminLogs() {
                 </td>
                 <td className="p-3 font-body text-sm">
                   <div className="font-medium">{entityLabel(l.entity_type)}</div>
-                  {l.entity_id ? (
+                  {l.entity_type && l.entity_id ? (
                     <div className="font-body text-[11px] text-muted-foreground truncate max-w-[260px]">
-                      {String(l.entity_id)}
+                      <span title={String(l.entity_id)}>
+                        {entityCode({
+                          entityType: l.entity_type,
+                          entityId: l.entity_id,
+                          createdDate: entityFirstSeen.get(`${l.entity_type}:${l.entity_id}`) ?? l.created_date,
+                        })}
+                      </span>
                     </div>
                   ) : null}
                 </td>
@@ -386,6 +408,19 @@ export default function AdminLogs() {
                   <p className="font-medium">{logCode(selected)}</p>
                 </div>
                 <div>
+                  <p className="text-muted-foreground text-xs">Código da entidade</p>
+                  <p className="font-medium">
+                    {selected.entity_type && selected.entity_id
+                      ? entityCode({
+                          entityType: selected.entity_type,
+                          entityId: selected.entity_id,
+                          createdDate:
+                            entityFirstSeen.get(`${selected.entity_type}:${selected.entity_id}`) ?? selected.created_date,
+                        })
+                      : '-'}
+                  </p>
+                </div>
+                <div>
                   <p className="text-muted-foreground text-xs">Ação</p>
                   <p className="font-medium">{actionLabel(selected.action)}</p>
                 </div>
@@ -450,4 +485,3 @@ export default function AdminLogs() {
     </div>
   );
 }
-

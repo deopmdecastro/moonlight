@@ -14,12 +14,22 @@ import { toast } from 'sonner';
 import { getErrorMessage, toastApiPromise } from '@/lib/toast';
 import { getPrimaryImage, normalizeImages } from '@/lib/images';
 import ImageUpload from '@/components/uploads/ImageUpload';
+import { entityCode } from '@/utils/entityCode';
 
 const emptyProduct = {
   name: '', description: '', price: '', original_price: '', category: 'colares',
   material: 'dourado', colors: [], images: [], stock: 0, is_featured: false,
   free_shipping: false, is_new: false, is_bestseller: false, status: 'active'
 };
+
+function safeJson(value) {
+  if (value === null || value === undefined) return null;
+  try {
+    return typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+}
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
@@ -28,6 +38,7 @@ export default function AdminProducts() {
   const [form, setForm] = useState(emptyProduct);
   const [search, setSearch] = useState('');
   const [imageInput, setImageInput] = useState('');
+  const [jsonText, setJsonText] = useState('');
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['admin-products'],
@@ -52,8 +63,41 @@ export default function AdminProducts() {
     onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível remover o produto.')),
   });
 
-  const openCreate = () => { setEditing(null); setForm(emptyProduct); setDialogOpen(true); };
-  const openEdit = (p) => { setEditing(p); setForm({ ...p, price: p.price || '', original_price: p.original_price || '', stock: p.stock || 0 }); setDialogOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(emptyProduct); setJsonText(''); setDialogOpen(true); };
+  const openEdit = (p) => { setEditing(p); setForm({ ...p, price: p.price || '', original_price: p.original_price || '', stock: p.stock || 0 }); setJsonText(''); setDialogOpen(true); };
+
+  const applyJson = () => {
+    const parsed = safeJson(jsonText);
+    if (!parsed || typeof parsed !== 'object') {
+      toast.error('JSON inválido');
+      return;
+    }
+    const obj = parsed;
+    const pick = (key, fallback) => (obj[key] === undefined ? fallback : obj[key]);
+
+    const images = pick('images', pick('image_urls', pick('imageUrls', undefined)));
+    const colors = pick('colors', undefined);
+
+    setForm((p) => ({
+      ...p,
+      name: pick('name', p.name) ?? p.name,
+      description: pick('description', p.description) ?? p.description,
+      price: pick('price', pick('unit_price', p.price)) ?? p.price,
+      original_price: pick('original_price', pick('originalPrice', p.original_price)) ?? p.original_price,
+      category: pick('category', p.category) ?? p.category,
+      material: pick('material', p.material) ?? p.material,
+      colors: Array.isArray(colors) ? colors : p.colors,
+      images: Array.isArray(images) ? normalizeImages(images) : p.images,
+      stock: pick('stock', p.stock) ?? p.stock,
+      free_shipping: Boolean(pick('free_shipping', pick('freeShipping', p.free_shipping))),
+      is_featured: Boolean(pick('is_featured', pick('isFeatured', p.is_featured))),
+      is_new: Boolean(pick('is_new', pick('isNew', p.is_new))),
+      is_bestseller: Boolean(pick('is_bestseller', pick('isBestseller', p.is_bestseller))),
+      status: pick('status', p.status) ?? p.status,
+    }));
+
+    toast.success('JSON aplicado');
+  };
 
   const handleSubmit = () => {
     const data = { ...form, images: normalizeImages(form.images), price: parseFloat(form.price) || 0, original_price: form.original_price ? parseFloat(form.original_price) : undefined, stock: parseInt(form.stock) || 0 };
@@ -117,12 +161,17 @@ export default function AdminProducts() {
             {filtered.map(p => (
               <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
                 <td className="p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded bg-secondary/30 overflow-hidden flex-shrink-0">
-                      {getPrimaryImage(p.images) ? <img src={getPrimaryImage(p.images)} alt="" className="w-full h-full object-cover" /> : <Package className="w-5 h-5 m-auto mt-2.5 text-muted-foreground/30" />}
-                    </div>
-                    <span className="font-body text-sm font-medium">{p.name}</span>
-                  </div>
+	                  <div className="flex items-center gap-3">
+	                    <div className="w-10 h-10 rounded bg-secondary/30 overflow-hidden flex-shrink-0">
+	                      {getPrimaryImage(p.images) ? <img src={getPrimaryImage(p.images)} alt="" className="w-full h-full object-cover" /> : <Package className="w-5 h-5 m-auto mt-2.5 text-muted-foreground/30" />}
+	                    </div>
+	                    <div className="min-w-0">
+	                      <div className="font-body text-sm font-medium truncate">{p.name}</div>
+	                      <div className="font-body text-[11px] text-muted-foreground truncate" title={String(p.id)}>
+	                        {entityCode({ entityType: 'Product', entityId: p.id, createdDate: p.created_date })}
+	                      </div>
+	                    </div>
+	                  </div>
                 </td>
                 <td className="p-3 font-body text-xs capitalize">{p.category}</td>
                 <td className="p-3 font-body text-sm">{p.price?.toFixed(2)} €</td>
@@ -144,12 +193,26 @@ export default function AdminProducts() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">{editing ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="font-body text-xs">Nome *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-none mt-1" />
-            </div>
+	          </DialogHeader>
+	          <div className="space-y-4">
+	            <div>
+	              <Label className="font-body text-xs">JSON (opcional)</Label>
+	              <Textarea
+	                value={jsonText}
+	                onChange={(e) => setJsonText(e.target.value)}
+	                className="rounded-none mt-1 min-h-[90px] font-mono text-xs"
+	                placeholder='Ex: {"name":"Produto X","price":12.5,"stock":10,"images":["https://..."]}'
+	              />
+	              <div className="flex justify-end mt-2">
+	                <Button variant="outline" className="rounded-none font-body text-xs" onClick={applyJson} disabled={!jsonText.trim()}>
+	                  Aplicar JSON
+	                </Button>
+	              </div>
+	            </div>
+	            <div>
+	              <Label className="font-body text-xs">Nome *</Label>
+	              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-none mt-1" />
+	            </div>
             <div>
               <Label className="font-body text-xs">Descrição</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-none mt-1" rows={3} />

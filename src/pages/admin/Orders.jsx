@@ -4,10 +4,12 @@ import { base44 } from '@/api/base44Client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Eye, Plus, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Eye, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,6 +71,10 @@ function clampQty(value) {
   return parsed;
 }
 
+function productSearchValue(p) {
+  return [p?.name, p?.sku, p?.id].filter(Boolean).join(' ');
+}
+
 export default function AdminOrders() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState(null);
@@ -88,8 +94,9 @@ export default function AdminOrders() {
     payment_method: 'mbway',
     status: 'confirmed',
     notes: '',
-  });
-  const [saleLines, setSaleLines] = useState([{ product_id: '', quantity: 1 }]);
+	  });
+	  const [saleLines, setSaleLines] = useState([{ product_id: '', quantity: 1 }]);
+	  const [productPickerOpenIndex, setProductPickerOpenIndex] = useState(null);
 
   const { data: orders = [] } = useQuery({
     queryKey: ['admin-orders'],
@@ -614,26 +621,58 @@ export default function AdminOrders() {
                   const lineTotal = unitPrice * clampQty(line.quantity);
                   return (
                     <div key={`${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                      <div className="md:col-span-7">
-                        <Label className="font-body text-xs">Produto</Label>
-                        <Select
-                          value={line.product_id || ''}
-                          onValueChange={(v) =>
-                            setSaleLines((p) => p.map((x, i) => (i === idx ? { ...x, product_id: v } : x)))
-                          }
-                        >
-                          <SelectTrigger className="rounded-none mt-1">
-                            <SelectValue placeholder="Selecionar..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+	                      <div className="md:col-span-7">
+	                        <Label className="font-body text-xs">Produto</Label>
+	                        <Popover
+	                          open={productPickerOpenIndex === idx}
+	                          onOpenChange={(open) => setProductPickerOpenIndex(open ? idx : null)}
+	                        >
+	                          <PopoverTrigger asChild>
+	                            <Button
+	                              variant="outline"
+	                              className="w-full justify-between rounded-none mt-1 font-body text-sm font-normal"
+	                              title={product?.id ? String(product.id) : undefined}
+	                            >
+	                              <span className="truncate">{product?.name ?? 'Selecionar...'}</span>
+	                              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+	                            </Button>
+	                          </PopoverTrigger>
+	                          <PopoverContent align="start" className="p-0 w-[var(--radix-popover-trigger-width)]">
+	                            <Command>
+	                              <CommandInput placeholder="Pesquisar por nome, ID ou SKU..." />
+	                              <CommandList>
+	                                <CommandEmpty>Sem resultados.</CommandEmpty>
+	                                <CommandGroup>
+	                                  {products.map((p) => {
+	                                    const sku = p?.sku ? String(p.sku) : '';
+	                                    return (
+	                                      <CommandItem
+	                                        key={p.id}
+	                                        value={productSearchValue(p)}
+	                                        onSelect={() => {
+	                                          setSaleLines((prev) =>
+	                                            prev.map((x, i) => (i === idx ? { ...x, product_id: p.id } : x)),
+	                                          );
+	                                          setProductPickerOpenIndex(null);
+	                                        }}
+	                                      >
+	                                        <div className="min-w-0 flex-1">
+	                                          <div className="font-body text-sm truncate">{p.name}</div>
+	                                          <div className="font-body text-[11px] text-muted-foreground truncate">
+	                                            {sku ? `SKU: ${sku} · ` : ''}
+	                                            {String(p.id)}
+	                                          </div>
+	                                        </div>
+	                                        {line.product_id === p.id ? <Check className="h-4 w-4 text-primary" /> : null}
+	                                      </CommandItem>
+	                                    );
+	                                  })}
+	                                </CommandGroup>
+	                              </CommandList>
+	                            </Command>
+	                          </PopoverContent>
+	                        </Popover>
+	                      </div>
 
                       <div className="md:col-span-2">
                         <Label className="font-body text-xs">Qtd.</Label>
@@ -653,17 +692,20 @@ export default function AdminOrders() {
                         <div className="font-body text-sm font-semibold whitespace-nowrap">{lineTotal.toFixed(2)} €</div>
                       </div>
 
-                      <div className="md:col-span-1 flex md:justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Remover"
-                          onClick={() => setSaleLines((p) => p.filter((_, i) => i !== idx))}
-                          disabled={saleLines.length <= 1}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
+	                      <div className="md:col-span-1 flex md:justify-end">
+	                        <Button
+	                          variant="ghost"
+	                          size="icon"
+	                          title="Remover"
+	                          onClick={() => {
+	                            setProductPickerOpenIndex(null);
+	                            setSaleLines((p) => p.filter((_, i) => i !== idx));
+	                          }}
+	                          disabled={saleLines.length <= 1}
+	                        >
+	                          <Trash2 className="w-4 h-4 text-destructive" />
+	                        </Button>
+	                      </div>
                     </div>
                   );
                 })}

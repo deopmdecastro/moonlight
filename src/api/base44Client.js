@@ -8,7 +8,7 @@ const hasWindow = typeof window !== 'undefined';
 
 const API_BASE_URL = (() => {
   try {
-    const raw = import.meta?.env?.VITE_BASE44_APP_BASE_URL;
+    const raw = import.meta.env.VITE_BASE44_APP_BASE_URL;
     const value = typeof raw === 'string' ? raw.trim() : '';
     return value ? value.replace(/\/+$/, '') : '';
   } catch {

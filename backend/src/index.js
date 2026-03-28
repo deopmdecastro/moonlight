@@ -392,6 +392,7 @@ const supplierPayloadSchema = z
     name: z.string().min(1).max(200),
     email: z.string().email().max(320).optional().nullable(),
     phone: z.string().max(60).optional().nullable(),
+    link: z.string().max(1000).optional().nullable(),
     address: z.string().max(500).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
   })
@@ -718,6 +719,7 @@ function toApiSupplier(s) {
     name: s.name,
     email: s.email ?? null,
     phone: s.phone ?? null,
+    link: s.link ?? null,
     address: s.address ?? null,
     notes: s.notes ?? null,
     created_date: s.createdAt,
@@ -2467,15 +2469,16 @@ app.post('/api/admin/suppliers', async (req, res) => {
   const parsed = supplierPayloadSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
 
-  const created = await prisma.supplier.create({
-    data: {
-      name: parsed.data.name,
-      email: parsed.data.email ?? null,
-      phone: parsed.data.phone ?? null,
-      address: parsed.data.address ?? null,
-      notes: parsed.data.notes ?? null,
-    },
-  })
+	  const created = await prisma.supplier.create({
+	    data: {
+	      name: parsed.data.name,
+	      email: parsed.data.email ?? null,
+	      phone: parsed.data.phone ?? null,
+	      link: parsed.data.link ?? null,
+	      address: parsed.data.address ?? null,
+	      notes: parsed.data.notes ?? null,
+	    },
+	  })
   await writeAuditLog({ actorId: admin.id, action: 'create', entityType: 'Supplier', entityId: created.id })
   res.status(201).json(toApiSupplier(created))
 })
@@ -2488,16 +2491,17 @@ app.patch('/api/admin/suppliers/:id', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
 
   try {
-    const updated = await prisma.supplier.update({
-      where: { id: req.params.id },
-      data: {
-        name: parsed.data.name,
-        email: parsed.data.email,
-        phone: parsed.data.phone,
-        address: parsed.data.address,
-        notes: parsed.data.notes,
-      },
-    })
+	    const updated = await prisma.supplier.update({
+	      where: { id: req.params.id },
+	      data: {
+	        name: parsed.data.name,
+	        email: parsed.data.email,
+	        phone: parsed.data.phone,
+	        link: parsed.data.link,
+	        address: parsed.data.address,
+	        notes: parsed.data.notes,
+	      },
+	    })
     await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'Supplier', entityId: updated.id, meta: { patch: req.body } })
     res.json(toApiSupplier(updated))
   } catch {
