@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Heart, Search, Menu, X, User } from 'lucide-react';
+import { ShoppingBag, Heart, Menu, X, User, Store } from 'lucide-react';
 import { useCart } from '@/lib/CartContext';
 import { useAuth } from '@/lib/AuthContext';
 import zanaLogo from '@/img/zana_logo_primary.svg';
@@ -14,6 +14,7 @@ export default function Navbar() {
   const { branding } = useBranding();
   const logoSrc = String(branding?.logo_primary_url ?? '').trim() || zanaLogo;
   const siteName = String(branding?.site_name ?? 'Zana').trim() || 'Zana';
+  const isLogged = Boolean(user);
 
   const links = [
     { to: '/', label: 'Início' },
@@ -29,59 +30,73 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Mobile menu button */}
-          <button className="md:hidden p-2" onClick={() => setMobileOpen(!mobileOpen)}>
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-
-          {/* Logo */}
-          <Link to="/" className="flex items-center" aria-label={siteName}>
-            <img
-              src={logoSrc}
-              alt={siteName}
-              className="h-8 md:h-10 w-auto"
-              loading="eager"
-            />
-          </Link>
-
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8">
-            {links.map(link => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="text-sm font-body tracking-wide text-foreground/80 hover:text-primary transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
+          <div className="flex items-center gap-3">
+            <button className="md:hidden p-2" onClick={() => setMobileOpen(!mobileOpen)}>
+              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
 
-          {/* Actions */}
+          <div className={`${isLogged ? 'justify-start' : 'justify-center md:justify-start'} flex-1 flex`}>
+            <Link to="/" className="flex items-center" aria-label={siteName}>
+              <img
+                src={logoSrc}
+                alt={siteName}
+                className="h-8 md:h-10 w-auto"
+                loading="eager"
+              />
+            </Link>
+          </div>
+
           <div className="flex items-center gap-3">
-            {user?.is_admin && (
-              <Link to="/admin" className="hidden md:block px-3 py-1.5 border border-border text-xs font-body hover:border-primary hover:text-primary transition-colors">
-                Admin
+            {!isLogged && (
+              <Link to="/catalogo" className="p-2 hover:text-primary transition-colors">
+                <Store className="w-4 h-4" />
               </Link>
             )}
-            <StoreNotificationBell />
-            <Link to="/catalogo" className="p-2 hover:text-primary transition-colors">
-              <Search className="w-4 h-4" />
-            </Link>
-            <Link to="/favoritos" className="p-2 hover:text-primary transition-colors">
-              <Heart className="w-4 h-4" />
-            </Link>
-            <Link to="/carrinho" className="p-2 hover:text-primary transition-colors relative">
-              <ShoppingBag className="w-4 h-4" />
-              {itemCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-body">
-                  {itemCount}
-                </span>
-              )}
-            </Link>
-            <Link to="/conta" className="p-2 hover:text-primary transition-colors hidden md:block">
-              <User className="w-4 h-4" />
-            </Link>
+
+            {isLogged && (
+              <>
+                <div className="p-2">
+                  <StoreNotificationBell />
+                </div>
+                <Link to="/catalogo" className="p-2 hover:text-primary transition-colors">
+                  <Store className="w-4 h-4" />
+                </Link>
+                <Link to="/favoritos" className="p-2 hover:text-primary transition-colors">
+                  <Heart className="w-4 h-4" />
+                </Link>
+                <Link to="/carrinho" className="p-2 hover:text-primary transition-colors relative">
+                  <ShoppingBag className="w-4 h-4" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-body">
+                      {itemCount}
+                    </span>
+                  )}
+                </Link>
+                <Link to="/conta" className="p-2 hover:text-primary transition-colors">
+                  <User className="w-4 h-4" />
+                </Link>
+              </>
+            )}
+
+            {!isLogged && (
+              <>
+                <Link to="/favoritos" className="hidden md:block p-2 hover:text-primary transition-colors">
+                  <Heart className="w-4 h-4" />
+                </Link>
+                <Link to="/carrinho" className="hidden md:block p-2 hover:text-primary transition-colors relative">
+                  <ShoppingBag className="w-4 h-4" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-body">
+                      {itemCount}
+                    </span>
+                  )}
+                </Link>
+                <Link to="/conta" className="hidden md:block p-2 hover:text-primary transition-colors">
+                  <User className="w-4 h-4" />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
