@@ -82,6 +82,7 @@ model Product {
   name          String
   description   String?
   price         Decimal       @db.Decimal(12, 2)
+  acquisitionCost Decimal?    @db.Decimal(12, 2)
   originalPrice Decimal?      @db.Decimal(12, 2)
   category      ProductCategory
   material      ProductMaterial?

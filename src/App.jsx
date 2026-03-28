@@ -52,8 +52,9 @@ const Blog = lazy(() => import('@/pages/Blog'));
 		const AdminSuppliers = lazy(() => import('@/pages/admin/Suppliers'));
 		const AdminPurchases = lazy(() => import('@/pages/admin/Purchases'));
 		const AdminInventory = lazy(() => import('@/pages/admin/Inventory'));
-	const AdminReports = lazy(() => import('@/pages/admin/Reports'));
-	const AdminReviews = lazy(() => import('@/pages/admin/ReviewsAdmin'));
+		const AdminReports = lazy(() => import('@/pages/admin/Reports'));
+		const AdminFinance = lazy(() => import('@/pages/admin/Finance'));
+		const AdminReviews = lazy(() => import('@/pages/admin/ReviewsAdmin'));
 	const ContentLayout = lazy(() => import('@/pages/admin/ContentLayout'));
 	const SettingsLayout = lazy(() => import('@/pages/admin/SettingsLayout'));
 	const LandingAdmin = lazy(() => import('@/pages/admin/LandingAdmin'));
@@ -142,6 +143,7 @@ const AuthenticatedApp = () => {
 	        <Route path="/admin/compras" element={<AdminPurchases />} />
 	        <Route path="/admin/inventario" element={<AdminInventory />} />
 	        <Route path="/admin/relatorios" element={<AdminReports />} />
+	        <Route path="/admin/financeiro" element={<AdminFinance />} />
 	        <Route path="/admin/avaliacoes" element={<AdminReviews />} />
 	      </Route>
 

@@ -42,9 +42,12 @@ export default function AdminPurchases() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [jsonDialogOpen, setJsonDialogOpen] = useState(false);
   const [jsonSaving, setJsonSaving] = useState(false);
+  // Legacy modal (kept for now; no longer triggered by JSON flow)
   const [supplierPromptOpen, setSupplierPromptOpen] = useState(false);
   const [supplierPromptSupplierId, setSupplierPromptSupplierId] = useState('none');
   const [pendingJsonObjects, setPendingJsonObjects] = useState(null);
+  const [fixupOpen, setFixupOpen] = useState(false);
+  const [fixupItems, setFixupItems] = useState([]);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyPurchase);
   const [jsonText, setJsonText] = useState('');
@@ -213,6 +216,256 @@ export default function AdminPurchases() {
     })();
   };
 
+  const extractItemName = (obj) => {
+    return String(obj?.product_name ?? obj?.productName ?? obj?.nome ?? obj?.name ?? '').trim();
+  };
+
+  const extractItemCost = (obj) => {
+    const raw = obj?.unit_cost ?? obj?.unitCost ?? obj?.cost ?? obj?.preco ?? obj?.price ?? obj?.valor ?? null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const extractItemQty = (obj) => {
+    const raw = obj?.quantity ?? obj?.qty ?? obj?.qtd ?? obj?.quantidade ?? 1;
+    const n = Number.parseInt(String(raw ?? 1), 10);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  };
+
+  const extractItemImage = (obj) => {
+    return String(obj?.product_image ?? obj?.productImage ?? obj?.image ?? obj?.imagem ?? '').trim();
+  };
+
+  const normalizeProductCategory = (value) => {
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (!raw) return 'colares';
+    const normalized = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z_ ]/g, '')
+      .replace(/\s+/g, '_');
+
+    const direct = new Set(['colares', 'brincos', 'pulseiras', 'aneis', 'conjuntos']);
+    if (direct.has(normalized)) return normalized;
+
+    if (/(tornozeleir)/i.test(normalized)) return 'pulseiras';
+    if (/(anel)/i.test(normalized)) return 'aneis';
+    if (/(brinco)/i.test(normalized)) return 'brincos';
+    if (/(pulseir)/i.test(normalized)) return 'pulseiras';
+    if (/(conjunto)/i.test(normalized)) return 'conjuntos';
+
+    return 'colares';
+  };
+
+  const normalizeProductMaterial = (value) => {
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (!raw) return 'dourado';
+    const normalized = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z_ ]/g, '')
+      .replace(/\s+/g, '_');
+
+    const direct = new Set(['aco_inox', 'prata', 'dourado', 'rose_gold', 'perolas', 'cristais']);
+    if (direct.has(normalized)) return normalized;
+
+    if (/(aco|inox)/i.test(normalized)) return 'aco_inox';
+    if (/(prata)/i.test(normalized)) return 'prata';
+    if (/(rose|rosa)/i.test(normalized)) return 'rose_gold';
+    if (/(perola)/i.test(normalized)) return 'perolas';
+    if (/(cristal)/i.test(normalized)) return 'cristais';
+
+    return 'dourado';
+  };
+
+  const findProductByName = (name) => {
+    const normalized = String(name ?? '').trim().toLowerCase();
+    if (!normalized) return null;
+    return productOptions.find((p) => String(p?.name ?? '').trim().toLowerCase() === normalized) ?? null;
+  };
+
+  const extractProductPayloadFromItem = ({ obj, name, image, unitCost }) => {
+    const pick = (key, fallback) => (obj?.[key] === undefined ? fallback : obj[key]);
+
+    const rawCategory = pick('category', pick('categoria', null));
+    const rawMaterial = pick('material', pick('materiais', null));
+
+    const rawPrice = pick('price', pick('preco', pick('valor', pick('unit_price', pick('unitCost', null)))));
+    const n = rawPrice === null || rawPrice === undefined ? NaN : Number(rawPrice);
+    const price = Number.isFinite(n) ? n : Number(unitCost ?? 0) || 0;
+
+    const rawImages = pick('images', pick('image_urls', pick('imageUrls', pick('imagens', pick('imagem', undefined)))));
+    const images = Array.isArray(rawImages)
+      ? rawImages.map((v) => String(v ?? '').trim()).filter(Boolean)
+      : image
+        ? [image]
+        : [];
+
+    const rawVideos = pick('videos', pick('video_urls', pick('videoUrls', undefined)));
+    const videos = Array.isArray(rawVideos) ? rawVideos.map((v) => String(v ?? '').trim()).filter(Boolean) : [];
+
+    return {
+      name: String(pick('name', pick('nome', name)) ?? '').trim(),
+      description: String(pick('description', pick('descricao', '')) ?? ''),
+      price,
+      acquisition_cost: Number(unitCost ?? 0) || 0,
+      category: normalizeProductCategory(rawCategory),
+      material: rawMaterial ? normalizeProductMaterial(rawMaterial) : null,
+      images,
+      videos,
+      stock: 0,
+      status: 'active',
+    };
+  };
+
+  const openFixupFromItems = (objects, { supplierId = null, status = 'draft' } = {}) => {
+    const drafts = (objects ?? [])
+      .map((obj) => {
+        const name = extractItemName(obj);
+        const productId = String(obj?.product_id ?? obj?.productId ?? obj?.product?.id ?? obj?.id ?? '').trim() || null;
+        const productFromList =
+          (productId ? productOptions.find((p) => p.id === productId) : null) ?? (name ? findProductByName(name) : null);
+        const image = extractItemImage(obj) || (productFromList ? getPrimaryImage(productFromList.images) : '') || '';
+        const unitCost = extractItemCost(obj);
+        return {
+          source_name: name || 'Item',
+          raw: obj,
+          product_id: productFromList ? productFromList.id : null,
+          product_payload: productFromList ? null : extractProductPayloadFromItem({ obj, name, image, unitCost }),
+          supplier_id: supplierId ? String(supplierId) : null,
+          status: String(status ?? 'draft'),
+          quantity: extractItemQty(obj),
+          unit_cost: unitCost,
+          product_image: image,
+        };
+      })
+      .filter((x) => x.source_name);
+
+    setFixupItems(
+      drafts.length
+        ? drafts
+        : [
+            {
+              source_name: 'Item',
+              raw: {},
+              product_id: null,
+              product_payload: extractProductPayloadFromItem({ obj: {}, name: 'Item', image: '', unitCost: 0 }),
+              supplier_id: supplierId ? String(supplierId) : null,
+              status: String(status ?? 'draft'),
+              quantity: 1,
+              unit_cost: 0,
+              product_image: '',
+            },
+          ],
+    );
+    setFixupOpen(true);
+  };
+
+  const saveFixupPurchase = async () => {
+    if (jsonSaving) return;
+
+    setJsonSaving(true);
+    try {
+      const rows = (fixupItems ?? []).map((it) => {
+        const supplierId = String(it.supplier_id ?? '').trim() || null;
+        const status = String(it.status ?? 'draft');
+        const productId = String(it.product_id ?? '').trim() || null;
+        const quantity = Number.parseInt(String(it.quantity ?? 0), 10) || 0;
+        const unitCost = Number(it.unit_cost ?? 0) || 0;
+        const productImage = String(it.product_image ?? '').trim() || null;
+        const product = productId ? productOptions.find((p) => p.id === productId) : null;
+        const productName = String(product?.name ?? it.product_payload?.name ?? it.source_name ?? '').trim();
+        const productPayload = it.product_payload ? { ...it.product_payload } : null;
+
+        if (productPayload) {
+          const nextImages = Array.isArray(productPayload.images) ? productPayload.images : [];
+          if (productImage && !nextImages.includes(productImage)) productPayload.images = [productImage, ...nextImages];
+          if ((Number(productPayload.price) || 0) === 0 && unitCost > 0) productPayload.price = unitCost;
+        }
+
+        return {
+          supplierId,
+          status,
+          productId,
+          productName,
+          productPayload,
+          item: {
+            product_id: productId,
+            product_name: productName,
+            product_image: productImage,
+            unit_cost: unitCost,
+            quantity,
+          },
+        };
+      });
+
+      const validRows = rows.filter((r) => r.supplierId && r.productName && r.item.quantity > 0);
+      if (!validRows.length) return;
+
+      // Create missing products first so received purchases update inventory.
+      for (const r of validRows) {
+        if (r.productId) continue;
+        if (!r.productPayload?.name) continue;
+
+        const createdProduct = await base44.entities.Product.create(r.productPayload);
+        const createdId = createdProduct?.id ? String(createdProduct.id) : null;
+        if (!createdId) continue;
+
+        r.productId = createdId;
+        r.item.product_id = createdId;
+        r.item.product_name = String(createdProduct?.name ?? r.productPayload.name ?? r.productName).trim();
+      }
+
+      const finalRows = validRows.filter((r) => r.supplierId && r.item.product_name && r.item.quantity > 0);
+      const groups = new Map();
+      for (const r of finalRows) {
+        const key = `${r.supplierId}||${r.status}`;
+        const existing = groups.get(key);
+        if (existing) existing.items.push(r.item);
+        else groups.set(key, { supplier_id: r.supplierId, status: r.status, items: [r.item] });
+      }
+
+      let created = 0;
+      let failed = 0;
+      let firstError = null;
+
+      for (const group of groups.values()) {
+        try {
+          await base44.entities.Purchase.create({
+            supplier_id: group.supplier_id,
+            status: group.status,
+            purchased_at: new Date().toISOString(),
+            items: group.items,
+          });
+          created += 1;
+        } catch (err) {
+          if (!firstError) firstError = err;
+          failed += 1;
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['admin-purchases'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products-catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['product'] });
+
+      if (failed > 0) {
+        toast.error(`${getErrorMessage(firstError, 'Não foi possível criar a compra.')} (Criadas: ${created} · Falhas: ${failed})`);
+        return;
+      }
+
+      toast.success(created === 1 ? 'Compra criada' : `Compras criadas: ${created}`);
+      setFixupOpen(false);
+      setFixupItems([]);
+      setJsonDialogOpen(false);
+      setJsonText('');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Não foi possível criar a compra.'));
+    } finally {
+      setJsonSaving(false);
+    }
+  };
+
   const applyJson = () => {
     if (jsonSaving) return;
 
@@ -242,19 +495,29 @@ export default function AdminPurchases() {
       return;
     }
 
-    const missingSupplier = objects.some((o) => !(o?.supplier_id ?? o?.supplierId ?? o?.supplier?.id));
-    if (missingSupplier) {
-      if (!suppliers.length) {
-        toast.error('Sem fornecedores. Crie um fornecedor primeiro.');
+    const isPurchaseObjects = objects.every((o) => o && typeof o === 'object' && Array.isArray(o.items));
+
+    if (isPurchaseObjects) {
+      const missingSupplier = objects.some((o) => !(o?.supplier_id ?? o?.supplierId ?? o?.supplier?.id));
+      if (missingSupplier) {
+        if (!suppliers.length) {
+          toast.error('Sem fornecedores. Crie um fornecedor primeiro.');
+          return;
+        }
+        const flattened = objects.flatMap((o) => (Array.isArray(o.items) ? o.items : []));
+        openFixupFromItems(flattened, { status: String(objects[0]?.status ?? 'draft') });
         return;
       }
-      setPendingJsonObjects(objects);
-      setSupplierPromptSupplierId('none');
-      setSupplierPromptOpen(true);
+      runJsonImport(objects);
       return;
     }
 
-    runJsonImport(objects);
+    // Treat JSON as a list of items (e.g. catálogo do fornecedor) and ask to completar dados.
+    if (!suppliers.length) {
+      toast.error('Sem fornecedores. Crie um fornecedor primeiro.');
+      return;
+    }
+    openFixupFromItems(objects);
   };
 
   const updateItem = (idx, patch) => {
@@ -534,7 +797,151 @@ export default function AdminPurchases() {
             ) : null}
           </div>
 	        </DialogContent>
-	      </Dialog>
+			      </Dialog>
+
+			      <Dialog
+			        open={fixupOpen}
+			        onOpenChange={(open) => {
+			          setFixupOpen(open);
+			          if (!open) {
+			            setFixupItems([]);
+			          }
+			        }}
+			      >
+			        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+			          <DialogHeader>
+			            <DialogTitle className="font-heading text-xl">Completar compra (JSON)</DialogTitle>
+			          </DialogHeader>
+			          <div className="space-y-4">
+			            <div className="space-y-3">
+			              {fixupItems.map((it, idx) => {
+			                const hasProduct = Boolean(it.product_id) || Boolean(it.product_payload?.name);
+			                const missingProduct = !hasProduct;
+                      const missingSupplier = !it.supplier_id;
+			                const qty = Number.parseInt(String(it.quantity ?? 0), 10) || 0;
+			                const missingQty = qty <= 0;
+			                return (
+			                  <div
+			                    key={idx}
+			                    className={`border rounded-md p-4 ${missingProduct || missingSupplier || missingQty ? 'border-destructive/50' : 'border-border'} bg-secondary/10`}
+			                  >
+			                    <div className="font-body text-sm font-medium break-words">{it.source_name || `Item ${idx + 1}`}</div>
+                          {it.product_id ? (
+                            <div className="font-body text-xs text-muted-foreground break-all mt-1">ID: {it.product_id}</div>
+                          ) : it.product_payload?.name ? (
+                            <div className="font-body text-xs text-muted-foreground mt-1 whitespace-normal break-words">
+                              Produto serÃ¡ criado a partir do JSON
+                            </div>
+                          ) : (
+                            <div className="font-body text-xs text-destructive mt-1 whitespace-normal break-words">
+                              Nome do produto em falta no JSON
+                            </div>
+                          )}
+			                    <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mt-3">
+			                      <div className="md:col-span-3">
+			                        <Label className="font-body text-xs">Fornecedor *</Label>
+			                        <Select
+			                          value={it.supplier_id ?? 'none'}
+			                          onValueChange={(v) =>
+			                            setFixupItems((p) => p.map((x, i) => (i === idx ? { ...x, supplier_id: v === 'none' ? null : v } : x)))
+			                          }
+			                        >
+			                          <SelectTrigger className="rounded-none mt-1">
+			                            <SelectValue placeholder="Selecionar" />
+			                          </SelectTrigger>
+			                          <SelectContent>
+			                            <SelectItem value="none">Selecionar...</SelectItem>
+			                            {suppliers.map((s) => (
+			                              <SelectItem key={s.id} value={s.id}>
+			                                {s.name}
+			                              </SelectItem>
+			                            ))}
+			                          </SelectContent>
+			                        </Select>
+			                      </div>
+                        <div className="md:col-span-3">
+                          <Label className="font-body text-xs">Estado</Label>
+                          <Select
+                            value={it.status ?? 'draft'}
+                            onValueChange={(v) =>
+                              setFixupItems((p) => p.map((x, i) => (i === idx ? { ...x, status: v } : x)))
+                            }
+                          >
+                            <SelectTrigger className="rounded-none mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="draft">draft</SelectItem>
+                              <SelectItem value="received">received</SelectItem>
+                              <SelectItem value="cancelled">cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+			                      <div className="md:col-span-1">
+			                        <Label className="font-body text-xs">Qtd. *</Label>
+			                        <Input
+			                          type="number"
+			                          min="1"
+			                          value={it.quantity}
+			                          onChange={(e) =>
+			                            setFixupItems((p) => p.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)))
+			                          }
+			                          className="rounded-none mt-1"
+			                        />
+			                      </div>
+			                      <div className="md:col-span-3">
+			                        <Label className="font-body text-xs">Imagem (URL)</Label>
+			                        <Input
+			                          value={it.product_image}
+			                          onChange={(e) =>
+			                            setFixupItems((p) => p.map((x, i) => (i === idx ? { ...x, product_image: e.target.value } : x)))
+			                          }
+			                          className="rounded-none mt-1"
+			                          placeholder="https://..."
+			                        />
+			                      </div>
+			                      <div className="md:col-span-2">
+			                        <Label className="font-body text-xs">Custo</Label>
+			                        <Input
+			                          type="number"
+                                    step="0.01"
+			                          value={it.unit_cost}
+			                          onChange={(e) =>
+			                            setFixupItems((p) => p.map((x, i) => (i === idx ? { ...x, unit_cost: e.target.value } : x)))
+			                          }
+			                          className="rounded-none mt-1"
+			                        />
+			                      </div>
+			                    </div>
+			                  </div>
+			                );
+			              })}
+			            </div>
+
+			            <div className="flex items-center justify-end gap-2">
+			              <Button type="button" variant="outline" className="rounded-none font-body text-sm" onClick={() => setFixupOpen(false)}>
+			                Cancelar
+			              </Button>
+			              <Button
+			                type="button"
+			                className="rounded-none font-body text-sm"
+			                onClick={saveFixupPurchase}
+			                disabled={
+			                  jsonSaving ||
+			                  !fixupItems.length ||
+			                  fixupItems.some((it) => {
+			                    const qty = Number.parseInt(String(it.quantity ?? 0), 10) || 0;
+			                    const hasProduct = Boolean(it.product_id) || Boolean(it.product_payload?.name);
+			                    return !it.supplier_id || !hasProduct || qty <= 0;
+			                  })
+			                }
+			              >
+			                {jsonSaving ? 'A guardar...' : 'Guardar'}
+			              </Button>
+			            </div>
+			          </div>
+			        </DialogContent>
+			      </Dialog>
 
 	      <Dialog
 	        open={jsonDialogOpen}
@@ -550,14 +957,14 @@ export default function AdminPurchases() {
 	          <div className="space-y-3">
 	            <div>
 	              <Label className="font-body text-xs">JSON</Label>
-		              <Textarea
-		                value={jsonText}
-		                onChange={(e) => setJsonText(e.target.value)}
-		                className="rounded-none mt-1 min-h-[160px] font-mono text-xs"
-		                placeholder={
-		                  '1 JSON, array ou 1 por linha.\nEx (1): {"supplier_id":"...","status":"draft","items":[{"product_id":"...","unit_cost":5,"quantity":2}]}\nEx (varios): {"supplier_id":"...","items":[{"product_name":"A","unit_cost":1,"quantity":1}]}\\n{"supplier_id":"...","items":[{"product_name":"B","unit_cost":2,"quantity":1}]}\nEx (array): [{"supplier_id":"...","items":[{"product_name":"A","unit_cost":1,"quantity":1}]}]'
-		                }
-		              />
+		                <Textarea
+		                  value={jsonText}
+		                  onChange={(e) => setJsonText(e.target.value)}
+		                  className="rounded-none mt-1 min-h-[160px] font-mono text-xs"
+		                  placeholder={
+		                    '1 JSON, array ou 1 por linha.\nEx (1): {"supplier_id":"...","status":"draft","items":[{"product_id":"...","unit_cost":5,"quantity":2}]}\nEx (varios): {"supplier_id":"...","items":[{"product_name":"A","unit_cost":1,"quantity":1}]}\n{"supplier_id":"...","items":[{"product_name":"B","unit_cost":2,"quantity":1}]}\nEx (array): [{"supplier_id":"...","items":[{"product_name":"A","unit_cost":1,"quantity":1}]}]'
+		                  }
+		                />
 	            </div>
 	            <div className="flex items-center justify-end gap-2">
 	              <Button

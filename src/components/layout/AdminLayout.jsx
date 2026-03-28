@@ -3,9 +3,10 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   BarChart3,
   BarChartBig,
-  Boxes,
-  CreditCard,
-  FileText,
+	  Boxes,
+	  CreditCard,
+	  Euro,
+	  FileText,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -58,6 +59,7 @@ const navSections = [
       { to: '/admin/relatorios', icon: BarChartBig, label: 'Relatórios' },
       { to: '/admin/avaliacoes', icon: MessageSquare, label: 'Avaliações' },
       { to: '/admin/logs', icon: ScrollText, label: 'Logs' },
+      { to: '/admin/financeiro', icon: Euro, label: 'Financeiro' },
     ],
   },
 ];

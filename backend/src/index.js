@@ -209,6 +209,7 @@ const productPayloadSchema = z
     name: z.string().min(1),
     description: z.string().optional().nullable(),
     price: z.union([z.number(), z.string()]),
+    acquisition_cost: z.union([z.number(), z.string()]).optional().nullable(),
     original_price: z.union([z.number(), z.string()]).optional().nullable(),
     category: z.enum(['colares', 'brincos', 'pulseiras', 'aneis', 'conjuntos']),
     material: z
@@ -556,6 +557,14 @@ function toApiProduct(p) {
     status: p.status,
     created_date: p.createdAt,
     updated_date: p.updatedAt,
+  }
+}
+
+function toApiAdminProduct(p) {
+  return {
+    ...toApiProduct(p),
+    acquisition_cost:
+      p.acquisitionCost === null || p.acquisitionCost === undefined ? null : decimalToNumber(p.acquisitionCost),
   }
 }
 
@@ -1699,7 +1708,7 @@ app.get('/api/admin/products', async (req, res) => {
     orderBy: parseOrderParam(req.query.order),
     take: parseLimit(req.query.limit, 500),
   })
-  res.json(products.map(toApiProduct))
+  res.json(products.map(toApiAdminProduct))
 })
 
 app.post('/api/admin/products', async (req, res) => {
@@ -1710,11 +1719,17 @@ app.post('/api/admin/products', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
 
   const data = parsed.data
-	  const created = await prisma.product.create({
+  const created = await prisma.product.create({
 	    data: {
 	      name: data.name,
 	      description: data.description ?? null,
 	      price: String(data.price),
+        acquisitionCost:
+          data.acquisition_cost === undefined
+            ? undefined
+            : data.acquisition_cost === null
+              ? null
+              : String(data.acquisition_cost),
 	      originalPrice: data.original_price === undefined ? undefined : data.original_price === null ? null : String(data.original_price),
 	      category: data.category,
 	      material: data.material ?? null,
@@ -1732,7 +1747,7 @@ app.post('/api/admin/products', async (req, res) => {
   })
 
   await writeAuditLog({ actorId: admin.id, action: 'create', entityType: 'Product', entityId: created.id, meta: req.body })
-  res.status(201).json(toApiProduct(created))
+  res.status(201).json(toApiAdminProduct(created))
 })
 
 app.patch('/api/admin/products/:id', async (req, res) => {
@@ -1750,6 +1765,12 @@ app.patch('/api/admin/products/:id', async (req, res) => {
 	        name: data.name,
 	        description: data.description === undefined ? undefined : data.description,
 	        price: data.price === undefined ? undefined : String(data.price),
+          acquisitionCost:
+            data.acquisition_cost === undefined
+              ? undefined
+              : data.acquisition_cost === null
+                ? null
+                : String(data.acquisition_cost),
 	        originalPrice:
 	          data.original_price === undefined ? undefined : data.original_price === null ? null : String(data.original_price),
 	        category: data.category,
@@ -1766,7 +1787,7 @@ app.patch('/api/admin/products/:id', async (req, res) => {
       },
     })
     await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'Product', entityId: updated.id, meta: req.body })
-    res.json(toApiProduct(updated))
+    res.json(toApiAdminProduct(updated))
   } catch (e) {
     return res.status(404).json({ error: 'not_found' })
   }
@@ -2546,9 +2567,22 @@ async function applyPurchaseToInventory({ purchaseId, actorId } = {}) {
       if (!it.productId) continue
       const product = await tx.product.findUnique({ where: { id: it.productId } })
       if (!product) continue
+
+      const incomingCost = decimalToNumber(it.unitCost) ?? 0
+      const currentStock = product.stock ?? 0
+      const currentCost = product.acquisitionCost === null || product.acquisitionCost === undefined ? 0 : Number(product.acquisitionCost) || 0
+      const nextStock = currentStock + it.quantity
+      const nextCost =
+        incomingCost > 0 && nextStock > 0
+          ? (currentCost * currentStock + incomingCost * it.quantity) / nextStock
+          : currentCost
+
       await tx.product.update({
         where: { id: product.id },
-        data: { stock: { increment: it.quantity } },
+        data: {
+          stock: { increment: it.quantity },
+          acquisitionCost: incomingCost > 0 ? String(Number(nextCost).toFixed(2)) : undefined,
+        },
       })
       try {
         await tx.inventoryMovement.create({
@@ -2879,7 +2913,7 @@ app.get('/api/admin/inventory', async (req, res) => {
     products.map((p) => {
       const last = lastByProduct.get(p.id) ?? null
       return {
-        ...toApiProduct(p),
+        ...toApiAdminProduct(p),
         last_movement: last
           ? {
               type: last.type,
@@ -3081,7 +3115,7 @@ app.post('/api/admin/inventory/adjust', async (req, res) => {
 
   await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'Inventory', entityId: product.id, meta: { delta: parsed.data.delta, reason: parsed.data.reason ?? null } })
 
-  res.json(toApiProduct(updated))
+  res.json(toApiAdminProduct(updated))
 })
 
 app.use((err, req, res, next) => {

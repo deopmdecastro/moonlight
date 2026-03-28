@@ -23,6 +23,22 @@ function formatWhen(value) {
   }
 }
 
+function targetPath(log) {
+  const type = String(log?.entity_type ?? '');
+
+  if (type === 'SupportTicket' || type === 'SupportMessage') return '/admin/suporte';
+  if (type === 'BlogComment' || type === 'BlogCommentReply') return '/admin/conteudo/blog-comentarios';
+  if (type === 'Order' || type === 'OrderItem') return '/admin/encomendas';
+
+  if (type === 'Purchase' || type === 'PurchaseItem') return '/admin/compras';
+  if (type === 'Inventory' || type === 'InventoryMovement') return '/admin/inventario';
+  if (type === 'Product') return '/admin/produtos';
+  if (type === 'Supplier') return '/admin/fornecedores';
+  if (type === 'InstagramPost') return '/admin/conteudo/instagram';
+
+  return '/admin/logs';
+}
+
 function friendlyTitle(log) {
   const action = String(log?.action ?? '');
   const type = String(log?.entity_type ?? '');
@@ -99,6 +115,22 @@ export default function AdminNotificationBell() {
     setReadIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
+  const markAllRead = () => {
+    const ids = unreadLogs.map((l) => l?.id).filter(Boolean);
+    if (ids.length === 0) return;
+    setReadIds((prev) => {
+      const existing = new Set(prev);
+      const next = [...prev];
+      for (const id of ids) {
+        if (!existing.has(id)) {
+          existing.add(id);
+          next.push(id);
+        }
+      }
+      return next;
+    });
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -114,6 +146,9 @@ export default function AdminNotificationBell() {
 
       <DropdownMenuContent align="end" className="w-[360px] max-w-[calc(100vw-24px)]">
         <DropdownMenuLabel className="font-body text-xs text-muted-foreground">Notificações</DropdownMenuLabel>
+        <DropdownMenuItem disabled={count === 0} className="cursor-pointer font-body text-sm" onSelect={() => markAllRead()}>
+          Marcar todas como lidas
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
 
         {count === 0 ? (
@@ -124,7 +159,7 @@ export default function AdminNotificationBell() {
           unreadLogs.slice(0, 8).map((l) => (
             <DropdownMenuItem key={l.id} className="cursor-pointer">
               <div className="flex items-start gap-3 w-full">
-                <Link to="/admin/logs" className="flex items-start gap-3 flex-1 min-w-0">
+                <Link to={targetPath(l)} className="flex items-start gap-3 flex-1 min-w-0" onClick={() => markRead(l.id)}>
                   <div className="mt-0.5 text-muted-foreground">
                     <ScrollText className="w-4 h-4" />
                   </div>
@@ -169,4 +204,3 @@ export default function AdminNotificationBell() {
     </DropdownMenu>
   );
 }
-

@@ -17,7 +17,7 @@ import ImageUpload from '@/components/uploads/ImageUpload';
 import { entityCode } from '@/utils/entityCode';
 
 const emptyProduct = {
-  name: '', description: '', price: '', original_price: '', category: 'colares',
+  name: '', description: '', price: '', acquisition_cost: '', original_price: '', category: 'colares',
   material: 'dourado', colors: [], images: [], stock: 0, is_featured: false,
   videos: [], free_shipping: false, is_new: false, is_bestseller: false, status: 'active'
 };
@@ -67,7 +67,23 @@ export default function AdminProducts() {
   });
 
   const openCreate = () => { setEditing(null); setForm(emptyProduct); setImageInput(''); setVideoInput(''); setJsonText(''); setDialogOpen(true); };
-  const openEdit = (p) => { setEditing(p); setForm({ ...emptyProduct, ...p, price: p.price || '', original_price: p.original_price || '', stock: p.stock || 0, images: p.images ?? [], videos: p.videos ?? [] }); setImageInput(''); setVideoInput(''); setJsonText(''); setDialogOpen(true); };
+  const openEdit = (p) => {
+    setEditing(p);
+    setForm({
+      ...emptyProduct,
+      ...p,
+      price: p.price || '',
+      acquisition_cost: p.acquisition_cost ?? '',
+      original_price: p.original_price || '',
+      stock: p.stock || 0,
+      images: p.images ?? [],
+      videos: p.videos ?? [],
+    });
+    setImageInput('');
+    setVideoInput('');
+    setJsonText('');
+    setDialogOpen(true);
+  };
   const openJson = () => { setJsonText(''); setJsonDialogOpen(true); };
 
   const normalizeVideos = (value) => (Array.isArray(value) ? value.map((v) => String(v ?? '').trim()).filter(Boolean) : []);
@@ -130,6 +146,7 @@ export default function AdminProducts() {
             name,
             description: String(pick('description', emptyProduct.description) ?? ''),
             price: parseFloat(rawPrice) || 0,
+            acquisition_cost: pick('acquisition_cost', pick('acquisitionCost', undefined)),
             original_price: rawOriginalPrice ? parseFloat(rawOriginalPrice) : undefined,
             category: String(pick('category', emptyProduct.category) ?? emptyProduct.category),
             material: String(pick('material', emptyProduct.material) ?? emptyProduct.material),
@@ -174,7 +191,18 @@ export default function AdminProducts() {
   };
 
   const handleSubmit = () => {
-    const data = { ...form, images: normalizeImages(form.images), videos: normalizeVideos(form.videos), price: parseFloat(form.price) || 0, original_price: form.original_price ? parseFloat(form.original_price) : undefined, stock: parseInt(form.stock) || 0 };
+    const data = {
+      ...form,
+      images: normalizeImages(form.images),
+      videos: normalizeVideos(form.videos),
+      price: parseFloat(form.price) || 0,
+      acquisition_cost:
+        form.acquisition_cost === '' || form.acquisition_cost === null || form.acquisition_cost === undefined
+          ? undefined
+          : parseFloat(form.acquisition_cost) || 0,
+      original_price: form.original_price ? parseFloat(form.original_price) : undefined,
+      stock: parseInt(form.stock) || 0,
+    };
     if (!data.name) { toast.error('Nome é obrigatório'); return; }
     if (editing) { updateMutation.mutate({ id: editing.id, data }); }
     else { createMutation.mutate(data); }
@@ -292,10 +320,20 @@ export default function AdminProducts() {
               <Label className="font-body text-xs">Descrição</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-none mt-1" rows={3} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <Label className="font-body text-xs">Preço (€) *</Label>
                 <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-none mt-1" />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Preço de Aquisição (€)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={form.acquisition_cost}
+                  onChange={(e) => setForm({ ...form, acquisition_cost: e.target.value })}
+                  className="rounded-none mt-1"
+                />
               </div>
               <div>
                 <Label className="font-body text-xs">Preço Original (€)</Label>
@@ -437,12 +475,12 @@ export default function AdminProducts() {
           <div className="space-y-3">
             <div>
               <Label className="font-body text-xs">JSON</Label>
-	              <Textarea
-	                value={jsonText}
-	                onChange={(e) => setJsonText(e.target.value)}
-	                className="rounded-none mt-1 min-h-[160px] font-mono text-xs"
-	                placeholder={'1 JSON, array ou 1 por linha.\nEx (1): {"name":"Produto X","price":12.5,"stock":10,"images":["https://..."]}\nEx (varios): {"name":"A","price":1}\\n{"name":"B","price":2}\nEx (array): [{"name":"A","price":1},{"name":"B","price":2}]'}
-	              />
+		              <Textarea
+		                value={jsonText}
+		                onChange={(e) => setJsonText(e.target.value)}
+		                className="rounded-none mt-1 min-h-[160px] font-mono text-xs"
+		                placeholder={'1 JSON, array ou 1 por linha.\nEx (1): {"name":"Produto X","price":12.5,"stock":10,"images":["https://..."]}\nEx (varios): {"name":"A","price":1}\n{"name":"B","price":2}\nEx (array): [{"name":"A","price":1},{"name":"B","price":2}]'}
+		              />
             </div>
             <div className="flex items-center justify-end gap-2">
               <Button variant="outline" className="rounded-none font-body text-sm" onClick={() => setJsonDialogOpen(false)}>

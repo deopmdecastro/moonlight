@@ -396,13 +396,13 @@ export default function AdminSuppliers() {
           <div className="space-y-3">
             <div>
               <Label className="font-body text-xs">JSON</Label>
-	              <Textarea
-	                value={jsonText}
-	                onChange={(e) => setJsonText(e.target.value)}
-	                className="rounded-none mt-1 min-h-[160px] font-mono text-xs"
-	                placeholder={'1 JSON, array ou 1 por linha.\nEx (1): {"name":"Fornecedor X","email":"x@ex.com","link":"https://..."}\nEx (varios): {"name":"A"}\\n{"name":"B"}\nEx (array): [{"name":"A"},{"name":"B"}]'}
-	              />
-            </div>
+	                <Textarea
+	                  value={jsonText}
+	                  onChange={(e) => setJsonText(e.target.value)}
+	                  className="rounded-none mt-1 min-h-[160px] font-mono text-xs"
+	                placeholder={'1 JSON, array ou 1 por linha.\nEx (1): {"name":"Fornecedor X","email":"x@ex.com","link":"https://..."}\nEx (varios): {"name":"A"}\n{"name":"B"}\nEx (array): [{"name":"A"},{"name":"B"}]'}
+	                />
+	              </div>
             <div className="flex items-center justify-end gap-2">
               <Button variant="outline" className="rounded-none font-body text-sm" onClick={() => setJsonDialogOpen(false)}>
                 Cancelar

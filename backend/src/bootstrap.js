@@ -72,6 +72,7 @@ const ddl = [
 	    "name" TEXT NOT NULL,
 	    "description" TEXT,
 	    "price" NUMERIC(12,2) NOT NULL,
+	    "acquisitionCost" NUMERIC(12,2),
 	    "originalPrice" NUMERIC(12,2),
 	    "category" "ProductCategory" NOT NULL,
 	    "material" "ProductMaterial",
@@ -121,6 +122,7 @@ const ddl = [
 
 	  `ALTER TABLE IF EXISTS "Product" ADD COLUMN IF NOT EXISTS "freeShipping" BOOLEAN NOT NULL DEFAULT FALSE;`,
 	  `ALTER TABLE IF EXISTS "Product" ADD COLUMN IF NOT EXISTS "videos" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];`,
+    `ALTER TABLE IF EXISTS "Product" ADD COLUMN IF NOT EXISTS "acquisitionCost" NUMERIC(12,2);`,
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "shippingMethodId" TEXT;`,
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "shippingMethodLabel" TEXT;`,
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "trackingCode" TEXT;`,
