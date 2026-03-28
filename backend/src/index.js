@@ -1541,6 +1541,11 @@ app.get('/api/content/shipping', async (req, res) => {
   res.json({ content: record?.value ?? null, updated_date: record?.updatedAt ?? null })
 })
 
+app.get('/api/content/branding', async (req, res) => {
+  const record = await prisma.siteContent.findUnique({ where: { key: 'branding' } })
+  res.json({ content: record?.value ?? null, updated_date: record?.updatedAt ?? null })
+})
+
 // Newsletter (public)
 app.post('/api/newsletter/subscribe', async (req, res) => {
   const parsed = newsletterSubscribeSchema.safeParse(req.body ?? {})
@@ -2659,6 +2664,33 @@ app.patch('/api/admin/content/shipping', async (req, res) => {
   })
 
   await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'shipping', meta: { keys: Object.keys(value ?? {}) } })
+  res.json({ content: record.value, updated_date: record.updatedAt })
+})
+
+// Content (Branding)
+app.get('/api/admin/content/branding', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const record = await prisma.siteContent.findUnique({ where: { key: 'branding' } })
+  res.json({ content: record?.value ?? null, updated_date: record?.updatedAt ?? null })
+})
+
+app.patch('/api/admin/content/branding', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = aboutContentSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const value = parsed.data
+  const record = await prisma.siteContent.upsert({
+    where: { key: 'branding' },
+    create: { key: 'branding', value },
+    update: { value },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'branding', meta: { keys: Object.keys(value ?? {}) } })
   res.json({ content: record.value, updated_date: record.updatedAt })
 })
 

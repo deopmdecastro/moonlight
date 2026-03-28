@@ -24,6 +24,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import AdminNotificationBell from '@/components/notifications/AdminNotificationBell';
+import { useBranding } from '@/lib/useBranding';
 
 const navSections = [
   {
@@ -68,6 +69,8 @@ export default function AdminLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { branding } = useBranding();
+  const logoSrc = String(branding?.logo_primary_url ?? '').trim() || zanaLogo;
 
   const renderNav = ({ onNavigate } = {}) => (
     <nav className="p-4 space-y-5">
@@ -112,7 +115,7 @@ export default function AdminLayout() {
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-[280px]">
                 <div className="px-4 py-3 border-b border-border flex items-center gap-3">
-                  <img src={zanaLogo} alt="Zana" className="h-6 w-auto brightness-0" loading="eager" />
+                  <img src={logoSrc} alt="Zana" className="h-6 w-auto brightness-0" loading="eager" />
                   <div className="min-w-0">
                     <div className="font-heading text-base">Admin</div>
                     <div className="font-body text-xs text-muted-foreground truncate">{user?.email ?? ''}</div>
@@ -123,7 +126,7 @@ export default function AdminLayout() {
             </Sheet>
           </div>
 
-          <img src={zanaLogo} alt="Zana" className="h-7 w-auto" loading="eager" />
+	          <img src={logoSrc} alt="Zana" className="h-7 w-auto" loading="eager" />
         </div>
 
         <div className="flex items-center gap-2">

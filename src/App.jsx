@@ -69,6 +69,7 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
 		const AboutAdmin = lazy(() => import('@/pages/admin/AboutAdmin'));
 			const InstagramAdmin = lazy(() => import('@/pages/admin/InstagramAdmin'));
 			const FAQAdmin = lazy(() => import('@/pages/admin/FAQAdmin'));
+      const BrandingAdmin = lazy(() => import('@/pages/admin/BrandingAdmin'));
       const MarketingAdmin = lazy(() => import('@/pages/admin/MarketingAdmin'));
 
 const FAQPage = lazy(() => import('@/pages/FAQ'));
@@ -142,6 +143,7 @@ const AuthenticatedApp = () => {
 		          <Route path="sobre" element={<AboutAdmin />} />
 		          <Route path="instagram" element={<InstagramAdmin />} />
 		          <Route path="faq" element={<FAQAdmin />} />
+              <Route path="branding" element={<BrandingAdmin />} />
               <Route path="marketing" element={<MarketingAdmin />} />
 		        </Route>
 		        <Route path="/admin/definicoes" element={<SettingsLayout />}>

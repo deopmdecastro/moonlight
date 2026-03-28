@@ -6,6 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { getErrorMessage } from '@/lib/toast';
 import HeroBanner from '@/components/home/HeroBanner';
 import CategoryGrid from '@/components/home/CategoryGrid';
+import AdBanner from '@/components/home/AdBanner';
 import FeaturedProducts from '@/components/home/FeaturedProducts';
 import BrandBanner from '@/components/home/BrandBanner';
 import Testimonials from '@/components/home/Testimonials';
@@ -30,15 +31,17 @@ export default function Home() {
     onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível subscrever.')),
   });
 
-  return (
-    <div>
-      <HeroBanner content={landing} />
-      <CategoryGrid content={landing} />
-      <FeaturedProducts title="Destaques" filterKey="is_featured" />
-      <FeaturedProducts title="Novidades" filterKey="is_new" />
-      <BrandBanner content={landing} />
-      <Testimonials />
-      <InstagramSection />
+	  return (
+	    <div>
+	      <HeroBanner content={landing} />
+	      <CategoryGrid content={landing} />
+        <AdBanner banner={landing?.ads?.before_highlights} />
+	      <FeaturedProducts title="Destaques" filterKey="is_featured" />
+	      <FeaturedProducts title="Novidades" filterKey="is_new" />
+	      <BrandBanner content={landing} />
+        <AdBanner banner={landing?.ads?.before_testimonials} />
+	      <Testimonials />
+	      <InstagramSection />
 
 	      {landing?.newsletter?.enabled !== false ? (
 	        <section className="py-16 md:py-20 bg-primary">

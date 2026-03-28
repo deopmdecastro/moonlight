@@ -2,15 +2,18 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram, Mail, MapPin } from 'lucide-react';
 import zanaLogo from '@/img/zana_logo.svg';
+import { useBranding } from '@/lib/useBranding';
 
 export default function Footer() {
+  const { branding } = useBranding();
+  const logoSrc = String(branding?.logo_url ?? '').trim() || zanaLogo;
   return (
     <footer className="bg-primary text-primary-foreground">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
-            <img src={zanaLogo} alt="Zana Acessórios" className="h-10 w-auto mb-4" loading="lazy" />
+            <img src={logoSrc} alt={String(branding?.site_name ?? 'Zana')} className="h-10 w-auto mb-4" loading="lazy" />
             <p className="text-sm opacity-80 leading-relaxed">
               Elegância em cada detalhe. Bijuterias que celebram a essência da mulher moderna.
             </p>

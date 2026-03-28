@@ -3,6 +3,7 @@
 
 const TOKEN_KEYS = ['base44_access_token', 'token'];
 const USER_KEY = 'mock_user';
+const LAST_ACTIVE_KEY = 'zana_last_active_at';
 
 const hasWindow = typeof window !== 'undefined';
 
@@ -89,6 +90,7 @@ const getToken = () => {
 const setToken = (token) => {
   if (!hasWindow) return;
   window.localStorage.setItem('token', token);
+  window.localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()));
 };
 
 const clearToken = () => {
@@ -96,6 +98,7 @@ const clearToken = () => {
   for (const key of TOKEN_KEYS) {
     window.localStorage.removeItem(key);
   }
+  window.localStorage.removeItem(LAST_ACTIVE_KEY);
 };
 
 const getStoredUser = () => {
@@ -485,6 +488,10 @@ export const base44 = {
           get: async () => authedJsonRequest('/api/admin/content/shipping'),
           update: async (data) => authedJsonRequest('/api/admin/content/shipping', { method: 'PATCH', body: data }),
         },
+        branding: {
+          get: async () => authedJsonRequest('/api/admin/content/branding'),
+          update: async (data) => authedJsonRequest('/api/admin/content/branding', { method: 'PATCH', body: data }),
+        },
 	    },
     inventory: {
       list: async (limit = 500) => {
@@ -500,6 +507,7 @@ export const base44 = {
 		    landing: async () => jsonRequest('/api/content/landing'),
 		    payments: async () => jsonRequest('/api/content/payments'),
         shipping: async () => jsonRequest('/api/content/shipping'),
+        branding: async () => jsonRequest('/api/content/branding'),
 		  },
       newsletter: {
         subscribe: async (data) => jsonRequest('/api/newsletter/subscribe', { method: 'POST', body: data, token: getToken() }),

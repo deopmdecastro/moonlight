@@ -5,11 +5,15 @@ import { useCart } from '@/lib/CartContext';
 import { useAuth } from '@/lib/AuthContext';
 import zanaLogo from '@/img/zana_logo_primary.svg';
 import StoreNotificationBell from '@/components/notifications/StoreNotificationBell';
+import { useBranding } from '@/lib/useBranding';
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { itemCount } = useCart();
   const { user } = useAuth();
+  const { branding } = useBranding();
+  const logoSrc = String(branding?.logo_primary_url ?? '').trim() || zanaLogo;
+  const siteName = String(branding?.site_name ?? 'Zana').trim() || 'Zana';
 
   const links = [
     { to: '/', label: 'Início' },
@@ -31,10 +35,10 @@ export default function Navbar() {
           </button>
 
           {/* Logo */}
-          <Link to="/" className="flex items-center" aria-label="Zana">
+          <Link to="/" className="flex items-center" aria-label={siteName}>
             <img
-              src={zanaLogo}
-              alt="Zana Acessórios"
+              src={logoSrc}
+              alt={siteName}
               className="h-8 md:h-10 w-auto"
               loading="eager"
             />
