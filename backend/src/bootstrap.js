@@ -21,6 +21,7 @@ const ddl = [
     "id" TEXT PRIMARY KEY,
     "email" TEXT NOT NULL,
     "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE,
+    "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE,
     "fullName" TEXT,
     "phone" TEXT,
     "addressLine1" TEXT,
@@ -38,9 +39,11 @@ const ddl = [
   `,
   `CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User" ("email");`,
   `CREATE INDEX IF NOT EXISTS "User_createdAt_idx" ON "User" ("createdAt");`,
+  `CREATE INDEX IF NOT EXISTS "User_isDeleted_idx" ON "User" ("isDeleted");`,
 
   // Backfill/upgrade existing local DBs created before these columns existed.
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE;`,
+  `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "phone" TEXT;`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "addressLine1" TEXT;`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "addressLine2" TEXT;`,

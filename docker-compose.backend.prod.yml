@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zana}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zana}
+      POSTGRES_DB: ${POSTGRES_DB:-zana}
+    volumes:
+      - zana_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zana} -d ${POSTGRES_DB:-zana}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-zana}:${POSTGRES_PASSWORD:-zana}@db:5432/${POSTGRES_DB:-zana}
+      AUTH_SECRET: ${AUTH_SECRET}
+      # Ex.: https://meu-site.vercel.app,https://*.vercel.app
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      APP_BASE_URL: ${APP_BASE_URL}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_RESET_PASSWORD: ${ADMIN_RESET_PASSWORD:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+
+volumes:
+  zana_pgdata:
+

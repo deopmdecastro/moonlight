@@ -208,7 +208,10 @@ export default function FAQAdmin() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => deleteMutation.mutate(item.id)}
+                    onClick={() => {
+                      if (!window.confirm('Tem certeza que deseja remover?')) return;
+                      deleteMutation.mutate(item.id);
+                    }}
                     title="Remover"
                   >
                     <DeleteIcon className="text-destructive" />

@@ -221,6 +221,9 @@ export const base44 = {
       window.location.assign('/conta');
     },
   },
+  account: {
+    delete: async () => authedJsonRequest('/api/users/me', { method: 'DELETE' }),
+  },
   user: {
     me: async () => {
       const res = await authedJsonRequest('/api/users/me');

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/lib/CartContext';
 import { toastApiPromise } from '@/lib/toast';
 import DeleteIcon from '@/components/ui/delete-icon';
+import { confirmDestructive } from '@/lib/confirm';
 
 export default function WishlistPage() {
   const queryClient = useQueryClient();
@@ -24,6 +25,7 @@ export default function WishlistPage() {
 
   const handleDelete = async (e, id) => {
     e.preventDefault();
+    if (!confirmDestructive('Tem certeza que deseja remover dos favoritos?')) return;
     await toastApiPromise(deleteMutation.mutateAsync(id), {
       loading: 'A remover dos favoritos...',
       success: 'Removido dos favoritos.',

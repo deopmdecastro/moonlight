@@ -103,7 +103,15 @@ export default function AdminReviews() {
                   >
                     {r.is_approved ? 'Reprovar' : 'Aprovar'}
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(r.id)} title="Remover">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (!window.confirm('Tem certeza que deseja remover?')) return;
+                      deleteMutation.mutate(r.id);
+                    }}
+                    title="Remover"
+                  >
                     <DeleteIcon className="text-destructive" />
                   </Button>
                 </td>

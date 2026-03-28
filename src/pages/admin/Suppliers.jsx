@@ -271,7 +271,15 @@ export default function AdminSuppliers() {
 		                  <Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Editar">
 		                    <Pencil className="w-4 h-4" />
 		                  </Button>
-		                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(s.id)} title="Remover">
+		                  <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (!window.confirm('Tem certeza que deseja remover?')) return;
+                          deleteMutation.mutate(s.id);
+                        }}
+                        title="Remover"
+                      >
 		                    <DeleteIcon className="text-destructive" />
 		                  </Button>
 		                </td>

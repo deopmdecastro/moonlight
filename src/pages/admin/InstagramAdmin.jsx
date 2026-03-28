@@ -114,7 +114,15 @@ export default function InstagramAdmin() {
                   <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Editar">
                     <Pencil className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(p.id)} title="Remover">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (!window.confirm('Tem certeza que deseja remover?')) return;
+                      deleteMutation.mutate(p.id);
+                    }}
+                    title="Remover"
+                  >
                     <DeleteIcon className="text-destructive" />
                   </Button>
                 </td>

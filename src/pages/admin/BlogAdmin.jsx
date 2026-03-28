@@ -75,7 +75,17 @@ export default function BlogAdmin() {
             </div>
             <div className="flex gap-1">
               <Button variant="ghost" size="icon" onClick={() => openEdit(post)}><Pencil className="w-3.5 h-3.5" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(post.id)} title="Remover"><DeleteIcon className="text-destructive" /></Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (!window.confirm('Tem certeza que deseja remover?')) return;
+                  deleteMutation.mutate(post.id);
+                }}
+                title="Remover"
+              >
+                <DeleteIcon className="text-destructive" />
+              </Button>
             </div>
           </div>
         ))}

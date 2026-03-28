@@ -192,7 +192,40 @@ function buildUnsubscribeUrl(unsubscribeToken) {
 
 const app = express()
 app.disable('x-powered-by')
-app.use(cors({ origin: corsOrigin }))
+
+function parseCorsOrigins(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return []
+  return raw
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+}
+
+function isOriginAllowed(origin, allowed) {
+  if (!origin) return true // non-browser / same-origin
+  if (!Array.isArray(allowed) || allowed.length === 0) return false
+  if (allowed.includes('*')) return true
+
+  for (const entry of allowed) {
+    if (entry === origin) return true
+    if (entry.startsWith('*.')) {
+      const suffix = entry.slice(1) // ".vercel.app"
+      if (origin.endsWith(suffix)) return true
+    }
+  }
+  return false
+}
+
+const allowedCorsOrigins = parseCorsOrigins(corsOrigin)
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (isOriginAllowed(origin, allowedCorsOrigins)) return cb(null, true)
+      return cb(new Error('cors_not_allowed'), false)
+    },
+  }),
+)
 // Product images can be stored as data URLs in dev; allow a larger JSON payload.
 app.use(express.json({ limit: '10mb' }))
 
@@ -653,6 +686,16 @@ async function requireUser(req, res) {
   if (!user) {
     res.status(401).json({ error: 'unauthorized' })
     return null
+  }
+  try {
+    const rows = await prisma.$queryRaw`SELECT "isDeleted" FROM "User" WHERE "id" = ${userId} LIMIT 1;`
+    const isDeleted = Boolean(Array.isArray(rows) ? rows[0]?.isDeleted : false)
+    if (isDeleted) {
+      res.status(401).json({ error: 'unauthorized' })
+      return null
+    }
+  } catch {
+    // If the column doesn't exist yet, treat as active.
   }
   return user
 }
@@ -1207,6 +1250,71 @@ app.patch('/api/users/me', async (req, res) => {
   }
 
   res.json({ user: pickPublicUser(updated) })
+})
+
+app.delete('/api/users/me', async (req, res) => {
+  const user = await requireUser(req, res)
+  if (!user) return
+
+  const oldEmail = String(user.email ?? '').trim().toLowerCase()
+  const tombstoneEmail = `deleted+${user.id}+${Date.now()}@example.invalid`
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Best-effort cleanup of user-owned data where we can safely remove it.
+      await tx.passwordResetToken.deleteMany({ where: { userId: user.id } })
+      await tx.wishlistItem.deleteMany({ where: { userId: user.id } })
+
+      // Remove user linkage / PII where possible.
+      await tx.supportTicket.updateMany({
+        where: { userId: user.id },
+        data: { userId: null, customerName: null, customerEmail: null },
+      })
+      await tx.blogComment.updateMany({
+        where: { userId: user.id },
+        data: { userId: null, authorName: null, authorEmail: null },
+      })
+      await tx.$executeRaw`UPDATE "FaqQuestion" SET "userId" = NULL, "authorName" = NULL, "authorEmail" = NULL, "updatedAt" = NOW() WHERE "userId" = ${user.id};`
+
+      // Logs should not keep identifying linkage.
+      await tx.auditLog.updateMany({ where: { actorId: user.id }, data: { actorId: null } })
+      await tx.inventoryMovement.updateMany({ where: { actorId: user.id }, data: { actorId: null } })
+
+      // Newsletter subscriber: unsubscribe old email.
+      if (oldEmail) {
+        await tx.$executeRaw`UPDATE "NewsletterSubscriber" SET "status" = 'unsubscribed', "unsubscribedAt" = NOW(), "updatedAt" = NOW() WHERE "email" = ${oldEmail};`
+      }
+
+      // Tombstone the user account (so existing tokens stop working).
+      const { saltHex, hashHex } = hashPassword(crypto.randomUUID() + crypto.randomUUID())
+      await tx.$executeRaw`
+        UPDATE "User"
+        SET
+          "isDeleted" = TRUE,
+          "isAdmin" = FALSE,
+          "email" = ${tombstoneEmail},
+          "fullName" = NULL,
+          "phone" = NULL,
+          "addressLine1" = NULL,
+          "addressLine2" = NULL,
+          "city" = NULL,
+          "postalCode" = NULL,
+          "country" = 'Portugal',
+          "newsletterOptIn" = FALSE,
+          "orderUpdatesEmail" = FALSE,
+          "passwordSalt" = ${saltHex},
+          "passwordHash" = ${hashHex},
+          "updatedAt" = NOW()
+        WHERE "id" = ${user.id};
+      `
+    })
+
+    await writeAuditLog({ actorId: null, action: 'delete', entityType: 'User', entityId: user.id })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('account delete failed', err)
+    res.status(500).json({ error: 'internal_error' })
+  }
 })
 
 app.get('/api/orders/my', async (req, res) => {

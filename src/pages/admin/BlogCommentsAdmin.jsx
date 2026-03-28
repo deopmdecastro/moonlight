@@ -117,7 +117,15 @@ export default function BlogCommentsAdmin() {
                   >
                     {c.is_approved ? 'Reprovar' : 'Aprovar'}
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(c.id)} title="Remover">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (!window.confirm('Tem certeza que deseja remover?')) return;
+                      deleteMutation.mutate(c.id);
+                    }}
+                    title="Remover"
+                  >
                     <DeleteIcon className="text-destructive" />
                   </Button>
                 </td>
