@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, FileText, TrendingUp, MapPin, Clock } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, Search, TrendingUp, MapPin, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 function safeJson(value) {
@@ -24,21 +24,143 @@ const actionColor = {
   delete: 'bg-destructive/10 text-destructive',
 };
 
+function formatDateCode(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return 'unknown';
+  const y = String(d.getFullYear());
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}${m}${day}`;
+}
+
+function fnv1a32(str) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i += 1) {
+    hash ^= str.charCodeAt(i);
+    hash = (hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24))) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+function logCode(log) {
+  const datePart = formatDateCode(log?.created_date);
+  const raw = String(log?.id ?? '');
+  const base = fnv1a32(raw).toString(36).padStart(6, '0').slice(0, 6);
+  const dotted = `${base.slice(0, 2)}.${base.slice(2, 4)}.${base.slice(4, 6)}`;
+  return `zana_logs_${datePart}_${dotted}`;
+}
+
+function actionLabel(action) {
+  if (action === 'create') return 'criado';
+  if (action === 'update') return 'atualizado';
+  if (action === 'delete') return 'removido';
+  return String(action ?? '-');
+}
+
+function entityLabel(entityType) {
+  if (!entityType) return '-';
+  const map = {
+    Order: 'Encomenda',
+    Product: 'Produto',
+    Supplier: 'Fornecedor',
+    Purchase: 'Compra',
+    Inventory: 'Inventário',
+    BlogPost: 'Blog',
+    BlogComment: 'Comentário',
+    SiteContent: 'Conteúdo do site',
+    Review: 'Avaliação',
+    SupportTicket: 'Suporte',
+    SupportMessage: 'Mensagem de suporte',
+    User: 'Utilizador',
+  };
+  return map[entityType] ?? String(entityType);
+}
+
+function statusLabel(status) {
+  const map = {
+    pending: 'Pendente',
+    confirmed: 'Confirmada',
+    processing: 'Em preparação',
+    shipped: 'Enviada',
+    delivered: 'Entregue',
+    cancelled: 'Cancelada',
+  };
+  return map[status] ?? status;
+}
+
+function metaSummary(meta, { action, entityType } = {}) {
+  if (meta === null || meta === undefined) return null;
+  if (typeof meta !== 'object') return String(meta);
+
+  const status = typeof meta.status === 'string' ? meta.status : null;
+  const prev = typeof meta.previous_status === 'string' ? meta.previous_status : null;
+  const source = typeof meta.source === 'string' ? meta.source : null;
+  const customerEmail = typeof meta.customer_email === 'string' ? meta.customer_email : null;
+  const keys = Array.isArray(meta.keys) ? meta.keys.filter(Boolean) : null;
+
+  if (entityType === 'Order' && action === 'update' && (status || prev)) {
+    const right = status ? statusLabel(status) : '';
+    const left = prev ? statusLabel(prev) : '';
+    if (left && right) return `Estado: ${left} → ${right}`;
+    if (right) return `Estado: ${right}`;
+  }
+
+  if (entityType === 'Order' && action === 'create' && customerEmail) {
+    return `Cliente: ${customerEmail}`;
+  }
+
+  if (entityType === 'SiteContent' && keys?.length) {
+    return `Campos: ${keys.slice(0, 4).join(', ')}${keys.length > 4 ? '…' : ''}`;
+  }
+
+  if (source) return `Origem: ${source}`;
+  if (customerEmail) return `Cliente: ${customerEmail}`;
+
+  const firstKey = Object.keys(meta)[0];
+  if (!firstKey) return null;
+  return `${firstKey}: ${String(meta[firstKey]).slice(0, 60)}`;
+}
+
+function metaPairs(meta) {
+  if (meta === null || meta === undefined) return [];
+  if (typeof meta !== 'object') return [['Detalhe', String(meta)]];
+
+  const pairs = [];
+  if (typeof meta.source === 'string') pairs.push(['Origem', meta.source]);
+  if (typeof meta.customer_email === 'string') pairs.push(['Cliente', meta.customer_email]);
+  if (typeof meta.status === 'string') pairs.push(['Estado', statusLabel(meta.status)]);
+  if (typeof meta.previous_status === 'string') pairs.push(['Estado anterior', statusLabel(meta.previous_status)]);
+
+  if (typeof meta.tracking_code === 'string' && meta.tracking_code) pairs.push(['Rastreamento', meta.tracking_code]);
+  if (typeof meta.tracking_carrier === 'string' && meta.tracking_carrier) pairs.push(['Transportadora', meta.tracking_carrier]);
+  if (typeof meta.tracking_url === 'string' && meta.tracking_url) pairs.push(['Link de rastreamento', meta.tracking_url]);
+
+  if (Array.isArray(meta.keys) && meta.keys.length) pairs.push(['Campos alterados', meta.keys.join(', ')]);
+
+  return pairs;
+}
+
 export default function AdminLogs() {
   const [search, setSearch] = useState('');
   const [entityFilter, setEntityFilter] = useState('all');
   const [actionFilter, setActionFilter] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [showRawMeta, setShowRawMeta] = useState(false);
+  const [limit, setLimit] = useState(10);
 
   const { data: logs = [], isLoading } = useQuery({
-    queryKey: ['admin-logs'],
-    queryFn: () => base44.admin.logs.list(300),
+    queryKey: ['admin-logs', limit],
+    queryFn: () => base44.admin.logs.list(limit),
   });
 
   const { data: analytics } = useQuery({
     queryKey: ['admin-analytics-summary'],
     queryFn: () => base44.admin.analytics.summary(30),
   });
+
+  useEffect(() => {
+    setShowRawMeta(false);
+  }, [selected?.id]);
 
   const peakHour = useMemo(() => {
     const hours = analytics?.visits_by_hour ?? [];
@@ -97,7 +219,7 @@ export default function AdminLogs() {
           <div className="relative w-72 max-w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Pesquisar (ator, entidade, id, meta)..."
+              placeholder="Pesquisar (ator, entidade, id, detalhes)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10 rounded-none"
@@ -106,7 +228,6 @@ export default function AdminLogs() {
         </div>
       </div>
 
-      {/* Insights */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
           <CardContent className="p-5">
@@ -119,9 +240,9 @@ export default function AdminLogs() {
             ) : (
               <div className="space-y-2">
                 {(analytics?.top_customers ?? []).slice(0, 4).map((c) => (
-                  <div key={c.email} className="flex items-center justify-between font-body text-sm">
-                    <span className="truncate max-w-[210px]">{c.email}</span>
-                    <span className="text-muted-foreground">{c.total.toFixed(2)} €</span>
+                  <div key={c.email} className="flex items-center justify-between gap-3 font-body text-sm">
+                    <span className="truncate max-w-[240px]">{c.email}</span>
+                    <span className="text-muted-foreground whitespace-nowrap">{Number(c.total ?? 0).toFixed(2)} €</span>
                   </div>
                 ))}
               </div>
@@ -140,9 +261,9 @@ export default function AdminLogs() {
             ) : (
               <div className="space-y-2">
                 {(analytics?.orders_by_country ?? []).slice(0, 4).map((c) => (
-                  <div key={c.country} className="flex items-center justify-between font-body text-sm">
-                    <span className="truncate max-w-[210px]">{c.country}</span>
-                    <span className="text-muted-foreground">{c.orders}</span>
+                  <div key={c.country} className="flex items-center justify-between gap-3 font-body text-sm">
+                    <span className="truncate max-w-[240px]">{c.country}</span>
+                    <span className="text-muted-foreground whitespace-nowrap">{c.orders}</span>
                   </div>
                 ))}
               </div>
@@ -169,21 +290,22 @@ export default function AdminLogs() {
       </div>
 
       <div className="bg-card rounded-lg border border-border overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[980px]">
           <thead>
             <tr className="border-b border-border bg-secondary/30">
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Data</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Ator</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Ação</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Entidade</th>
-              <th className="text-left p-3 font-body text-xs text-muted-foreground">ID</th>
-              <th className="text-right p-3 font-body text-xs text-muted-foreground">Meta</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground">Código</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground">Detalhes</th>
+              <th className="text-right p-3 font-body text-xs text-muted-foreground">Ver</th>
             </tr>
           </thead>
           <tbody>
             {(isLoading ? [] : filtered).map((l) => (
               <tr key={l.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
-                <td className="p-3 font-body text-xs text-muted-foreground">
+                <td className="p-3 font-body text-xs text-muted-foreground whitespace-nowrap">
                   {new Date(l.created_date).toLocaleString('pt-PT')}
                 </td>
                 <td className="p-3 font-body text-sm">{l.actor?.email ?? '-'}</td>
@@ -192,16 +314,22 @@ export default function AdminLogs() {
                     {l.action}
                   </Badge>
                 </td>
-                <td className="p-3 font-body text-sm">{l.entity_type}</td>
-                <td className="p-3 font-body text-xs text-muted-foreground">{l.entity_id ?? '-'}</td>
+                <td className="p-3 font-body text-sm">
+                  <div className="font-medium">{entityLabel(l.entity_type)}</div>
+                  {l.entity_id ? (
+                    <div className="font-body text-[11px] text-muted-foreground truncate max-w-[260px]">
+                      {String(l.entity_id)}
+                    </div>
+                  ) : null}
+                </td>
+                <td className="p-3 font-body text-xs text-muted-foreground whitespace-nowrap">{logCode(l)}</td>
+                <td className="p-3 font-body text-xs text-muted-foreground">
+                  <span className="line-clamp-2">
+                    {metaSummary(safeJson(l.meta), { action: l.action, entityType: l.entity_type }) ?? '—'}
+                  </span>
+                </td>
                 <td className="p-3 text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelected(l)}
-                    disabled={l.meta === null || l.meta === undefined}
-                    title="Ver meta"
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setSelected(l)} title="Ver detalhes">
                     <FileText className="w-4 h-4" />
                   </Button>
                 </td>
@@ -214,6 +342,29 @@ export default function AdminLogs() {
         )}
       </div>
 
+      <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
+        <div className="font-body text-xs text-muted-foreground">A mostrar os últimos {limit} logs.</div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="rounded-none font-body text-sm gap-2"
+            onClick={() => setLimit(10)}
+            disabled={limit <= 10 || isLoading}
+          >
+            <ChevronUp className="w-4 h-4" />
+            Mostrar menos
+          </Button>
+          <Button
+            className="rounded-none font-body text-sm gap-2"
+            onClick={() => setLimit((p) => Math.min(500, p + 20))}
+            disabled={isLoading || limit >= 500}
+          >
+            <ChevronDown className="w-4 h-4" />
+            Carregar mais
+          </Button>
+        </div>
+      </div>
+
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -221,7 +372,7 @@ export default function AdminLogs() {
           </DialogHeader>
           {selected && (
             <div className="space-y-3 font-body text-sm">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <p className="text-muted-foreground text-xs">Data</p>
                   <p className="font-medium">{new Date(selected.created_date).toLocaleString('pt-PT')}</p>
@@ -231,21 +382,66 @@ export default function AdminLogs() {
                   <p className="font-medium">{selected.actor?.email ?? '-'}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground text-xs">Ação</p>
-                  <p className="font-medium">{selected.action}</p>
+                  <p className="text-muted-foreground text-xs">Código do log</p>
+                  <p className="font-medium">{logCode(selected)}</p>
                 </div>
                 <div>
+                  <p className="text-muted-foreground text-xs">Ação</p>
+                  <p className="font-medium">{actionLabel(selected.action)}</p>
+                </div>
+                <div className="sm:col-span-2">
                   <p className="text-muted-foreground text-xs">Entidade</p>
                   <p className="font-medium">
-                    {selected.entity_type} {selected.entity_id ? `(${selected.entity_id})` : ''}
+                    {entityLabel(selected.entity_type)} {selected.entity_id ? `(${selected.entity_id})` : ''}
                   </p>
                 </div>
               </div>
+
               <div>
-                <p className="text-muted-foreground text-xs mb-2">Meta</p>
-                <pre className="text-xs bg-secondary/30 border border-border rounded-md p-3 overflow-x-auto">
-                  {JSON.stringify(safeJson(selected.meta), null, 2)}
-                </pre>
+                <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Detalhes</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      “Meta” é informação técnica do que foi guardado no log. Aqui está em formato mais claro (e pode ver o
+                      JSON completo se quiser).
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="rounded-none font-body text-sm"
+                    onClick={() => setShowRawMeta((p) => !p)}
+                  >
+                    {showRawMeta ? 'Ver resumo' : 'Ver JSON'}
+                  </Button>
+                </div>
+
+                {(() => {
+                  const meta = safeJson(selected.meta);
+                  const pairs = metaPairs(meta);
+
+                  if (!showRawMeta) {
+                    return pairs.length ? (
+                      <div className="bg-secondary/20 border border-border rounded-md p-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {pairs.map(([k, v]) => (
+                            <div key={k} className="min-w-0">
+                              <div className="text-[11px] text-muted-foreground">{k}</div>
+                              <div className="font-body text-sm font-medium truncate">{String(v)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="font-body text-sm text-muted-foreground">Sem detalhes adicionais.</p>
+                    );
+                  }
+
+                  return (
+                    <pre className="text-xs bg-secondary/30 border border-border rounded-md p-3 overflow-x-auto">
+                      {JSON.stringify(meta, null, 2)}
+                    </pre>
+                  );
+                })()}
               </div>
             </div>
           )}
