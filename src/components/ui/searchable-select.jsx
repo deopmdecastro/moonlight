@@ -16,6 +16,9 @@ export default function SearchableSelect({
   disabled = false,
 } = {}) {
   const [open, setOpen] = useState(false);
+  const hasOptions = Array.isArray(options) && options.length > 0;
+  const effectiveDisabled = disabled || !hasOptions;
+  const effectivePlaceholder = hasOptions ? placeholder : 'Sem dados ainda';
 
   const selected = useMemo(() => {
     return (options ?? []).find((o) => String(o?.value) === String(value));
@@ -31,9 +34,9 @@ export default function SearchableSelect({
           role="combobox"
           aria-expanded={open}
           className={cn('w-full justify-between rounded-none font-body text-sm', className)}
-          disabled={disabled}
+          disabled={effectiveDisabled}
         >
-          <span className={cn('truncate', !label && 'text-muted-foreground')}>{label || placeholder}</span>
+          <span className={cn('truncate', !label && 'text-muted-foreground')}>{label || effectivePlaceholder}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -41,7 +44,7 @@ export default function SearchableSelect({
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
-            <CommandEmpty>Sem resultados.</CommandEmpty>
+            <CommandEmpty>{hasOptions ? 'Sem resultados.' : 'Sem dados ainda.'}</CommandEmpty>
             <CommandGroup>
               {(options ?? []).map((opt) => {
                 const optValue = String(opt?.value ?? '');
@@ -67,4 +70,3 @@ export default function SearchableSelect({
     </Popover>
   );
 }
-

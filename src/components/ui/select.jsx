@@ -156,6 +156,8 @@ const SelectContent = React.forwardRef(
       return filterSelectChildren(children, query)
     }, [children, query, shouldSearch])
 
+    const filteredItemCount = React.useMemo(() => countSelectItems(filteredChildren), [filteredChildren])
+
     React.useEffect(() => {
       if (shouldSearch) return
       if (!query) return
@@ -193,7 +195,13 @@ const SelectContent = React.forwardRef(
                 />
               </div>
             ) : null}
-            {filteredChildren}
+            {filteredItemCount === 0 ? (
+              <SelectItem value="__empty__" disabled>
+                {itemCount === 0 ? "Sem dados ainda" : "Sem resultados"}
+              </SelectItem>
+            ) : (
+              filteredChildren
+            )}
           </SelectPrimitive.Viewport>
           <SelectScrollDownButton />
         </SelectPrimitive.Content>

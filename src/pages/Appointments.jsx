@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 import { Calendar, Clock, MessageSquareText, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
+import { pt } from 'date-fns/locale';
 
 import { base44 } from '@/api/base44Client';
 import { getErrorMessage } from '@/lib/toast';
@@ -10,7 +11,6 @@ import { useAuth } from '@/lib/AuthContext';
 import Auth from './Auth';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -69,6 +69,11 @@ export default function Appointments() {
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }, []);
 
+  const [visibleMonth, setVisibleMonth] = useState(minDate);
+  useEffect(() => {
+    setVisibleMonth(selectedDateObj ?? minDate);
+  }, [minDate, selectedDateObj]);
+
   const toYMD = (date) => {
     if (!date) return '';
     const year = date.getFullYear();
@@ -76,6 +81,25 @@ export default function Appointments() {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  const toYM = (date) => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  };
+
+  const visibleYM = useMemo(() => toYM(visibleMonth), [visibleMonth]);
+
+  const { data: datesRes, isSuccess: isDatesLoaded } = useQuery({
+    queryKey: ['appointments-dates', form.service_id || 'none', visibleYM || 'none'],
+    queryFn: () => base44.appointments.datesAvailable(form.service_id, visibleYM),
+    enabled: enabled && !!form.service_id && !!visibleYM,
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const availableDatesSet = useMemo(() => new Set(Array.isArray(datesRes?.dates) ? datesRes.dates : []), [datesRes?.dates]);
 
   useEffect(() => {
     const pre = location?.state?.preselectService;
@@ -85,6 +109,16 @@ export default function Appointments() {
 
   const selectedService = useMemo(() => services.find((s) => String(s.id) === String(form.service_id)) ?? null, [services, form.service_id]);
   const durationMinutes = Math.max(1, Number(selectedService?.duration_minutes ?? 30) || 30);
+
+  const { data: timesRes, isLoading: isLoadingTimes } = useQuery({
+    queryKey: ['appointments-times', form.service_id || 'none', form.date || 'none'],
+    queryFn: () => base44.appointments.timesAvailable(form.service_id, form.date),
+    enabled: enabled && !!form.service_id && !!form.date,
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const times = Array.isArray(timesRes?.times) ? timesRes.times : [];
 
   const { data: staffRes, isLoading: isLoadingStaff } = useQuery({
     queryKey: ['appointments-staff', form.service_id || 'none', startAtInput || 'none'],
@@ -170,15 +204,30 @@ export default function Appointments() {
                   <Label className="font-body text-xs flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5" /> Data
                   </Label>
-                  <div className="mt-2 rounded-md border border-border bg-card">
+                  <div className="mt-2 rounded-md border border-border bg-card p-2 min-w-0 overflow-hidden">
                     <ThemeCalendar
+                      className="w-full p-0"
                       mode="single"
                       selected={selectedDateObj ?? undefined}
                       onSelect={(d) => {
                         const next = d ? toYMD(d) : '';
-                        setForm((p) => ({ ...p, date: next, staff_id: '' }));
+                        setForm((p) => ({ ...p, date: next, time: '', staff_id: '' }));
                       }}
-                      disabled={(d) => d < minDate}
+                      month={visibleMonth}
+                      onMonthChange={setVisibleMonth}
+                      disabled={(d) =>
+                        d < minDate ||
+                        (isDatesLoaded && toYM(d) === visibleYM && !availableDatesSet.has(toYMD(d)))
+                      }
+                      locale={pt}
+                      weekStartsOn={1}
+                      modifiers={{
+                        available: (d) => isDatesLoaded && toYM(d) === visibleYM && availableDatesSet.has(toYMD(d)),
+                      }}
+                      modifiersClassNames={{
+                        available:
+                          "bg-primary/10 ring-1 ring-primary/25 hover:bg-primary/15 after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:rounded-full after:bg-primary",
+                      }}
                     />
                   </div>
                 </div>
@@ -187,12 +236,34 @@ export default function Appointments() {
                   <Label className="font-body text-xs flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5" /> Hora
                   </Label>
-                  <Input
-                    type="time"
+                  <Select
                     value={form.time}
-                    onChange={(e) => setForm((p) => ({ ...p, time: e.target.value, staff_id: '' }))}
-                    className="rounded-none mt-1"
-                  />
+                    onValueChange={(v) => setForm((p) => ({ ...p, time: v, staff_id: '' }))}
+                    disabled={!form.service_id || !form.date || isLoadingTimes}
+                  >
+                    <SelectTrigger className="rounded-none mt-1 font-body text-sm">
+                      <SelectValue
+                        placeholder={
+                          !form.service_id
+                            ? 'Escolha um serviço...'
+                            : !form.date
+                              ? 'Escolha uma data...'
+                              : isLoadingTimes
+                                ? 'A carregar...'
+                                : times.length
+                                  ? 'Selecione...'
+                                  : 'Sem horários disponíveis'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {times.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -314,4 +385,3 @@ export default function Appointments() {
     </div>
   );
 }
-

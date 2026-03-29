@@ -151,13 +151,20 @@ export default function Testimonials() {
                       value={form.product_id}
                       onChange={(e) => setForm((p) => ({ ...p, product_id: e.target.value }))}
                       className="w-full border border-border bg-background px-3 py-2 text-sm font-body rounded-none"
+                      disabled={productOptions.length === 0}
                     >
-                      <option value="">Selecionar...</option>
-                      {productOptions.map((p) => (
-                        <option key={p.value} value={p.value}>
-                          {p.label}
-                        </option>
-                      ))}
+                      {productOptions.length === 0 ? (
+                        <option value="">Sem dados ainda</option>
+                      ) : (
+                        <>
+                          <option value="">Selecionar...</option>
+                          {productOptions.map((p) => (
+                            <option key={p.value} value={p.value}>
+                              {p.label}
+                            </option>
+                          ))}
+                        </>
+                      )}
                     </select>
                   )}
                 </div>

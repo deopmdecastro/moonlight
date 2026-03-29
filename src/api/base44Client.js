@@ -614,6 +614,18 @@ export const base44 = {
       appointments: { 
         settings: async () => jsonRequest('/api/content/appointments'), 
         services: async () => jsonRequest('/api/appointments/services'), 
+        datesAvailable: async (service_id, month) => {
+          const params = new URLSearchParams();
+          if (service_id) params.set('service_id', String(service_id));
+          if (month) params.set('month', String(month));
+          return jsonRequest(`/api/appointments/dates/available?${params.toString()}`);
+        },
+        timesAvailable: async (service_id, date) => {
+          const params = new URLSearchParams();
+          if (service_id) params.set('service_id', String(service_id));
+          if (date) params.set('date', String(date));
+          return jsonRequest(`/api/appointments/times/available?${params.toString()}`);
+        },
         staff: async (service_id) => { 
           const params = new URLSearchParams(); 
           if (service_id) params.set('service_id', String(service_id)); 

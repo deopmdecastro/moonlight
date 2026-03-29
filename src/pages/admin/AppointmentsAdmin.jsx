@@ -33,6 +33,26 @@ export default function AppointmentsAdmin() {
   });
 
   const enabled = Boolean(settingsRes?.content?.enabled);
+  const [settingsForm, setSettingsForm] = useState({
+    enabled: false,
+    weekdays: [1, 2, 3, 4, 5, 6],
+    start_time: '09:00',
+    end_time: '18:00',
+    slot_step_minutes: 15,
+  });
+
+  React.useEffect(() => {
+    const c = settingsRes?.content;
+    if (!c || typeof c !== 'object') return;
+    setSettingsForm((p) => ({
+      ...p,
+      enabled: c.enabled === true,
+      weekdays: Array.isArray(c.weekdays) && c.weekdays.length ? c.weekdays : p.weekdays,
+      start_time: typeof c.start_time === 'string' ? c.start_time : p.start_time,
+      end_time: typeof c.end_time === 'string' ? c.end_time : p.end_time,
+      slot_step_minutes: Number(c.slot_step_minutes ?? p.slot_step_minutes) || p.slot_step_minutes,
+    }));
+  }, [settingsRes?.content]);
 
   const { data: servicesRes } = useQuery({
     queryKey: ['admin-appointment-services'],
@@ -203,7 +223,102 @@ export default function AppointmentsAdmin() {
                 <div className="font-body text-sm text-muted-foreground">Mostra/oculta a página de marcações no site.</div>
               </div>
               <div className="flex items-center gap-3">
-                <Switch checked={enabled} onCheckedChange={(v) => settingsMutation.mutate({ enabled: v })} />
+                <Switch
+                  checked={enabled}
+                  onCheckedChange={(v) => {
+                    setSettingsForm((p) => ({ ...p, enabled: v }));
+                    settingsMutation.mutate({ enabled: v });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card p-6 rounded-lg border border-border">
+            <div className="font-heading text-lg mb-1">Disponibilidade do calendÃ¡rio</div>
+            <div className="font-body text-sm text-muted-foreground mb-4">
+              Estes valores controlam os dias/horÃ¡rios que podem ser marcados e os dias que aparecem destacados no calendÃ¡rio do cliente.
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <Label className="font-body text-xs">Dias disponÃ­veis</Label>
+                <div className="mt-2 flex items-center gap-4 flex-wrap">
+                  {WEEKDAYS.map((d) => (
+                    <label key={d.value} className="inline-flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={settingsForm.weekdays.includes(d.value)}
+                        onCheckedChange={(checked) => {
+                          setSettingsForm((p) => {
+                            const current = Array.isArray(p.weekdays) ? p.weekdays : [];
+                            const has = current.includes(d.value);
+                            const nextDays = checked
+                              ? (has ? current : [...current, d.value])
+                              : current.filter((x) => x !== d.value);
+                            return { ...p, weekdays: nextDays };
+                          });
+                        }}
+                      />
+                      <span className="font-body text-sm">{d.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label className="font-body text-xs">Passo de horÃ¡rios (min)</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={120}
+                  step={5}
+                  inputMode="numeric"
+                  value={settingsForm.slot_step_minutes}
+                  onChange={(e) => setSettingsForm((p) => ({ ...p, slot_step_minutes: e.target.value }))}
+                  className="rounded-none mt-1"
+                />
+              </div>
+
+              <div>
+                <Label className="font-body text-xs">Hora inÃ­cio</Label>
+                <Input
+                  type="time"
+                  value={settingsForm.start_time}
+                  onChange={(e) => setSettingsForm((p) => ({ ...p, start_time: e.target.value }))}
+                  className="rounded-none mt-1"
+                />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Hora fim</Label>
+                <Input
+                  type="time"
+                  value={settingsForm.end_time}
+                  onChange={(e) => setSettingsForm((p) => ({ ...p, end_time: e.target.value }))}
+                  className="rounded-none mt-1"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  className="rounded-none font-body text-sm tracking-wider w-full"
+                  disabled={
+                    settingsMutation.isPending ||
+                    !Array.isArray(settingsForm.weekdays) ||
+                    settingsForm.weekdays.length === 0 ||
+                    !settingsForm.start_time ||
+                    !settingsForm.end_time ||
+                    String(settingsForm.end_time) <= String(settingsForm.start_time)
+                  }
+                  onClick={() => {
+                    settingsMutation.mutate({
+                      weekdays: settingsForm.weekdays,
+                      start_time: settingsForm.start_time,
+                      end_time: settingsForm.end_time,
+                      slot_step_minutes: Number(settingsForm.slot_step_minutes) || 15,
+                    });
+                  }}
+                >
+                  {settingsMutation.isPending ? 'A guardar...' : 'Guardar'}
+                </Button>
               </div>
             </div>
           </div>

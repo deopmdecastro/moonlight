@@ -153,6 +153,53 @@ function coerceNumber(value, fallback) {
   return Number.isFinite(n) ? n : fallback
 }
 
+const defaultAppointmentsContent = {
+  enabled: false,
+  weekdays: [1, 2, 3, 4, 5, 6], // seg-sÃ¡b
+  start_time: '09:00',
+  end_time: '18:00',
+  slot_step_minutes: 15,
+  timezone: 'Europe/Lisbon',
+}
+
+let appointmentsCache = { content: defaultAppointmentsContent, updatedAt: 0, recordUpdatedAt: null }
+const APPOINTMENTS_CACHE_TTL_MS = 30_000
+
+function coerceTimeHHMM(value, fallback) {
+  const raw = String(value ?? '').trim()
+  return /^\d{2}:\d{2}$/.test(raw) ? raw : fallback
+}
+
+function coerceWeekdays(value, fallback) {
+  if (!Array.isArray(value)) return fallback
+  const days = value.map((v) => Number(v)).filter((n) => Number.isFinite(n) && n >= 0 && n <= 6)
+  const unique = Array.from(new Set(days.map((d) => Math.floor(d))))
+  return unique.length ? unique : fallback
+}
+
+async function getAppointmentsContent() {
+  const now = Date.now()
+  if (appointmentsCache?.content && now - (appointmentsCache.updatedAt ?? 0) < APPOINTMENTS_CACHE_TTL_MS) {
+    return { content: appointmentsCache.content, updatedAt: appointmentsCache.recordUpdatedAt ?? null }
+  }
+
+  const record = await prisma.siteContent.findUnique({ where: { key: 'appointments' } })
+  const value = record?.value ?? null
+
+  const content = { ...defaultAppointmentsContent }
+  if (value && typeof value === 'object') {
+    content.enabled = value.enabled === true
+    content.weekdays = coerceWeekdays(value.weekdays, content.weekdays)
+    content.start_time = coerceTimeHHMM(value.start_time, content.start_time)
+    content.end_time = coerceTimeHHMM(value.end_time, content.end_time)
+    content.slot_step_minutes = Math.max(5, Math.min(Math.floor(coerceNumber(value.slot_step_minutes, content.slot_step_minutes)), 120))
+    content.timezone = typeof value.timezone === 'string' && value.timezone.trim() ? value.timezone.trim() : content.timezone
+  }
+
+  appointmentsCache = { content, updatedAt: now, recordUpdatedAt: record?.updatedAt ?? null }
+  return { content, updatedAt: record?.updatedAt ?? null }
+}
+
 async function getLoyaltyContent() {
   const now = Date.now()
   if (loyaltyCache?.content && now - (loyaltyCache.updatedAt ?? 0) < LOYALTY_CACHE_TTL_MS) return loyaltyCache.content
@@ -505,6 +552,10 @@ const cashClosurePayloadSchema = z
 const appointmentsContentSchema = z
   .object({
     enabled: z.boolean().optional(),
+    weekdays: z.array(z.number().int().min(0).max(6)).min(1).optional(),
+    start_time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    end_time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    slot_step_minutes: z.number().int().min(5).max(120).optional(),
   })
   .passthrough()
 
@@ -1081,6 +1132,40 @@ function parseTimeHHMM(value) {
   return hours * 60 + minutes
 }
 
+function parseDateYMD(value) {
+  const raw = String(value ?? '').trim()
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  const year = Number(m[1])
+  const month = Number(m[2])
+  const day = Number(m[3])
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null
+  if (month < 1 || month > 12) return null
+  if (day < 1 || day > 31) return null
+  const d = new Date(year, month - 1, day, 0, 0, 0, 0)
+  return Number.isFinite(d.getTime()) ? d : null
+}
+
+function parseMonthYM(value) {
+  const raw = String(value ?? '').trim()
+  const m = raw.match(/^(\d{4})-(\d{2})$/)
+  if (!m) return null
+  const year = Number(m[1])
+  const month = Number(m[2])
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null
+  const start = new Date(year, month - 1, 1, 0, 0, 0, 0)
+  const end = new Date(year, month, 1, 0, 0, 0, 0)
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return null
+  return { start, end }
+}
+
+function minutesToTimeHHMM(minutes) {
+  const clamped = Math.max(0, Math.min(24 * 60 - 1, Math.floor(Number(minutes) || 0)))
+  const h = String(Math.floor(clamped / 60)).padStart(2, '0')
+  const m = String(clamped % 60).padStart(2, '0')
+  return `${h}:${m}`
+}
+
 function isAppointmentWithinStaffAvailability(availability, startAt, endAt) {
   if (!availability || typeof availability !== 'object') return true
   const days = Array.isArray(availability.days) ? availability.days : null
@@ -1099,6 +1184,39 @@ function isAppointmentWithinStaffAvailability(availability, startAt, endAt) {
   const apptStart = startAt.getHours() * 60 + startAt.getMinutes()
   const apptEnd = endAt.getHours() * 60 + endAt.getMinutes()
   return apptStart >= startMinutes && apptEnd <= endMinutes
+}
+
+function computeAppointmentSlotsForStaff({ availability, busy, weekday, durationMinutes, stepMinutes, global }) {
+  const globalStart = Number.isFinite(global?.startMinutes) ? global.startMinutes : 9 * 60
+  const globalEnd = Number.isFinite(global?.endMinutes) ? global.endMinutes : 18 * 60
+  const globalDays = Array.isArray(global?.weekdays) ? global.weekdays : null
+
+  const avail = availability && typeof availability === 'object' ? availability : null
+  const staffDays = Array.isArray(avail?.days) ? avail.days : null
+  const combinedDays = staffDays
+    ? (globalDays ? staffDays.filter((d) => globalDays.includes(d)) : staffDays)
+    : globalDays
+
+  if (combinedDays && !combinedDays.includes(weekday)) return []
+
+  const staffStart = parseTimeHHMM(avail?.start_time)
+  const staffEnd = parseTimeHHMM(avail?.end_time)
+  const startMinutes = Math.max(staffStart ?? globalStart, globalStart)
+  const endMinutes = Math.min(staffEnd ?? globalEnd, globalEnd)
+
+  if (endMinutes <= startMinutes) return []
+
+  const latestStart = endMinutes - durationMinutes
+  if (latestStart < startMinutes) return []
+
+  const intervals = Array.isArray(busy) ? busy : []
+  const slots = []
+  for (let t = startMinutes; t <= latestStart; t += stepMinutes) {
+    const end = t + durationMinutes
+    const hasConflict = intervals.some((b) => t < b.end && end > b.start)
+    if (!hasConflict) slots.push(t)
+  }
+  return slots
 }
 
 async function maybeSendAppointmentRemindersForUser(user, appointments) {
@@ -3042,9 +3160,8 @@ app.get('/api/content/loyalty', async (req, res) => {
 })
 
 app.get('/api/content/appointments', async (req, res) => {
-  const record = await prisma.siteContent.findUnique({ where: { key: 'appointments' } })
-  const enabled = Boolean(record?.value && typeof record.value === 'object' && record.value.enabled === true)
-  res.json({ content: { enabled }, updated_date: record?.updatedAt ?? null })
+  const { content, updatedAt } = await getAppointmentsContent()
+  res.json({ content, updated_date: updatedAt ?? null })
 })
 
 // Newsletter (public)
@@ -3742,6 +3859,8 @@ app.get('/api/appointments/staff/available', async (req, res) => {
   if (!serviceId || !startAtRaw) return res.status(400).json({ error: 'invalid_body', detail: 'service_id e start_at obrigatórios' })
 
   const startAt = parseDateInput(startAtRaw)
+  const { content: apptContent } = await getAppointmentsContent()
+  if (!apptContent.enabled) return res.json({ staff: [] })
   if (!startAt) return res.status(400).json({ error: 'invalid_body', detail: 'start_at inválido' })
 
   const service = await prisma.service.findUnique({ where: { id: serviceId } })
@@ -3749,6 +3868,16 @@ app.get('/api/appointments/staff/available', async (req, res) => {
 
   const durationMinutes = Math.max(1, Math.min(Number(service.durationMinutes ?? 30) || 30, 24 * 60))
   const endAt = new Date(startAt.getTime() + durationMinutes * 60_000)
+
+  const globalStart = parseTimeHHMM(apptContent.start_time) ?? 9 * 60
+  const globalEnd = parseTimeHHMM(apptContent.end_time) ?? 18 * 60
+  const globalDays = Array.isArray(apptContent.weekdays) ? apptContent.weekdays : null
+  const weekday = startAt.getDay()
+  const apptStartMinutes = startAt.getHours() * 60 + startAt.getMinutes()
+  const apptEndMinutes = endAt.getHours() * 60 + endAt.getMinutes()
+  if (globalDays && !globalDays.includes(weekday)) return res.json({ staff: [] })
+  if (apptEndMinutes <= apptStartMinutes) return res.json({ staff: [] })
+  if (apptStartMinutes < globalStart || apptEndMinutes > globalEnd) return res.json({ staff: [] })
 
   const linkCount = await prisma.staffService.count({ where: { serviceId } })
   let allowedIds = null
@@ -3784,6 +3913,206 @@ app.get('/api/appointments/staff/available', async (req, res) => {
   const busy = new Set(conflicts.map((c) => c.staffId))
   const available = staffWithinAvailability.filter((s) => !busy.has(s.id))
   res.json({ staff: available.map(toApiStaffMember) })
+})
+
+app.get('/api/appointments/dates/available', async (req, res) => {
+  const serviceId = req.query.service_id ? String(req.query.service_id) : null
+  const monthRaw = req.query.month ? String(req.query.month) : null
+  if (!serviceId || !monthRaw) return res.status(400).json({ error: 'invalid_body', detail: 'service_id e month obrigatÃ³rios' })
+
+  const range = parseMonthYM(monthRaw)
+  if (!range) return res.status(400).json({ error: 'invalid_body', detail: 'month invÃ¡lido (YYYY-MM)' })
+
+  const { content: apptContent } = await getAppointmentsContent()
+  if (!apptContent.enabled) return res.json({ dates: [] })
+
+  const service = await prisma.service.findUnique({ where: { id: serviceId } })
+  if (!service || !service.isActive) return res.status(404).json({ error: 'service_not_found' })
+
+  const durationMinutes = Math.max(1, Math.min(Number(service.durationMinutes ?? 30) || 30, 24 * 60))
+  const stepMinutes = Math.max(5, Math.min(Number(apptContent.slot_step_minutes ?? 15) || 15, 120))
+
+  const globalStart = parseTimeHHMM(apptContent.start_time) ?? 9 * 60
+  const globalEnd = parseTimeHHMM(apptContent.end_time) ?? 18 * 60
+  const globalDays = Array.isArray(apptContent.weekdays) ? apptContent.weekdays : null
+
+  const linkCount = await prisma.staffService.count({ where: { serviceId } })
+  let allowedIds = null
+  if (linkCount > 0) {
+    const links = await prisma.staffService.findMany({ where: { serviceId }, select: { staffId: true } })
+    allowedIds = links.map((l) => l.staffId)
+  }
+
+  const baseWhere = allowedIds ? { isActive: true, id: { in: allowedIds } } : { isActive: true }
+  const staff = await prisma.staffMember.findMany({ where: baseWhere, take: 500 })
+  const staffIds = staff.map((s) => s.id)
+  if (!staffIds.length) return res.json({ dates: [] })
+
+  const appts = await prisma.appointment.findMany({
+    where: {
+      staffId: { in: staffIds },
+      status: { in: ['pending', 'confirmed'] },
+      startAt: { gte: range.start, lt: range.end },
+    },
+    select: { staffId: true, startAt: true, endAt: true },
+    take: 5000,
+  })
+
+  const toYMD = (d) => {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const busyByStaffDate = new Map()
+  for (const a of appts) {
+    const start = new Date(a.startAt)
+    const end = new Date(a.endAt)
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) continue
+
+    const key = `${a.staffId}:${toYMD(start)}`
+    const startMinutes = Math.max(0, Math.min(24 * 60, start.getHours() * 60 + start.getMinutes()))
+    const endMinutes = Math.max(0, Math.min(24 * 60, end.getHours() * 60 + end.getMinutes()))
+    if (endMinutes <= startMinutes) continue
+
+    if (!busyByStaffDate.has(key)) busyByStaffDate.set(key, [])
+    busyByStaffDate.get(key).push({ start: startMinutes, end: endMinutes })
+  }
+
+  const now = new Date()
+  const todayStr = toYMD(now)
+  const dates = []
+
+  for (let d = new Date(range.start.getTime()); d < range.end; d = new Date(d.getTime() + 24 * 60 * 60 * 1000)) {
+    const dateStr = toYMD(d)
+    const weekday = d.getDay()
+    if (globalDays && !globalDays.includes(weekday)) continue
+
+    let any = false
+    for (const s of staff) {
+      const busy = busyByStaffDate.get(`${s.id}:${dateStr}`) ?? []
+      const slots = computeAppointmentSlotsForStaff({
+        availability: s.availability,
+        busy,
+        weekday,
+        durationMinutes,
+        stepMinutes,
+        global: { startMinutes: globalStart, endMinutes: globalEnd, weekdays: globalDays },
+      })
+
+      if (slots.length === 0) continue
+
+      if (dateStr === todayStr) {
+        const hasFuture = slots.some((m) => {
+          const startAt = new Date(d.getTime())
+          startAt.setHours(Math.floor(m / 60), m % 60, 0, 0)
+          return startAt > now
+        })
+        if (!hasFuture) continue
+      }
+
+      any = true
+      break
+    }
+
+    if (any) dates.push(dateStr)
+  }
+
+  res.json({ dates })
+})
+
+app.get('/api/appointments/times/available', async (req, res) => {
+  const serviceId = req.query.service_id ? String(req.query.service_id) : null
+  const dateRaw = req.query.date ? String(req.query.date) : null
+  if (!serviceId || !dateRaw) return res.status(400).json({ error: 'invalid_body', detail: 'service_id e date obrigatórios' })
+
+  const dayStart = parseDateYMD(dateRaw)
+  if (!dayStart) return res.status(400).json({ error: 'invalid_body', detail: 'date inválida (YYYY-MM-DD)' })
+
+  const now = new Date()
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+
+  const { content: apptContent } = await getAppointmentsContent()
+  if (!apptContent.enabled) return res.json({ times: [] })
+
+  const service = await prisma.service.findUnique({ where: { id: serviceId } })
+  if (!service || !service.isActive) return res.status(404).json({ error: 'service_not_found' })
+
+  const durationMinutes = Math.max(1, Math.min(Number(service.durationMinutes ?? 30) || 30, 24 * 60))
+  const stepMinutes = Math.max(5, Math.min(Number(apptContent.slot_step_minutes ?? 15) || 15, 120))
+  const globalStart = parseTimeHHMM(apptContent.start_time) ?? 9 * 60
+  const globalEnd = parseTimeHHMM(apptContent.end_time) ?? 18 * 60
+  const globalDays = Array.isArray(apptContent.weekdays) ? apptContent.weekdays : null
+  const weekday = dayStart.getDay()
+  if (globalDays && !globalDays.includes(weekday)) return res.json({ times: [] })
+
+  const linkCount = await prisma.staffService.count({ where: { serviceId } })
+  let allowedIds = null
+  if (linkCount > 0) {
+    const links = await prisma.staffService.findMany({ where: { serviceId }, select: { staffId: true } })
+    allowedIds = links.map((l) => l.staffId)
+  }
+
+  const baseWhere = allowedIds ? { isActive: true, id: { in: allowedIds } } : { isActive: true }
+  const staff = await prisma.staffMember.findMany({
+    where: baseWhere,
+    orderBy: { name: 'asc' },
+    take: 500,
+  })
+
+  const staffIds = staff.map((s) => s.id)
+  if (!staffIds.length) return res.json({ times: [] })
+
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      staffId: { in: staffIds },
+      status: { in: ['pending', 'confirmed'] },
+      startAt: { lt: dayEnd },
+      endAt: { gt: dayStart },
+    },
+    select: { staffId: true, startAt: true, endAt: true },
+    take: 2000,
+  })
+
+  const busyByStaff = new Map()
+  for (const a of appointments) {
+    const start = new Date(a.startAt)
+    const end = new Date(a.endAt)
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) continue
+    if (end <= start) continue
+
+    const startMinutes = Math.max(0, Math.min(24 * 60, start.getHours() * 60 + start.getMinutes()))
+    const endMinutes = Math.max(0, Math.min(24 * 60, end.getHours() * 60 + end.getMinutes()))
+    if (endMinutes <= startMinutes) continue
+
+    if (!busyByStaff.has(a.staffId)) busyByStaff.set(a.staffId, [])
+    busyByStaff.get(a.staffId).push({ start: startMinutes, end: endMinutes })
+  }
+
+  const allTimes = new Set()
+
+  for (const s of staff) {
+    const busy = busyByStaff.get(s.id) ?? []
+    const slots = computeAppointmentSlotsForStaff({
+      availability: s.availability,
+      busy,
+      weekday,
+      durationMinutes,
+      stepMinutes,
+      global: { startMinutes: globalStart, endMinutes: globalEnd, weekdays: globalDays },
+    })
+
+    for (const minutes of slots) {
+      const startAt = new Date(dayStart.getTime())
+      startAt.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0)
+      if (startAt <= now) continue
+      allTimes.add(minutesToTimeHHMM(minutes))
+    }
+  }
+
+  const times = Array.from(allTimes).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+  res.json({ times })
 })
 
 app.get('/api/appointments/my', async (req, res) => { 
@@ -3842,9 +4171,8 @@ app.post('/api/appointments', async (req, res) => {
   const user = await requireUser(req, res)
   if (!user) return
 
-  const record = await prisma.siteContent.findUnique({ where: { key: 'appointments' } })
-  const enabled = Boolean(record?.value && typeof record.value === 'object' && record.value.enabled === true)
-  if (!enabled) return res.status(403).json({ error: 'appointments_disabled' })
+  const { content: apptContent } = await getAppointmentsContent()
+  if (!apptContent.enabled) return res.status(403).json({ error: 'appointments_disabled' })
 
   const parsed = appointmentCreateSchema.safeParse(req.body ?? {})
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
@@ -3872,6 +4200,24 @@ app.post('/api/appointments', async (req, res) => {
 
   const durationMinutes = Math.max(1, Math.min(Number(service.durationMinutes ?? 30) || 30, 24 * 60)) 
   const endAt = new Date(startAt.getTime() + durationMinutes * 60_000) 
+
+  const globalStart = parseTimeHHMM(apptContent.start_time) ?? 9 * 60
+  const globalEnd = parseTimeHHMM(apptContent.end_time) ?? 18 * 60
+  const globalDays = Array.isArray(apptContent.weekdays) ? apptContent.weekdays : null
+  const weekday = startAt.getDay()
+  const apptStartMinutes = startAt.getHours() * 60 + startAt.getMinutes()
+  const apptEndMinutes = endAt.getHours() * 60 + endAt.getMinutes()
+  if (
+    (globalDays && !globalDays.includes(weekday)) ||
+    apptEndMinutes <= apptStartMinutes ||
+    apptStartMinutes < globalStart ||
+    apptEndMinutes > globalEnd ||
+    startAt.getFullYear() !== endAt.getFullYear() ||
+    startAt.getMonth() !== endAt.getMonth() ||
+    startAt.getDate() !== endAt.getDate()
+  ) {
+    return res.status(409).json({ error: 'outside_schedule' })
+  }
 
   if (staff.availability && !isAppointmentWithinStaffAvailability(staff.availability, startAt, endAt)) {
     return res.status(409).json({ error: 'staff_unavailable' })
@@ -5305,9 +5651,8 @@ app.get('/api/admin/content/appointments', async (req, res) => {
   const admin = await requireAdmin(req, res)
   if (!admin) return
 
-  const record = await prisma.siteContent.findUnique({ where: { key: 'appointments' } })
-  const enabled = Boolean(record?.value && typeof record.value === 'object' && record.value.enabled === true)
-  res.json({ content: { enabled }, updated_date: record?.updatedAt ?? null })
+  const { content, updatedAt } = await getAppointmentsContent()
+  res.json({ content, updated_date: updatedAt ?? null })
 })
 
 app.patch('/api/admin/content/appointments', async (req, res) => {
@@ -5317,15 +5662,32 @@ app.patch('/api/admin/content/appointments', async (req, res) => {
   const parsed = appointmentsContentSchema.safeParse(req.body ?? {})
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
 
-  const value = { enabled: Boolean(parsed.data.enabled) }
+  const existingRecord = await prisma.siteContent.findUnique({ where: { key: 'appointments' } })
+  const existing = existingRecord?.value && typeof existingRecord.value === 'object' ? existingRecord.value : {}
+  const next = { ...defaultAppointmentsContent, ...existing }
+
+  if (parsed.data.enabled !== undefined) next.enabled = parsed.data.enabled === true
+  if (parsed.data.weekdays !== undefined) next.weekdays = parsed.data.weekdays
+  if (parsed.data.start_time !== undefined) next.start_time = parsed.data.start_time
+  if (parsed.data.end_time !== undefined) next.end_time = parsed.data.end_time
+  if (parsed.data.slot_step_minutes !== undefined) next.slot_step_minutes = parsed.data.slot_step_minutes
+
+  const startMinutes = parseTimeHHMM(next.start_time)
+  const endMinutes = parseTimeHHMM(next.end_time)
+  if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+    return res.status(400).json({ error: 'invalid_body', detail: 'horÃ¡rio invÃ¡lido' })
+  }
+
   const record = await prisma.siteContent.upsert({
     where: { key: 'appointments' },
-    create: { key: 'appointments', value },
-    update: { value },
+    create: { key: 'appointments', value: next },
+    update: { value: next },
   })
 
-  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'appointments', meta: { keys: Object.keys(value ?? {}) } })
-  res.json({ content: value, updated_date: record.updatedAt })
+  appointmentsCache = { content: { ...defaultAppointmentsContent, ...next }, updatedAt: 0, recordUpdatedAt: record.updatedAt }
+
+  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'appointments', meta: { keys: Object.keys(next ?? {}) } })
+  res.json({ content: (await getAppointmentsContent())?.content ?? next, updated_date: record.updatedAt })
 })
 
 // Marketing / Email templates

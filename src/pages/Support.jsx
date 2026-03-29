@@ -227,13 +227,20 @@ export default function Support() {
 	                value={newTicket.topic}
 	                onChange={(e) => setNewTicket((p) => ({ ...p, topic: e.target.value }))}
 	                className="mt-1 w-full border border-border bg-background px-3 py-2 text-sm font-body rounded-none"
+	                disabled={SUPPORT_TOPICS.length === 0}
 	              >
-	                <option value="">Selecionar...</option>
-	                {SUPPORT_TOPICS.map((t) => (
-	                  <option key={t.value} value={t.value}>
-	                    {t.label}
-	                  </option>
-	                ))}
+	                {SUPPORT_TOPICS.length === 0 ? (
+	                  <option value="">Sem dados ainda</option>
+	                ) : (
+	                  <>
+	                    <option value="">Selecionar...</option>
+	                    {SUPPORT_TOPICS.map((t) => (
+	                      <option key={t.value} value={t.value}>
+	                        {t.label}
+	                      </option>
+	                    ))}
+	                  </>
+	                )}
 	              </select>
 	            </div>
 	            <div>
