@@ -45,6 +45,7 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
       const NewsletterUnsubscribe = lazy(() => import('@/pages/NewsletterUnsubscribe'));
 			const WishlistPage = lazy(() => import('@/pages/Wishlist'));
 			const Account = lazy(() => import('@/pages/Account'));
+      const Appointments = lazy(() => import('@/pages/Appointments'));
 
 	// Admin
 	const Dashboard = lazy(() => import('@/pages/admin/Dashboard'));
@@ -63,6 +64,7 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
 		const AdminSalesTargets = lazy(() => import('@/pages/admin/SalesTargets'));
 		const AdminCashClosures = lazy(() => import('@/pages/admin/CashClosures'));
 		const AdminReviews = lazy(() => import('@/pages/admin/ReviewsAdmin'));
+    const AdminAppointments = lazy(() => import('@/pages/admin/AppointmentsAdmin'));
 	const ContentLayout = lazy(() => import('@/pages/admin/ContentLayout'));
 	const SettingsLayout = lazy(() => import('@/pages/admin/SettingsLayout'));
 	const LandingAdmin = lazy(() => import('@/pages/admin/LandingAdmin'));
@@ -120,8 +122,9 @@ const AuthenticatedApp = () => {
 	        <Route path="/termos" element={<Terms />} />
           <Route path="/newsletter/unsubscribe" element={<NewsletterUnsubscribe />} />
 		        <Route path="/faq" element={<FAQPage />} />
-		        <Route path="/favoritos" element={<WishlistPage />} />
+	        <Route path="/favoritos" element={<WishlistPage />} />
 	        <Route path="/conta" element={<Account />} />
+          <Route path="/marcacoes" element={<Appointments />} />
 	      </Route>
 
       {/* Admin Layout */}
@@ -162,6 +165,7 @@ const AuthenticatedApp = () => {
 	        <Route path="/admin/financeiro" element={<AdminFinance />} />
 	        <Route path="/admin/cupons" element={<AdminCoupons />} />
           <Route path="/admin/pontos" element={<LoyaltyAdmin />} />
+          <Route path="/admin/marcacoes" element={<AdminAppointments />} />
 	        <Route path="/admin/metas-vendas" element={<AdminSalesTargets />} />
 	        <Route path="/admin/fecho-de-caixa" element={<AdminCashClosures />} />
 	        <Route path="/admin/avaliacoes" element={<AdminReviews />} />

@@ -12,6 +12,9 @@ import BrandBanner from '@/components/home/BrandBanner';
 import Testimonials from '@/components/home/Testimonials';
 import InstagramSection from '@/components/home/InstagramSection';
 
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+
 export default function Home() {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const { data } = useQuery({
@@ -21,6 +24,15 @@ export default function Home() {
   });
 
   const landing = data?.content ?? null;
+
+  const { data: apptSettings } = useQuery({
+    queryKey: ['appointments-settings'],
+    queryFn: () => base44.appointments.settings(),
+    staleTime: 60_000,
+  });
+
+  const apptEnabled = Boolean(apptSettings?.content?.enabled);
+  const navigate = useNavigate();
 
   const subscribeMutation = useMutation({
     mutationFn: (email) => base44.newsletter.subscribe({ email }),
@@ -38,6 +50,19 @@ export default function Home() {
         <AdBanner banner={landing?.ads?.before_highlights} />
 	      <FeaturedProducts title="Destaques" filterKey="is_featured" />
 	      <FeaturedProducts title="Novidades" filterKey="is_new" />
+        {apptEnabled && (
+          <section className="py-16 bg-gradient-to-br from-muted to-background">
+            <div className="max-w-4xl mx-auto px-4 text-center">
+              <h2 className="font-heading text-3xl md:text-4xl mb-4">Agende o seu Serviço</h2>
+              <p className="font-body text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+                Marque a sua próxima visita connosco. Escolha o serviço e horário que melhor se adequa a si.
+              </p>
+              <Button asChild size="lg" className="font-body tracking-wider" onClick={() => navigate('/appointments')}>
+                Agendar Marcação
+              </Button>
+            </div>
+          </section>
+        )}
 	      <BrandBanner content={landing} />
         <AdBanner banner={landing?.ads?.before_testimonials} />
 	      <Testimonials />

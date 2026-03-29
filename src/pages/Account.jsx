@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link, useNavigate } from 'react-router-dom';
-import { Clock, Heart, LogOut, Package, Save, Sparkles, Trash2, User } from 'lucide-react';
+import { Calendar, Clock, Heart, LogOut, Package, Save, Sparkles, Trash2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -190,7 +190,7 @@ export default function Account() {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-10">
         <Link
           to="/favoritos"
           className="bg-card p-5 rounded-lg border border-border hover:border-primary/30 transition-colors flex items-center gap-3"
@@ -204,6 +204,13 @@ export default function Account() {
         >
           <Package className="w-5 h-5 text-accent" />
           <span className="font-body text-sm">Catálogo</span>
+        </Link>
+        <Link
+          to="/marcacoes"
+          className="bg-card p-5 rounded-lg border border-border hover:border-primary/30 transition-colors flex items-center gap-3"
+        >
+          <Calendar className="w-5 h-5 text-accent" />
+          <span className="font-body text-sm">Marcações</span>
         </Link>
         <div className="bg-card p-5 rounded-lg border border-border flex items-center gap-3">
           <Sparkles className="w-5 h-5 text-accent" />

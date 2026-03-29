@@ -413,6 +413,41 @@ export const base44 = {
         loyalty: {
           stats: async () => authedJsonRequest('/api/admin/loyalty/stats'),
         },
+        appointments: {
+          list: async ({ from, to, status = 'all', staff_id, limit = 200 } = {}) => {
+            const params = new URLSearchParams();
+            if (from) params.set('from', String(from));
+            if (to) params.set('to', String(to));
+            if (status && status !== 'all') params.set('status', String(status));
+            if (staff_id) params.set('staff_id', String(staff_id));
+            if (limit) params.set('limit', String(limit));
+            return authedJsonRequest(`/api/admin/appointments?${params.toString()}`);
+          },
+          update: async (id, patch) => authedJsonRequest(`/api/admin/appointments/${id}`, { method: 'PATCH', body: patch }),
+          services: {
+            list: async (limit = 500) => {
+              const params = new URLSearchParams();
+              if (limit) params.set('limit', String(limit));
+              return authedJsonRequest(`/api/admin/appointment-services?${params.toString()}`);
+            },
+            create: async (data) => authedJsonRequest('/api/admin/appointment-services', { method: 'POST', body: data }),
+            update: async (id, data) => authedJsonRequest(`/api/admin/appointment-services/${id}`, { method: 'PATCH', body: data }),
+            staff: {
+              get: async (id) => authedJsonRequest(`/api/admin/appointment-services/${id}/staff`),
+              set: async (id, staff_ids) =>
+                authedJsonRequest(`/api/admin/appointment-services/${id}/staff`, { method: 'PATCH', body: { staff_ids } }),
+            },
+          },
+          staff: {
+            list: async (limit = 500) => {
+              const params = new URLSearchParams();
+              if (limit) params.set('limit', String(limit));
+              return authedJsonRequest(`/api/admin/appointment-staff?${params.toString()}`);
+            },
+            create: async (data) => authedJsonRequest('/api/admin/appointment-staff', { method: 'POST', body: data }),
+            update: async (id, data) => authedJsonRequest(`/api/admin/appointment-staff/${id}`, { method: 'PATCH', body: data }),
+          },
+        },
 		    support: {
 		      tickets: {
 		        list: async (limit = 500) => {
@@ -505,6 +540,10 @@ export const base44 = {
           get: async () => authedJsonRequest('/api/admin/content/loyalty'),
           update: async (data) => authedJsonRequest('/api/admin/content/loyalty', { method: 'PATCH', body: data }),
         },
+        appointments: {
+          get: async () => authedJsonRequest('/api/admin/content/appointments'),
+          update: async (data) => authedJsonRequest('/api/admin/content/appointments', { method: 'PATCH', body: data }),
+        },
         },
         coupons: {
           list: async (order = '-created_date', limit = 200) => {
@@ -571,6 +610,19 @@ export const base44 = {
           if (subtotal !== undefined && subtotal !== null) params.set('subtotal', String(subtotal));
           return jsonRequest(`/api/coupons/validate?${params.toString()}`);
         },
+      },
+      appointments: {
+        settings: async () => jsonRequest('/api/content/appointments'),
+        services: async () => jsonRequest('/api/appointments/services'),
+        staff: async (service_id) => {
+          const params = new URLSearchParams();
+          if (service_id) params.set('service_id', String(service_id));
+          const qs = params.toString();
+          return jsonRequest(`/api/appointments/staff${qs ? `?${qs}` : ''}`);
+        },
+        my: async () => authedJsonRequest('/api/appointments/my'),
+        create: async (data) => authedJsonRequest('/api/appointments', { method: 'POST', body: data }),
+        cancel: async (id) => authedJsonRequest(`/api/appointments/${id}/cancel`, { method: 'PATCH' }),
       },
 	  blog: {
 	    comments: {

@@ -534,3 +534,12 @@ ALTER TABLE "BlogCommentReply" ADD CONSTRAINT "BlogCommentReply_commentId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Added missing indexes (drift fix)
+CREATE INDEX "CashClosure_startedAt_idx" ON "CashClosure"("startedAt");
+CREATE INDEX "CashClosure_endedAt_idx" ON "CashClosure"("endedAt");
+CREATE INDEX "SalesTarget_startAt_idx" ON "SalesTarget"("startAt");
+CREATE INDEX "SalesTarget_endAt_idx" ON "SalesTarget"("endAt");
+CREATE INDEX "SiteContent_updatedAt_idx" ON "SiteContent"("updatedAt");
+CREATE INDEX "User_isDeleted_idx" ON "User"("isDeleted");
+CREATE INDEX "NewsletterSubscriber_userId_idx" ON "NewsletterSubscriber"("userId");

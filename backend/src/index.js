@@ -502,6 +502,51 @@ const cashClosurePayloadSchema = z
   })
   .passthrough()
 
+const appointmentsContentSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+  })
+  .passthrough()
+
+const appointmentServicePayloadSchema = z
+  .object({
+    name: z.string().min(1).max(120),
+    description: z.string().max(2000).optional().nullable(),
+    duration_minutes: z.union([z.number(), z.string()]).optional(),
+    price: z.union([z.number(), z.string()]).optional().nullable(),
+    is_active: z.boolean().optional(),
+  })
+  .passthrough()
+
+const appointmentStaffPayloadSchema = z
+  .object({
+    name: z.string().min(1).max(120),
+    email: z.string().email().max(320).optional().nullable(),
+    phone: z.string().max(30).optional().nullable(),
+    is_active: z.boolean().optional(),
+  })
+  .passthrough()
+
+const appointmentCreateSchema = z
+  .object({
+    service_id: z.string().min(1),
+    staff_id: z.string().min(1),
+    start_at: z.string().min(1).max(200),
+    observations: z.string().max(5000).optional().nullable(),
+  })
+  .passthrough()
+
+const adminAppointmentPatchSchema = z
+  .object({
+    status: z.enum(['pending', 'confirmed', 'cancelled', 'completed']).optional(),
+    start_at: z.string().optional().nullable(),
+    staff_id: z.string().optional().nullable(),
+    service_id: z.string().optional().nullable(),
+    observations: z.string().max(5000).optional().nullable(),
+    duration_minutes: z.union([z.number(), z.string()]).optional().nullable(),
+  })
+  .passthrough()
+
 const blogPostPayloadSchema = z
 	  .object({
 	    title: z.string().min(1).max(200),
@@ -2024,6 +2069,48 @@ async function computeReviewRewardPoints(review) {
   return Math.floor(points)
 }
 
+function toApiAppointmentService(s) {
+  return {
+    id: s.id,
+    name: s.name,
+    description: s.description ?? null,
+    duration_minutes: s.durationMinutes ?? 30,
+    price: s.price === null || s.price === undefined ? null : decimalToNumber(s.price),
+    is_active: Boolean(s.isActive),
+    created_date: s.createdAt,
+    updated_date: s.updatedAt,
+  }
+}
+
+function toApiStaffMember(s) {
+  return {
+    id: s.id,
+    name: s.name,
+    email: s.email ?? null,
+    phone: s.phone ?? null,
+    is_active: Boolean(s.isActive),
+    created_date: s.createdAt,
+    updated_date: s.updatedAt,
+  }
+}
+
+function toApiAppointment(a) {
+  return {
+    id: a.id,
+    user_id: a.userId,
+    customer_email: a.user?.email ?? null,
+    service: a.service ? toApiAppointmentService(a.service) : null,
+    staff: a.staff ? toApiStaffMember(a.staff) : null,
+    start_at: a.startAt,
+    end_at: a.endAt,
+    duration_minutes: a.durationMinutes,
+    status: a.status,
+    observations: a.observations ?? null,
+    created_date: a.createdAt,
+    updated_date: a.updatedAt,
+  }
+}
+
 function toApiWishlistItem(w) {
   return {
     id: w.id,
@@ -2819,6 +2906,12 @@ app.get('/api/content/loyalty', async (req, res) => {
   res.json({ content, updated_date: record?.updatedAt ?? null })
 })
 
+app.get('/api/content/appointments', async (req, res) => {
+  const record = await prisma.siteContent.findUnique({ where: { key: 'appointments' } })
+  const enabled = Boolean(record?.value && typeof record.value === 'object' && record.value.enabled === true)
+  res.json({ content: { enabled }, updated_date: record?.updatedAt ?? null })
+})
+
 // Newsletter (public)
 app.post('/api/newsletter/subscribe', async (req, res) => {
   const parsed = newsletterSubscribeSchema.safeParse(req.body ?? {})
@@ -3436,6 +3529,168 @@ app.delete('/api/wishlist/:id', async (req, res) => {
   res.status(204).send()
 })
 
+// Appointments (customers)
+app.get('/api/appointments/services', async (req, res) => {
+  const services = await prisma.service.findMany({
+    where: { isActive: true },
+    orderBy: { name: 'asc' },
+    take: 500,
+  })
+  res.json({ services: services.map(toApiAppointmentService) })
+})
+
+app.get('/api/appointments/staff', async (req, res) => {
+  const serviceId = req.query.service_id ? String(req.query.service_id) : null
+  if (!serviceId) {
+    const staff = await prisma.staffMember.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      take: 500,
+    })
+    return res.json({ staff: staff.map(toApiStaffMember) })
+  }
+
+  const service = await prisma.service.findUnique({ where: { id: serviceId } })
+  if (!service || !service.isActive) return res.status(404).json({ error: 'service_not_found' })
+
+  const linkCount = await prisma.staffService.count({ where: { serviceId } })
+  if (linkCount === 0) {
+    const staff = await prisma.staffMember.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      take: 500,
+    })
+    return res.json({ staff: staff.map(toApiStaffMember) })
+  }
+
+  const links = await prisma.staffService.findMany({
+    where: { serviceId },
+    select: { staffId: true },
+  })
+  const allowedIds = links.map((l) => l.staffId)
+  const staff = await prisma.staffMember.findMany({
+    where: { isActive: true, id: { in: allowedIds } },
+    orderBy: { name: 'asc' },
+    take: 500,
+  })
+  return res.json({ staff: staff.map(toApiStaffMember) })
+})
+
+app.get('/api/appointments/my', async (req, res) => {
+  const user = await requireUser(req, res)
+  if (!user) return
+
+  const appointments = await prisma.appointment.findMany({
+    where: { userId: user.id },
+    include: { user: true, service: true, staff: true },
+    orderBy: { startAt: 'desc' },
+    take: 200,
+  })
+
+  res.json({ appointments: appointments.map(toApiAppointment) })
+})
+
+app.post('/api/appointments', async (req, res) => {
+  const user = await requireUser(req, res)
+  if (!user) return
+
+  const record = await prisma.siteContent.findUnique({ where: { key: 'appointments' } })
+  const enabled = Boolean(record?.value && typeof record.value === 'object' && record.value.enabled === true)
+  if (!enabled) return res.status(403).json({ error: 'appointments_disabled' })
+
+  const parsed = appointmentCreateSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const startAt = parseDateInput(parsed.data.start_at)
+  if (!startAt) return res.status(400).json({ error: 'invalid_body', detail: 'start_at inválido' })
+  const now = new Date()
+  if (startAt.getTime() < now.getTime() - 60_000) {
+    return res.status(400).json({ error: 'invalid_body', detail: 'start_at no passado' })
+  }
+
+  const service = await prisma.service.findUnique({ where: { id: parsed.data.service_id } })
+  if (!service || !service.isActive) return res.status(404).json({ error: 'service_not_found' })
+
+  const staff = await prisma.staffMember.findUnique({ where: { id: parsed.data.staff_id } })
+  if (!staff || !staff.isActive) return res.status(404).json({ error: 'staff_not_found' })
+
+  const linkCount = await prisma.staffService.count({ where: { serviceId: service.id } })
+  if (linkCount > 0) {
+    const allowed = await prisma.staffService.findUnique({
+      where: { staffId_serviceId: { staffId: staff.id, serviceId: service.id } },
+    })
+    if (!allowed) return res.status(400).json({ error: 'staff_not_allowed_for_service' })
+  }
+
+  const durationMinutes = Math.max(1, Math.min(Number(service.durationMinutes ?? 30) || 30, 24 * 60))
+  const endAt = new Date(startAt.getTime() + durationMinutes * 60_000)
+
+  const conflict = await prisma.appointment.findFirst({
+    where: {
+      staffId: staff.id,
+      status: { in: ['pending', 'confirmed'] },
+      startAt: { lt: endAt },
+      endAt: { gt: startAt },
+    },
+  })
+  if (conflict) return res.status(409).json({ error: 'slot_unavailable' })
+
+  const created = await prisma.appointment.create({
+    data: {
+      userId: user.id,
+      serviceId: service.id,
+      staffId: staff.id,
+      startAt,
+      endAt,
+      durationMinutes,
+      status: 'pending',
+      observations: parsed.data.observations ?? null,
+    },
+    include: { user: true, service: true, staff: true },
+  })
+
+  await writeAuditLog({
+    actorId: user.id,
+    action: 'create',
+    entityType: 'Appointment',
+    entityId: created.id,
+    meta: { service_id: service.id, staff_id: staff.id, start_at: startAt.toISOString(), duration_minutes: durationMinutes },
+  })
+
+  res.status(201).json({ appointment: toApiAppointment(created) })
+})
+
+app.patch('/api/appointments/:id/cancel', async (req, res) => {
+  const user = await requireUser(req, res)
+  if (!user) return
+
+  const id = String(req.params.id)
+  const existing = await prisma.appointment.findFirst({
+    where: { id, userId: user.id },
+    include: { user: true, service: true, staff: true },
+  })
+  if (!existing) return res.status(404).json({ error: 'not_found' })
+  if (existing.status === 'cancelled' || existing.status === 'completed') {
+    return res.status(409).json({ error: 'invalid_status' })
+  }
+
+  const updated = await prisma.appointment.update({
+    where: { id },
+    data: { status: 'cancelled' },
+    include: { user: true, service: true, staff: true },
+  })
+
+  await writeAuditLog({
+    actorId: user.id,
+    action: 'update',
+    entityType: 'Appointment',
+    entityId: updated.id,
+    meta: { status: 'cancelled' },
+  })
+
+  res.json({ appointment: toApiAppointment(updated) })
+})
+
 // Admin APIs
 app.get('/api/admin/users', async (req, res) => {
   const admin = await requireAdmin(req, res)
@@ -3633,6 +3888,253 @@ app.get('/api/admin/loyalty/stats', async (req, res) => {
     users_who_used_points: Array.isArray(usedUsers) ? usedUsers.length : 0,
     orders_with_points: ordersWithPoints,
   })
+})
+
+// Appointments (admin)
+app.get('/api/admin/appointment-services', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const services = await prisma.service.findMany({ orderBy: { createdAt: 'desc' }, take: parseLimit(req.query.limit, 500) })
+  res.json({ services: services.map(toApiAppointmentService) })
+})
+
+app.post('/api/admin/appointment-services', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = appointmentServicePayloadSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const durationMinutes = Math.max(1, Math.min(Number(parsed.data.duration_minutes ?? 30) || 30, 24 * 60))
+  const price = parsed.data.price === undefined ? undefined : parsed.data.price === null ? null : String(parsed.data.price)
+
+  const created = await prisma.service.create({
+    data: {
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      durationMinutes,
+      price,
+      isActive: parsed.data.is_active !== false,
+    },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'create', entityType: 'Service', entityId: created.id, meta: { name: created.name } })
+  res.status(201).json({ service: toApiAppointmentService(created) })
+})
+
+app.patch('/api/admin/appointment-services/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = appointmentServicePayloadSchema.partial().safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const data = {}
+  if (parsed.data.name !== undefined) data.name = parsed.data.name
+  if (parsed.data.description !== undefined) data.description = parsed.data.description ?? null
+  if (parsed.data.duration_minutes !== undefined) data.durationMinutes = Math.max(1, Math.min(Number(parsed.data.duration_minutes ?? 30) || 30, 24 * 60))
+  if (parsed.data.price !== undefined) data.price = parsed.data.price === null ? null : String(parsed.data.price)
+  if (parsed.data.is_active !== undefined) data.isActive = Boolean(parsed.data.is_active)
+
+  const updated = await prisma.service.update({ where: { id: req.params.id }, data })
+  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'Service', entityId: updated.id, meta: { patch: req.body } })
+  res.json({ service: toApiAppointmentService(updated) })
+})
+
+app.get('/api/admin/appointment-services/:id/staff', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const service = await prisma.service.findUnique({ where: { id: req.params.id } })
+  if (!service) return res.status(404).json({ error: 'not_found' })
+
+  const links = await prisma.staffService.findMany({
+    where: { serviceId: service.id },
+    select: { staffId: true },
+    orderBy: { createdAt: 'asc' },
+  })
+  res.json({ staff_ids: links.map((l) => l.staffId) })
+})
+
+app.patch('/api/admin/appointment-services/:id/staff', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const staffIds = Array.isArray(req.body?.staff_ids) ? req.body.staff_ids.map((v) => String(v)) : null
+  if (!staffIds) return res.status(400).json({ error: 'invalid_body', detail: 'staff_ids inválido' })
+
+  const service = await prisma.service.findUnique({ where: { id: req.params.id } })
+  if (!service) return res.status(404).json({ error: 'not_found' })
+
+  const unique = Array.from(new Set(staffIds.filter(Boolean)))
+  const existingStaff = await prisma.staffMember.findMany({
+    where: { id: { in: unique } },
+    select: { id: true },
+  })
+  const validIds = new Set(existingStaff.map((s) => s.id))
+  const finalIds = unique.filter((id) => validIds.has(id))
+
+  await prisma.$transaction(async (tx) => {
+    await tx.staffService.deleteMany({
+      where: { serviceId: service.id, staffId: { notIn: finalIds.length ? finalIds : ['__none__'] } },
+    })
+
+    if (finalIds.length) {
+      await tx.staffService.createMany({
+        data: finalIds.map((staffId) => ({ staffId, serviceId: service.id })),
+        skipDuplicates: true,
+      })
+    }
+  })
+
+  await writeAuditLog({
+    actorId: admin.id,
+    action: 'update',
+    entityType: 'Service',
+    entityId: service.id,
+    meta: { staff_ids: finalIds },
+  })
+
+  res.json({ ok: true, staff_ids: finalIds })
+})
+
+app.get('/api/admin/appointment-staff', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const staff = await prisma.staffMember.findMany({ orderBy: { createdAt: 'desc' }, take: parseLimit(req.query.limit, 500) })
+  res.json({ staff: staff.map(toApiStaffMember) })
+})
+
+app.post('/api/admin/appointment-staff', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = appointmentStaffPayloadSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const created = await prisma.staffMember.create({
+    data: {
+      name: parsed.data.name,
+      email: parsed.data.email ?? null,
+      phone: parsed.data.phone ?? null,
+      isActive: parsed.data.is_active !== false,
+    },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'create', entityType: 'StaffMember', entityId: created.id, meta: { name: created.name } })
+  res.status(201).json({ staff: toApiStaffMember(created) })
+})
+
+app.patch('/api/admin/appointment-staff/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = appointmentStaffPayloadSchema.partial().safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const data = {}
+  if (parsed.data.name !== undefined) data.name = parsed.data.name
+  if (parsed.data.email !== undefined) data.email = parsed.data.email ?? null
+  if (parsed.data.phone !== undefined) data.phone = parsed.data.phone ?? null
+  if (parsed.data.is_active !== undefined) data.isActive = Boolean(parsed.data.is_active)
+
+  const updated = await prisma.staffMember.update({ where: { id: req.params.id }, data })
+  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'StaffMember', entityId: updated.id, meta: { patch: req.body } })
+  res.json({ staff: toApiStaffMember(updated) })
+})
+
+app.get('/api/admin/appointments', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const from = parseDateInput(req.query.from)
+  const to = parseDateInput(req.query.to)
+  const status = req.query.status ? String(req.query.status) : null
+  const staffId = req.query.staff_id ? String(req.query.staff_id) : null
+
+  const where = {}
+  if (from) where.startAt = { ...(where.startAt ?? {}), gte: from }
+  if (to) where.startAt = { ...(where.startAt ?? {}), lte: to }
+  if (status && ['pending', 'confirmed', 'cancelled', 'completed'].includes(status)) where.status = status
+  if (staffId) where.staffId = staffId
+
+  const appointments = await prisma.appointment.findMany({
+    where,
+    include: { user: true, service: true, staff: true },
+    orderBy: { startAt: 'desc' },
+    take: parseLimit(req.query.limit, 200),
+  })
+
+  res.json({ appointments: appointments.map(toApiAppointment) })
+})
+
+app.patch('/api/admin/appointments/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = adminAppointmentPatchSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const existing = await prisma.appointment.findUnique({
+    where: { id: req.params.id },
+    include: { user: true, service: true, staff: true },
+  })
+  if (!existing) return res.status(404).json({ error: 'not_found' })
+
+  const nextStaffId = parsed.data.staff_id ?? undefined
+  const nextServiceId = parsed.data.service_id ?? undefined
+  const nextStartAt = parsed.data.start_at ? parseDateInput(parsed.data.start_at) : null
+  if (parsed.data.start_at && !nextStartAt) return res.status(400).json({ error: 'invalid_body', detail: 'start_at inválido' })
+
+  const staff = nextStaffId ? await prisma.staffMember.findUnique({ where: { id: nextStaffId } }) : existing.staff
+  if (nextStaffId && (!staff || !staff.isActive)) return res.status(404).json({ error: 'staff_not_found' })
+
+  const service = nextServiceId ? await prisma.service.findUnique({ where: { id: nextServiceId } }) : existing.service
+  if (nextServiceId && (!service || !service.isActive)) return res.status(404).json({ error: 'service_not_found' })
+
+  const durationMinutesRaw =
+    parsed.data.duration_minutes === undefined || parsed.data.duration_minutes === null
+      ? Number(service?.durationMinutes ?? existing.durationMinutes ?? 30) || 30
+      : Number(parsed.data.duration_minutes) || 30
+  const durationMinutes = Math.max(1, Math.min(durationMinutesRaw, 24 * 60))
+
+  const startAt = nextStartAt ?? existing.startAt
+  const endAt = new Date(startAt.getTime() + durationMinutes * 60_000)
+
+  const statusNext = parsed.data.status ?? existing.status
+  const shouldCheckConflict = statusNext === 'pending' || statusNext === 'confirmed'
+
+  if (shouldCheckConflict) {
+    const conflict = await prisma.appointment.findFirst({
+      where: {
+        id: { not: existing.id },
+        staffId: staff.id,
+        status: { in: ['pending', 'confirmed'] },
+        startAt: { lt: endAt },
+        endAt: { gt: startAt },
+      },
+    })
+    if (conflict) return res.status(409).json({ error: 'slot_unavailable' })
+  }
+
+  const updated = await prisma.appointment.update({
+    where: { id: existing.id },
+    data: {
+      staffId: staff.id,
+      serviceId: service.id,
+      startAt,
+      endAt,
+      durationMinutes,
+      status: statusNext,
+      observations: parsed.data.observations === undefined ? undefined : parsed.data.observations ?? null,
+    },
+    include: { user: true, service: true, staff: true },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'Appointment', entityId: updated.id, meta: { patch: req.body } })
+  res.json({ appointment: toApiAppointment(updated) })
 })
 
 app.get('/api/admin/products', async (req, res) => {
@@ -4513,6 +5015,33 @@ app.patch('/api/admin/content/loyalty', async (req, res) => {
 
   await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'loyalty', meta: { keys: Object.keys(value ?? {}) } })
   res.json({ content: await getLoyaltyContent(), updated_date: record.updatedAt })
+})
+
+app.get('/api/admin/content/appointments', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const record = await prisma.siteContent.findUnique({ where: { key: 'appointments' } })
+  const enabled = Boolean(record?.value && typeof record.value === 'object' && record.value.enabled === true)
+  res.json({ content: { enabled }, updated_date: record?.updatedAt ?? null })
+})
+
+app.patch('/api/admin/content/appointments', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = appointmentsContentSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const value = { enabled: Boolean(parsed.data.enabled) }
+  const record = await prisma.siteContent.upsert({
+    where: { key: 'appointments' },
+    create: { key: 'appointments', value },
+    update: { value },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'appointments', meta: { keys: Object.keys(value ?? {}) } })
+  res.json({ content: value, updated_date: record.updatedAt })
 })
 
 // Marketing / Email templates
