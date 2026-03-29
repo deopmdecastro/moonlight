@@ -47,7 +47,7 @@ export default function BlogPostPage() {
     mutationFn: (payload) => base44.blog.comments.create(postId, payload),
     onSuccess: () => {
       setCommentForm((p) => ({ ...p, content: '' }));
-      toast.success('Comentário enviado (aguarda aprovação).');
+      toast.success('Comentário enviado.');
       queryClient.invalidateQueries({ queryKey: ['blog-comments', postId] });
     },
     onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível enviar o comentário.')),

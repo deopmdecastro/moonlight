@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Heart, Menu, X, User, Store } from 'lucide-react';
+import { ShoppingBag, Heart, Menu, X, User, Store, LayoutDashboard } from 'lucide-react';
 import { useCart } from '@/lib/CartContext';
 import { useAuth } from '@/lib/AuthContext';
 import zanaLogo from '@/img/zana_logo_primary.svg';
@@ -15,6 +15,7 @@ export default function Navbar() {
   const logoSrc = String(branding?.logo_primary_url ?? '').trim() || zanaLogo;
   const siteName = String(branding?.site_name ?? 'Zana').trim() || 'Zana';
   const isLogged = Boolean(user);
+  const isAdmin = Boolean(user?.isAdmin);
 
   useEffect(() => {
     const updateThemeColor = () => {
@@ -78,6 +79,11 @@ export default function Navbar() {
                 <Link to="/catalogo" className="p-2 hover:text-primary transition-colors">
                   <Store className="w-4 h-4" />
                 </Link>
+                {isAdmin && (
+                  <Link to="/admin" className="p-2 hover:text-primary transition-colors" title="Painel Admin">
+                    <LayoutDashboard className="w-4 h-4" />
+                  </Link>
+                )}
                 <Link to="/favoritos" className="p-2 hover:text-primary transition-colors">
                   <Heart className="w-4 h-4" />
                 </Link>
@@ -137,6 +143,15 @@ export default function Navbar() {
           >
             Minha Conta
           </Link>
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="block px-6 py-3 text-sm font-body tracking-wide text-foreground/80 hover:text-primary hover:bg-secondary/50 transition-colors"
+              onClick={() => setMobileOpen(false)}
+            >
+              Painel Admin
+            </Link>
+          )}
         </div>
       )}
     </nav>

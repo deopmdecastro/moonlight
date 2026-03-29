@@ -63,6 +63,10 @@ export default function Checkout() {
   const { user } = useAuth();
   const [step, setStep] = useState('form');
   const [submitting, setSubmitting] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [coupon, setCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
 
   const { data: paymentsData } = useQuery({
     queryKey: ['content-payments'],
@@ -139,7 +143,43 @@ export default function Checkout() {
 
   const total = subtotal + shipping;
 
+  const couponDiscount = useMemo(() => {
+    if (!coupon) return 0
+    const amount = Number(coupon.discount_amount ?? 0) || 0
+    return Math.min(amount, subtotal + shipping)
+  }, [coupon, subtotal, shipping])
+
+  const totalWithCoupon = Math.max(0, subtotal + shipping - couponDiscount)
+
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleApplyCoupon = async () => {
+    const trimmed = couponCode.trim()
+    if (!trimmed) {
+      setCoupon(null)
+      setCouponError('Insira um código de cupom')
+      return
+    }
+
+    setCouponLoading(true)
+    setCouponError('')
+    try {
+      const result = await base44.coupons.validate(trimmed, subtotal)
+      setCoupon(result)
+      setCouponError('Cupom aplicado com sucesso')
+    } catch (error) {
+      setCoupon(null)
+      setCouponError(error?.data?.detail ?? error?.message ?? 'Não foi possível validar o cupom')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setCoupon(null)
+    setCouponCode('')
+    setCouponError('Cupom removido')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -161,6 +201,7 @@ export default function Checkout() {
           ...form,
           shipping_method_id: selectedShipping?.id ?? form.shipping_method_id ?? null,
           shipping_method_label: selectedShipping?.label ?? null,
+          coupon_code: coupon?.code ?? null,
           items: items.map((i) => ({
             product_id: i.product_id,
             product_name: i.product_name,
@@ -171,7 +212,7 @@ export default function Checkout() {
           })),
           subtotal,
           shipping_cost: shipping,
-          total,
+          total: totalWithCoupon,
           status: 'pending',
         }),
         {
@@ -342,9 +383,39 @@ export default function Checkout() {
 	                })}
 	              </RadioGroup>
 	            </div>
-	
-	            <div className="bg-card p-6 rounded-lg border border-border">
-	              <h2 className="font-heading text-xl mb-4">Pagamento</h2>
+
+            <div className="bg-card p-6 rounded-lg border border-border">
+              <h2 className="font-heading text-xl mb-4">Cupom de Desconto</h2>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+                  <Input
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    placeholder="Código do cupom"
+                    className="rounded-none"
+                  />
+                  <Button type="button" onClick={handleApplyCoupon} disabled={couponLoading} className="rounded-none">
+                    {couponLoading ? 'A aplicar...' : 'Aplicar'}
+                  </Button>
+                </div>
+                {coupon ? (
+                  <div className="rounded-sm border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                    Cupom <span className="font-semibold">{coupon.code}</span> aplicado. Desconto de {Number(coupon.discount_amount ?? 0).toFixed(2)} €.
+                    <button type="button" className="ml-2 underline" onClick={handleRemoveCoupon}>
+                      Remover
+                    </button>
+                  </div>
+                ) : null}
+                {couponError ? (
+                  <div className="rounded-sm border border-muted-foreground/40 bg-muted/10 p-3 text-sm text-foreground/80">
+                    {couponError}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="bg-card p-6 rounded-lg border border-border">
+              <h2 className="font-heading text-xl mb-4">Pagamento</h2>
               <RadioGroup value={form.payment_method} onValueChange={(v) => handleChange('payment_method', v)} className="space-y-3">
                 {paymentOptions.map((opt) => (
                   <div key={opt.value} className="flex items-center gap-3 p-3 border border-border rounded-sm hover:bg-secondary/30">
@@ -386,10 +457,16 @@ export default function Checkout() {
                 <span className="text-muted-foreground">Envio</span>
                 <span>{shipping === 0 ? 'Grátis' : `${shipping.toFixed(2)} €`}</span>
               </div>
+              {couponDiscount > 0 ? (
+                <div className="flex justify-between text-sm text-green-700">
+                  <span className="text-muted-foreground">Desconto</span>
+                  <span>-{couponDiscount.toFixed(2)} €</span>
+                </div>
+              ) : null}
               <Separator />
               <div className="flex justify-between font-semibold text-base">
                 <span>Total</span>
-                <span>{total.toFixed(2)} €</span>
+                <span>{totalWithCoupon.toFixed(2)} €</span>
               </div>
             </div>
             <Button type="submit" disabled={submitting} className="w-full rounded-none py-6 font-body text-sm tracking-wider mt-6">

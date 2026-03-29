@@ -16,6 +16,8 @@ import {
   ShoppingBag,
   ShoppingBasket,
   ShoppingCart,
+  Tag,
+  TrendingUp,
   Truck,
   Users,
 } from 'lucide-react';
@@ -34,6 +36,9 @@ const navSections = [
 	      { to: '/admin/produtos', icon: Package, label: 'Produtos' },
 	      { to: '/admin/encomendas', icon: ShoppingCart, label: 'Encomendas' },
 	      { to: '/admin/financeiro', icon: Euro, label: 'Financeiro' },
+	      { to: '/admin/cupons', icon: Tag, label: 'Cupons' },
+	      { to: '/admin/metas-vendas', icon: TrendingUp, label: 'Metas de Vendas' },
+	      { to: '/admin/fecho-de-caixa', icon: CreditCard, label: 'Fecho de Caixa' },
 	      { to: '/admin/clientes', icon: Users, label: 'Clientes' },
 	      { to: '/admin/suporte', icon: MessageSquare, label: 'Suporte' },
 	    ],

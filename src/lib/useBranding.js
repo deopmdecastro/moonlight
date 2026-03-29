@@ -13,6 +13,8 @@ const defaults = {
   favicon_url: '',
   app_icon_url: iconZ,
   theme_color: '#782641',
+  background_color: '#f8f5f2',
+  secondary_color: '#f1e7db',
 };
 
 function getOrCreateLink(rel, type) {
@@ -190,6 +192,22 @@ export function useBranding() {
             hsl.l > 55 ? '340 20% 15%' : '30 30% 98%'
           );
         }
+      }
+    }
+
+    if (branding.background_color) {
+      const value = String(branding.background_color).trim();
+      const hsl = parseColorToHsl(value);
+      if (hsl && typeof document !== 'undefined') {
+        document.documentElement.style.setProperty('--background', formatHslString(hsl));
+      }
+    }
+
+    if (branding.secondary_color) {
+      const value = String(branding.secondary_color).trim();
+      const hsl = parseColorToHsl(value);
+      if (hsl && typeof document !== 'undefined') {
+        document.documentElement.style.setProperty('--secondary', formatHslString(hsl));
       }
     }
 

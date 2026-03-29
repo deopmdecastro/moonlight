@@ -106,7 +106,7 @@ export default function ProductDetail() {
       }),
       {
         loading: 'A enviar avaliação...',
-        success: 'Avaliação enviada (aguarda aprovação).',
+        success: 'Avaliação enviada.',
         error: 'Não foi possível enviar a avaliação.',
       },
     );
@@ -308,18 +308,18 @@ export default function ProductDetail() {
 
           <div className="mt-6 bg-card p-6 rounded-lg border border-border">
             <h3 className="font-heading text-lg mb-4">Deixe a sua avaliação</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-	              <div>
-	                <Label className="font-body text-xs">Rating</Label>
-	                <div className="mt-2">
-	                  <StarRating
-	                    value={reviewForm.rating}
-	                    onChange={(v) => setReviewForm((p) => ({ ...p, rating: v }))}
-	                    aria-label="Escolher rating"
-	                  />
-	                </div>
-	              </div>
-              <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-[180px_minmax(0,1fr)] gap-4 items-start">
+              <div>
+                <Label className="font-body text-xs">Rating</Label>
+                <div className="mt-2">
+                  <StarRating
+                    value={reviewForm.rating}
+                    onChange={(v) => setReviewForm((p) => ({ ...p, rating: v }))}
+                    aria-label="Escolher rating"
+                  />
+                </div>
+              </div>
+              <div>
                 <Label className="font-body text-xs">Comentário (opcional)</Label>
                 <Textarea
                   value={reviewForm.comment}

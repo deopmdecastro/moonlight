@@ -15,6 +15,8 @@ const defaults = {
   favicon_url: '',
   app_icon_url: '',
   theme_color: '#782641',
+  background_color: '#f8f5f2',
+  secondary_color: '#f1e7db',
   site_name: 'Zana',
 };
 
@@ -44,6 +46,8 @@ export default function BrandingAdmin() {
       favicon_url: String(form.favicon_url ?? '').trim() || null,
       app_icon_url: String(form.app_icon_url ?? '').trim() || null,
       theme_color: String(form.theme_color ?? '').trim() || null,
+      background_color: String(form.background_color ?? '').trim() || null,
+      secondary_color: String(form.secondary_color ?? '').trim() || null,
     };
 
     await toastApiPromise(saveMutation.mutateAsync(payload), {
@@ -100,14 +104,34 @@ export default function BrandingAdmin() {
 
           <div className="bg-card border border-border rounded-lg p-5">
             <h3 className="font-heading text-xl mb-4">Tema</h3>
-            <div className="max-w-xl">
-              <Label className="font-body text-xs">Cor principal</Label>
-              <Input
-                type="color"
-                value={form.theme_color ?? '#782641'}
-                onChange={(e) => setForm((p) => ({ ...p, theme_color: e.target.value }))}
-                className="rounded-none mt-1 h-12 w-24 p-0"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+              <div>
+                <Label className="font-body text-xs">Cor principal</Label>
+                <Input
+                  type="color"
+                  value={form.theme_color ?? '#782641'}
+                  onChange={(e) => setForm((p) => ({ ...p, theme_color: e.target.value }))}
+                  className="rounded-none mt-1 h-12 w-full p-0"
+                />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Cor de fundo</Label>
+                <Input
+                  type="color"
+                  value={form.background_color ?? '#f8f5f2'}
+                  onChange={(e) => setForm((p) => ({ ...p, background_color: e.target.value }))}
+                  className="rounded-none mt-1 h-12 w-full p-0"
+                />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Cor secundária</Label>
+                <Input
+                  type="color"
+                  value={form.secondary_color ?? '#f1e7db'}
+                  onChange={(e) => setForm((p) => ({ ...p, secondary_color: e.target.value }))}
+                  className="rounded-none mt-1 h-12 w-full p-0"
+                />
+              </div>
             </div>
           </div>
 

@@ -8,6 +8,7 @@ const ddl = [
   `DO $$ BEGIN CREATE TYPE "ProductStatus" AS ENUM ('active','inactive','out_of_stock'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "OrderStatus" AS ENUM ('pending','confirmed','processing','shipped','delivered','cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "PaymentMethod" AS ENUM ('mbway','transferencia','multibanco','paypal'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `DO $$ BEGIN CREATE TYPE "CouponType" AS ENUM ('amount','percent'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "BlogCategory" AS ENUM ('tendencias','dicas','novidades','inspiracao'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "BlogStatus" AS ENUM ('draft','published'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "SupportTicketStatus" AS ENUM ('open','closed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
@@ -39,11 +40,11 @@ const ddl = [
   `,
   `CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User" ("email");`,
   `CREATE INDEX IF NOT EXISTS "User_createdAt_idx" ON "User" ("createdAt");`,
-  `CREATE INDEX IF NOT EXISTS "User_isDeleted_idx" ON "User" ("isDeleted");`,
 
   // Backfill/upgrade existing local DBs created before these columns existed.
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE;`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;`,
+  `CREATE INDEX IF NOT EXISTS "User_isDeleted_idx" ON "User" ("isDeleted");`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "phone" TEXT;`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "addressLine1" TEXT;`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "addressLine2" TEXT;`,
@@ -123,6 +124,48 @@ const ddl = [
   `CREATE INDEX IF NOT EXISTS "Order_status_idx" ON "Order" ("status");`,
   `CREATE INDEX IF NOT EXISTS "Order_customerEmail_idx" ON "Order" ("customerEmail");`,
 
+  `DO $$ BEGIN CREATE TABLE IF NOT EXISTS "Coupon" (
+    "id" TEXT PRIMARY KEY,
+    "code" TEXT NOT NULL,
+    "type" "CouponType" NOT NULL DEFAULT 'amount',
+    "value" NUMERIC(12,2) NOT NULL,
+    "description" TEXT,
+    "maxUses" INTEGER DEFAULT 1,
+    "usedCount" INTEGER NOT NULL DEFAULT 0,
+    "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "expiresAt" TIMESTAMPTZ,
+    "minOrderSubtotal" NUMERIC(12,2),
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  ); EXCEPTION WHEN duplicate_table THEN NULL; END $$;`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Coupon_code_uq" ON "Coupon" ("code");`,
+  `CREATE TABLE IF NOT EXISTS "SalesTarget" (
+    "id" TEXT PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "startAt" TIMESTAMPTZ NOT NULL,
+    "endAt" TIMESTAMPTZ NOT NULL,
+    "goalAmount" NUMERIC(12,2) NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+  `CREATE INDEX IF NOT EXISTS "SalesTarget_startAt_idx" ON "SalesTarget" ("startAt");`,
+  `CREATE INDEX IF NOT EXISTS "SalesTarget_endAt_idx" ON "SalesTarget" ("endAt");`,
+  `CREATE TABLE IF NOT EXISTS "CashClosure" (
+    "id" TEXT PRIMARY KEY,
+    "startedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "endedAt" TIMESTAMPTZ,
+    "openingBalance" NUMERIC(12,2) NOT NULL,
+    "closingBalance" NUMERIC(12,2) NOT NULL,
+    "totalSales" NUMERIC(12,2),
+    "notes" TEXT,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+  `CREATE INDEX IF NOT EXISTS "CashClosure_startedAt_idx" ON "CashClosure" ("startedAt");`,
+  `CREATE INDEX IF NOT EXISTS "CashClosure_endedAt_idx" ON "CashClosure" ("endedAt");`,
+
 	  `ALTER TABLE IF EXISTS "Product" ADD COLUMN IF NOT EXISTS "freeShipping" BOOLEAN NOT NULL DEFAULT FALSE;`,
 	  `ALTER TABLE IF EXISTS "Product" ADD COLUMN IF NOT EXISTS "videos" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];`,
     `ALTER TABLE IF EXISTS "Product" ADD COLUMN IF NOT EXISTS "acquisitionCost" NUMERIC(12,2);`,
@@ -131,6 +174,10 @@ const ddl = [
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "trackingCode" TEXT;`,
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "trackingUrl" TEXT;`,
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "trackingCarrier" TEXT;`,
+  `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "couponId" TEXT;`,
+  `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "couponCode" TEXT;`,
+  `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "discountAmount" NUMERIC(12,2);`,
+  `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "discountType" "CouponType";`,
 
   `
   CREATE TABLE IF NOT EXISTS "OrderItem" (

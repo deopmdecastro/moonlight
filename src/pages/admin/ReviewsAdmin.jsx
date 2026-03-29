@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 import { MessageSquare } from 'lucide-react';
 import DeleteIcon from '@/components/ui/delete-icon';
+import { getPrimaryImage } from '@/lib/images';
 
 export default function AdminReviews() {
   const queryClient = useQueryClient();
@@ -135,7 +136,31 @@ export default function AdminReviews() {
           {selected && (
             <div className="space-y-2 font-body text-sm">
               <div className="text-xs text-muted-foreground">{new Date(selected.created_date).toLocaleString('pt-PT')}</div>
-              <div><span className="text-muted-foreground">Produto:</span> {selected.product_id}</div>
+              <div className="flex items-center gap-3 pt-1">
+                {(() => {
+                  const p = productById.get(selected.product_id);
+                  const image = selected.product_image ?? getPrimaryImage(p?.images);
+                  const name = selected.product_name ?? p?.name ?? selected.product_id;
+
+                  return (
+                    <>
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={name}
+                          className="w-14 h-14 rounded-md object-cover border border-border bg-secondary/30"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-md border border-border bg-secondary/30" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{name}</div>
+                        <div className="text-xs text-muted-foreground truncate">{selected.product_id}</div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
               <div><span className="text-muted-foreground">Rating:</span> {selected.rating}/5</div>
               <div><span className="text-muted-foreground">Autor:</span> {selected.author_name ?? '-'}</div>
               {selected.comment ? <div className="pt-2 whitespace-pre-wrap">{selected.comment}</div> : <div>-</div>}

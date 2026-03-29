@@ -417,6 +417,7 @@ const orderPayloadSchema = z
     status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']).optional(),
     payment_method: z.enum(['mbway', 'transferencia', 'multibanco', 'paypal']).optional().nullable(),
     notes: z.string().optional().nullable(),
+    coupon_code: z.string().optional().nullable(),
     items: z.array(orderItemPayloadSchema).min(1),
   })
   .passthrough()
@@ -428,6 +429,41 @@ const adminOrderUpdateSchema = z
     tracking_code: z.string().optional().nullable(),
     tracking_url: z.string().optional().nullable(),
     tracking_carrier: z.string().optional().nullable(),
+  })
+  .passthrough()
+
+const couponPayloadSchema = z
+  .object({
+    code: z.string().min(1).max(100),
+    type: z.enum(['amount', 'percent']).optional(),
+    value: z.union([z.number(), z.string()]).optional(),
+    description: z.string().optional().nullable(),
+    max_uses: z.union([z.number(), z.string()]).optional().nullable(),
+    is_active: z.boolean().optional(),
+    expires_at: z.string().optional().nullable(),
+    min_order_subtotal: z.union([z.number(), z.string()]).optional().nullable(),
+  })
+  .passthrough()
+
+const salesTargetPayloadSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    description: z.string().optional().nullable(),
+    start_at: z.string().optional().nullable(),
+    end_at: z.string().optional().nullable(),
+    goal_amount: z.union([z.number(), z.string()]).optional(),
+    is_active: z.boolean().optional(),
+  })
+  .passthrough()
+
+const cashClosurePayloadSchema = z
+  .object({
+    started_at: z.string().optional().nullable(),
+    ended_at: z.string().optional().nullable(),
+    opening_balance: z.union([z.number(), z.string()]).optional(),
+    closing_balance: z.union([z.number(), z.string()]).optional(),
+    total_sales: z.union([z.number(), z.string()]).optional().nullable(),
+    notes: z.string().optional().nullable(),
   })
   .passthrough()
 
@@ -824,21 +860,1056 @@ function toApiOrder(o) {
       quantity: it.quantity,
       color: it.color ?? null,
     })),
+    coupon_code: o.couponCode ?? null,
+    discount_amount: o.discountAmount === null || o.discountAmount === undefined ? null : decimalToNumber(o.discountAmount),
+    discount_type: o.discountType ?? null,
   }
 }
 
-function toApiBlogPost(p) {
-	  return {
-	    id: p.id,
-	    title: p.title,
-	    content: p.content,
-	    excerpt: p.excerpt ?? null,
-	    image_url: p.imageUrl ?? null,
-	    category: p.category ?? null,
-	    status: p.status,
-	    created_date: p.createdAt,
-	    updated_date: p.updatedAt,
-	  }
+function normalizeCouponCode(value) {
+  if (value === null || value === undefined) return ''
+  return String(value).trim().toUpperCase()
+}
+
+function getCouponDiscountAmount(coupon, subtotal) {
+  const base = Number(subtotal ?? 0) || 0
+  if (!coupon) return 0
+  const value = Number(coupon.value ?? 0) || 0
+  if (coupon.type === 'percent') {
+    return Number(((base * value) / 100).toFixed(2))
+  }
+  return Number(value.toFixed ? value.toFixed(2) : value) || 0
+}
+
+function toApiCoupon(c) {
+  return {
+    id: c.id,
+    code: c.code,
+    type: c.type,
+    value: decimalToNumber(c.value) ?? 0,
+    description: c.description ?? null,
+    max_uses: c.maxUses ?? null,
+    used_count: c.usedCount,
+    is_active: Boolean(c.isActive),
+    expires_at: c.expiresAt ?? null,
+    min_order_subtotal: c.minOrderSubtotal === null || c.minOrderSubtotal === undefined ? null : decimalToNumber(c.minOrderSubtotal),
+    created_date: c.createdAt,
+    updated_date: c.updatedAt,
+  }
+}
+
+function toApiSalesTarget(t) {
+  return {
+    id: t.id,
+    name: t.name,
+    description: t.description ?? null,
+    start_at: t.startAt,
+    end_at: t.endAt,
+    goal_amount: decimalToNumber(t.goalAmount) ?? 0,
+    is_active: Boolean(t.isActive),
+    created_date: t.createdAt,
+    updated_date: t.updatedAt,
+  }
+}
+
+function toApiCashClosure(c) {
+  return {
+    id: c.id,
+    started_at: c.startedAt,
+    ended_at: c.endedAt ?? null,
+    opening_balance: decimalToNumber(c.openingBalance) ?? 0,
+    closing_balance: decimalToNumber(c.closingBalance) ?? 0,
+    total_sales: c.totalSales === null || c.totalSales === undefined ? null : decimalToNumber(c.totalSales),
+    notes: c.notes ?? null,
+    created_date: c.createdAt,
+    updated_date: c.updatedAt,
+  }
+}
+
+function validateCouponPayload(coupon, subtotal) {
+  if (!coupon || !coupon.isActive) {
+    return { valid: false, message: 'cupom inválido ou inativo' }
+  }
+  const now = new Date()
+  if (coupon.expiresAt && coupon.expiresAt < now) {
+    return { valid: false, message: 'cupom expirado' }
+  }
+  if (coupon.maxUses !== null && coupon.maxUses !== undefined && coupon.usedCount >= coupon.maxUses) {
+    return { valid: false, message: 'cupom já foi utilizado o número máximo de vezes' }
+  }
+  if (coupon.minOrderSubtotal !== null && coupon.minOrderSubtotal !== undefined) {
+    const threshold = Number(coupon.minOrderSubtotal) || 0
+    const amount = Number(subtotal ?? 0) || 0
+    if (amount < threshold) {
+      return { valid: false, message: `subtotal mínimo de ${threshold.toFixed(2)}€ não atingido` }
+    }
+  }
+  return { valid: true, discount_amount: getCouponDiscountAmount(coupon, subtotal ?? 0) }
+}
+
+function normalizeCouponPayload(body) {
+  if (!body || typeof body !== 'object') return null
+  const code = normalizeCouponCode(body.coupon_code ?? body.couponCode)
+  if (!code) return null
+  return { code }
+}
+
+function applyCouponToOrder(data) {
+  const couponCode = normalizeCouponCode(data.coupon_code)
+  if (!couponCode) return { coupon: null, couponId: null, couponCode: null, discountAmount: null, discountType: null }
+  return { couponCode }
+}
+
+function parseDateInput(value) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? date : null
+}
+
+function parseDecimal(value) {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const normalized = value.replace(',', '.').trim()
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function formatDecimal(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number.toFixed(2) : '0.00'
+}
+
+function calculateCouponDiscount(coupon, subtotal) {
+  return Number(getCouponDiscountAmount(coupon, subtotal) ?? 0)
+}
+
+function validateCouponRecord(coupon, subtotal) {
+  return validateCouponPayload(coupon, subtotal)
+}
+
+function normalizeApiDate(value) {
+  return value ? new Date(value) : null
+}
+
+function isCouponExpired(coupon) {
+  if (!coupon || !coupon.expiresAt) return false
+  return new Date(coupon.expiresAt) < new Date()
+}
+
+function getOrderCouponFields(coupon, subtotal) {
+  if (!coupon) return { couponId: null, couponCode: null, discountAmount: null, discountType: null }
+  return {
+    couponId: coupon.id,
+    couponCode: coupon.code,
+    discountAmount: String(Math.max(0, calculateCouponDiscount(coupon, subtotal))),
+    discountType: coupon.type,
+  }
+}
+
+function getCouponDiscountValue(coupon, subtotal) {
+  return getCouponDiscountAmount(coupon, subtotal)
+}
+
+function roundDecimal(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return 0
+  return Number(number.toFixed(2))
+}
+
+function toApiSalesTargetProgress(target, achievedAmount) {
+  return {
+    ...toApiSalesTarget(target),
+    achieved_amount: achievedAmount,
+    progress: target.goalAmount ? Number(((Number(achievedAmount) || 0) / Number(target.goalAmount)) * 100).toFixed(2) : '0.00',
+  }
+}
+
+function toApiCashClosureSummary(closure) {
+  return toApiCashClosure(closure)
+}
+
+function getCouponValidationResponse(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  if (!validation.valid) return { valid: false, message: validation.message }
+  return {
+    valid: true,
+    coupon: toApiCoupon(coupon),
+    discount_amount: validation.discount_amount,
+    message: 'cupom válido',
+  }
+}
+
+function buildCouponDurationInfo(coupon) {
+  if (!coupon) return null
+  const parts = []
+  if (coupon.minOrderSubtotal !== null && coupon.minOrderSubtotal !== undefined) {
+    parts.push(`subtotal mínimo ${Number(coupon.minOrderSubtotal).toFixed(2)}€`)
+  }
+  if (coupon.expiresAt) {
+    parts.push(`válido até ${new Date(coupon.expiresAt).toISOString().slice(0, 10)}`)
+  }
+  return parts.join(', ')
+}
+
+function normalizeAdminDate(value) {
+  if (!value) return null
+  const parsed = new Date(value)
+  return Number.isFinite(parsed.getTime()) ? parsed : null
+}
+
+function getCouponDisplayLabel(coupon) {
+  if (!coupon) return ''
+  const base = coupon.type === 'percent' ? `${coupon.value}%` : `${coupon.value.toFixed(2)}€`
+  return `${coupon.code} (${base})`
+}
+
+function parseApiCouponData(body) {
+  return {
+    code: normalizeCouponCode(body.code ?? body.coupon_code),
+    type: body.type === 'percent' ? 'percent' : 'amount',
+    value: Number(body.value ?? 0) || 0,
+    description: body.description ?? null,
+    maxUses: body.max_uses === null || body.max_uses === undefined ? null : Number(body.max_uses),
+    isActive: body.is_active === false ? false : true,
+    expiresAt: parseDateInput(body.expires_at),
+    minOrderSubtotal:
+      body.min_order_subtotal === null || body.min_order_subtotal === undefined
+        ? null
+        : Number(body.min_order_subtotal) || null,
+  }
+}
+
+function normalizeSalesTargetPayload(body) {
+  if (!body || typeof body !== 'object') return null
+  return {
+    name: String(body.name ?? '').trim(),
+    description: body.description ?? null,
+    startAt: parseDateInput(body.start_at) ?? new Date(),
+    endAt: parseDateInput(body.end_at) ?? new Date(),
+    goalAmount: Number(body.goal_amount ?? 0) || 0,
+    isActive: body.is_active === false ? false : true,
+  }
+}
+
+function normalizeCashClosurePayload(body) {
+  if (!body || typeof body !== 'object') return null
+  return {
+    startedAt: parseDateInput(body.started_at) ?? new Date(),
+    endedAt: parseDateInput(body.ended_at) ?? null,
+    openingBalance: Number(body.opening_balance ?? 0) || 0,
+    closingBalance: Number(body.closing_balance ?? 0) || 0,
+    totalSales: body.total_sales === null || body.total_sales === undefined ? null : Number(body.total_sales) || null,
+    notes: body.notes ?? null,
+  }
+}
+
+function getCouponUsageCount(coupon) {
+  return coupon?.usedCount ?? 0
+}
+
+function toApiCouponList(coupons) {
+  return (coupons ?? []).map(toApiCoupon)
+}
+
+function toApiSalesTargetList(targets, progressMap = {}) {
+  return (targets ?? []).map((target) => ({ ...toApiSalesTarget(target), achieved_amount: progressMap[target.id] ?? 0 }))
+}
+
+function toApiCashClosureList(closures) {
+  return (closures ?? []).map(toApiCashClosure)
+}
+
+function getCouponRemainingUses(coupon) {
+  if (coupon.maxUses === null || coupon.maxUses === undefined) return null
+  return Math.max(0, (coupon.maxUses ?? 0) - (coupon.usedCount ?? 0))
+}
+
+function sanitizeCouponCode(code) {
+  return normalizeCouponCode(code)
+}
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return value.toLowerCase() === 'true'
+  return false
+}
+
+function formatDate(value) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null
+}
+
+function getOrderCouponMetadata(coupon) {
+  if (!coupon) return null
+  return {
+    coupon_code: coupon.code,
+    discount_type: coupon.type,
+    discount_amount: getCouponDiscountAmount(coupon, 0),
+  }
+}
+
+function getCouponSummary(coupon) {
+  if (!coupon) return null
+  return {
+    ...toApiCoupon(coupon),
+    remaining_uses: getCouponRemainingUses(coupon),
+    expiry: coupon.expiresAt ?? null,
+  }
+}
+
+function getSalesTargetStatus(target, achievedAmount) {
+  const progress = Number(((Number(achievedAmount) || 0) / Number(target.goalAmount || 0)) * 100)
+  return {
+    ...toApiSalesTarget(target),
+    achieved_amount: achievedAmount,
+    progress: Number.isFinite(progress) ? Number(progress.toFixed(2)) : 0,
+    completed: progress >= 100,
+  }
+}
+
+function getCashClosureProgress(closure) {
+  if (!closure || closure.totalSales === null || closure.totalSales === undefined) return null
+  const totalSales = Number(closure.totalSales) || 0
+  const diff = Number(closure.closingBalance) - Number(closure.openingBalance)
+  return { totalSales, balanceDifference: diff }
+}
+
+function getCouponStatus(coupon) {
+  if (!coupon) return 'invalid'
+  if (!coupon.isActive) return 'inactive'
+  if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) return 'expired'
+  return 'active'
+}
+
+function toApiCouponWithStatus(coupon, subtotal) {
+  if (!coupon) return { valid: false }
+  const validation = validateCouponPayload(coupon, subtotal)
+  return {
+    ...toApiCoupon(coupon),
+    valid: validation.valid,
+    discount_amount: validation.discount_amount ?? 0,
+    message: validation.message ?? 'ok',
+  }
+}
+
+function toApiCouponValidationResult(coupon, subtotal) {
+  return toApiCouponWithStatus(coupon, subtotal)
+}
+
+function buildCouponResponse(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  return {
+    valid: validation.valid,
+    coupon: validation.valid ? toApiCoupon(coupon) : null,
+    discount_amount: validation.discount_amount ?? 0,
+    message: validation.message ?? 'cupom inválido',
+  }
+}
+
+function createCouponData(body) {
+  return {
+    code: normalizeCouponCode(body.code),
+    type: body.type === 'percent' ? 'percent' : 'amount',
+    value: String(Number(body.value ?? 0) || 0),
+    description: body.description ?? null,
+    maxUses: body.max_uses === null || body.max_uses === undefined ? null : Number(body.max_uses) || null,
+    isActive: body.is_active === false ? false : true,
+    expiresAt: parseDateInput(body.expires_at),
+    minOrderSubtotal: body.min_order_subtotal === null || body.min_order_subtotal === undefined ? null : String(Number(body.min_order_subtotal) || 0),
+  }
+}
+
+function createSalesTargetData(body) {
+  return {
+    name: String(body.name ?? '').trim(),
+    description: body.description ?? null,
+    startAt: parseDateInput(body.start_at) || new Date(),
+    endAt: parseDateInput(body.end_at) || new Date(),
+    goalAmount: String(Number(body.goal_amount ?? 0) || 0),
+    isActive: body.is_active === false ? false : true,
+  }
+}
+
+function createCashClosureData(body) {
+  return {
+    startedAt: parseDateInput(body.started_at) || new Date(),
+    endedAt: parseDateInput(body.ended_at) || null,
+    openingBalance: String(Number(body.opening_balance ?? 0) || 0),
+    closingBalance: String(Number(body.closing_balance ?? 0) || 0),
+    totalSales: body.total_sales === null || body.total_sales === undefined ? null : String(Number(body.total_sales) || 0),
+    notes: body.notes ?? null,
+  }
+}
+
+function getCouponOrderFields(coupon, subtotal) {
+  if (!coupon) return { couponId: null, couponCode: null, discountAmount: null, discountType: null }
+  return {
+    couponId: coupon.id,
+    couponCode: coupon.code,
+    discountAmount: String(getCouponDiscountAmount(coupon, subtotal)),
+    discountType: coupon.type,
+  }
+}
+
+function getCouponByCode(code) {
+  return prisma.coupon.findUnique({ where: { code: normalizeCouponCode(code) } })
+}
+
+function buildCouponValidationError(message) {
+  return { valid: false, message }
+}
+
+function roundToTwo(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 0
+  return Number(n.toFixed(2))
+}
+
+function setOrderCouponValues(coupon, subtotal) {
+  if (!coupon) return { couponId: null, couponCode: null, discountAmount: null, discountType: null }
+  return {
+    couponId: coupon.id,
+    couponCode: coupon.code,
+    discountAmount: String(roundToTwo(getCouponDiscountAmount(coupon, subtotal))),
+    discountType: coupon.type,
+  }
+}
+
+function getCouponDiscountFromTotal(coupon, subtotal) {
+  return roundToTwo(getCouponDiscountAmount(coupon, subtotal))
+}
+
+function getCouponActiveState(coupon) {
+  return Boolean(coupon?.isActive)
+}
+
+function getCouponExpiration(coupon) {
+  return coupon?.expiresAt ?? null
+}
+
+function getCouponRequirements(coupon) {
+  const requirements = []
+  if (coupon?.minOrderSubtotal) requirements.push(`subtotal mínimo ${Number(coupon.minOrderSubtotal).toFixed(2)}€`)
+  if (coupon?.expiresAt) requirements.push(`válido até ${new Date(coupon.expiresAt).toISOString().slice(0, 10)}`)
+  return requirements.join(', ')
+}
+
+function getCouponRemaining(coupon) {
+  if (coupon?.maxUses === null || coupon?.maxUses === undefined) return null
+  return Math.max(0, (coupon.maxUses ?? 0) - (coupon.usedCount ?? 0))
+}
+
+function validateCouponUsage(coupon) {
+  if (!coupon || !coupon.isActive) return false
+  if (coupon.expiresAt && coupon.expiresAt < new Date()) return false
+  if (coupon.maxUses !== null && coupon.maxUses !== undefined && coupon.usedCount >= coupon.maxUses) return false
+  return true
+}
+
+function formatCouponType(type) {
+  return type === 'percent' ? 'percent' : 'amount'
+}
+
+function getCouponDisplayValue(coupon) {
+  if (!coupon) return '0.00'
+  return coupon.type === 'percent' ? `${coupon.value}%` : `${Number(coupon.value).toFixed(2)}€`
+}
+
+function buildCouponResponseShape(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  return {
+    valid: validation.valid,
+    message: validation.message ?? null,
+    coupon: validation.valid ? toApiCoupon(coupon) : null,
+    discount_amount: validation.discount_amount ?? 0,
+  }
+}
+
+function getSalesTargetProgressValue(target, achieved) {
+  const a = Number(achieved ?? 0)
+  const g = Number(target.goalAmount ?? 0)
+  if (!g) return 0
+  return Math.min(100, Number(((a / g) * 100).toFixed(2)))
+}
+
+function getCashClosureSummaryValue(closure) {
+  if (!closure) return null
+  return {
+    totalSales: decimalToNumber(closure.totalSales) ?? 0,
+    balanceDifference: decimalToNumber(closure.closingBalance) - decimalToNumber(closure.openingBalance),
+  }
+}
+
+function getSalesTargetDateRange(target) {
+  return {
+    startAt: target.startAt,
+    endAt: target.endAt,
+  }
+}
+
+function getCouponSummaryLabel(coupon) {
+  if (!coupon) return ''
+  return `${coupon.code} (${coupon.type === 'percent' ? `${coupon.value}%` : `${Number(coupon.value).toFixed(2)}€`})`
+}
+
+function formatAmount(value) {
+  return Number(value ?? 0).toFixed(2)
+}
+
+function buildCouponMessage(coupon, subtotal) {
+  if (!coupon) return 'Cupom inválido'
+  const validation = validateCouponPayload(coupon, subtotal)
+  return validation.message ?? 'Cupom válido'
+}
+
+function parseSubtotal(value) {
+  return parseDecimal(value) ?? 0
+}
+
+function getCouponDiscountForOrder(coupon, subtotal) {
+  return Number(getCouponDiscountAmount(coupon, subtotal) || 0)
+}
+
+function parseCouponCode(value) {
+  return normalizeCouponCode(value)
+}
+
+function toApiCouponWithDiscount(coupon, subtotal) {
+  if (!coupon) return null
+  return {
+    ...toApiCoupon(coupon),
+    discount_amount: getCouponDiscountAmount(coupon, subtotal),
+  }
+}
+
+function buildCouponNormalizedCode(code) {
+  return normalizeCouponCode(code)
+}
+
+function getCouponDataFromRequest(body) {
+  return {
+    code: normalizeCouponCode(body.code),
+    type: formatCouponType(body.type),
+    value: String(Number(body.value ?? 0) || 0),
+    description: body.description ?? null,
+    maxUses: body.max_uses === null || body.max_uses === undefined ? null : Number(body.max_uses) || null,
+    isActive: body.is_active === false ? false : true,
+    expiresAt: parseDateInput(body.expires_at),
+    minOrderSubtotal: body.min_order_subtotal === null || body.min_order_subtotal === undefined ? null : String(Number(body.min_order_subtotal) || 0),
+  }
+}
+
+function getSalesTargetById(id) {
+  return prisma.salesTarget.findUnique({ where: { id } })
+}
+
+function getCashClosureById(id) {
+  return prisma.cashClosure.findUnique({ where: { id } })
+}
+
+function getCouponById(id) {
+  return prisma.coupon.findUnique({ where: { id } })
+}
+
+function getSalesTargetsList(order = { createdAt: 'desc' }) {
+  return prisma.salesTarget.findMany({ orderBy: order })
+}
+
+function getCashClosuresList(order = { createdAt: 'desc' }) {
+  return prisma.cashClosure.findMany({ orderBy: order })
+}
+
+function getCouponsList(order = { createdAt: 'desc' }) {
+  return prisma.coupon.findMany({ orderBy: order })
+}
+
+function getCouponByCodeOrNull(code) {
+  const normalized = normalizeCouponCode(code)
+  if (!normalized) return null
+  return prisma.coupon.findUnique({ where: { code: normalized } })
+}
+
+function getTypeOrDefault(value) {
+  return value === 'percent' ? 'percent' : 'amount'
+}
+
+function getOrderCouponInfo(coupon, subtotal) {
+  if (!coupon) return null
+  return {
+    coupon_id: coupon.id,
+    coupon_code: coupon.code,
+    discount_amount: getCouponDiscountAmount(coupon, subtotal),
+    discount_type: coupon.type,
+  }
+}
+
+function getCouponIsRedeemable(coupon) {
+  if (!coupon) return false
+  if (!coupon.isActive) return false
+  if (coupon.expiresAt && coupon.expiresAt < new Date()) return false
+  if (coupon.maxUses !== null && coupon.maxUses !== undefined && coupon.usedCount >= coupon.maxUses) return false
+  return true
+}
+
+function getCouponMessageForOrder(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  return validation.message ?? 'invalid'
+}
+
+function getCouponDiscountFromPayload(body) {
+  const subtotal = parseSubtotal(body.subtotal)
+  const code = normalizeCouponCode(body.coupon_code)
+  if (!code) return 0
+  return getCouponDiscountFromTotal(getCouponByCode(code), subtotal)
+}
+
+function buildOrderCouponFields(coupon, subtotal) {
+  if (!coupon) return { couponId: null, couponCode: null, discountAmount: null, discountType: null }
+  return {
+    couponId: coupon.id,
+    couponCode: coupon.code,
+    discountAmount: String(getCouponDiscountAmount(coupon, subtotal)),
+    discountType: coupon.type,
+  }
+}
+
+function getCouponControlValue(coupon) {
+  return coupon?.code ?? null
+}
+
+function toApiCouponResult(coupon, subtotal) {
+  if (!coupon) return { valid: false, message: 'cupom inválido' }
+  const validation = validateCouponPayload(coupon, subtotal)
+  return {
+    valid: validation.valid,
+    coupon: validation.valid ? toApiCoupon(coupon) : null,
+    discount_amount: validation.discount_amount ?? 0,
+    message: validation.message ?? 'cupom inválido',
+  }
+}
+
+function parseCouponValidationParams(req) {
+  const code = normalizeCouponCode(req.query.code)
+  const subtotal = parseDecimal(req.query.subtotal)
+  return { code, subtotal }
+}
+
+function getCouponValidationMessage(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  return validation.message
+}
+
+function buildCouponValidationPayload(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  return {
+    valid: validation.valid,
+    discount_amount: validation.discount_amount ?? 0,
+    coupon: validation.valid ? toApiCoupon(coupon) : null,
+    message: validation.message ?? 'cupom inválido',
+  }
+}
+
+function getSalesTargetStatusForTarget(target, achieved) {
+  const amount = Number(achieved ?? 0)
+  const goal = Number(target.goalAmount ?? 0)
+  return {
+    ...toApiSalesTarget(target),
+    achieved_amount: amount,
+    progress: goal ? Number(Math.min((amount / goal) * 100, 100).toFixed(2)) : 0,
+    completed: goal ? amount >= goal : false,
+  }
+}
+
+function getCashClosureDisplay(closure) {
+  return {
+    ...toApiCashClosure(closure),
+    balance_difference: closure.closingBalance - closure.openingBalance,
+  }
+}
+
+function normalizeAdminCouponBody(body) {
+  return {
+    code: normalizeCouponCode(body.code),
+    type: formatCouponType(body.type),
+    value: Number(body.value ?? 0) || 0,
+    description: body.description ?? null,
+    maxUses: body.max_uses === null || body.max_uses === undefined ? null : Number(body.max_uses) || null,
+    isActive: body.is_active === false ? false : true,
+    expiresAt: parseDateInput(body.expires_at),
+    minOrderSubtotal: body.min_order_subtotal === null || body.min_order_subtotal === undefined ? null : Number(body.min_order_subtotal) || null,
+  }
+}
+
+function normalizeAdminSalesTargetBody(body) {
+  return {
+    name: String(body.name ?? '').trim(),
+    description: body.description ?? null,
+    startAt: parseDateInput(body.start_at) || new Date(),
+    endAt: parseDateInput(body.end_at) || new Date(),
+    goalAmount: Number(body.goal_amount ?? 0) || 0,
+    isActive: body.is_active === false ? false : true,
+  }
+}
+
+function normalizeAdminCashClosureBody(body) {
+  return {
+    startedAt: parseDateInput(body.started_at) || new Date(),
+    endedAt: parseDateInput(body.ended_at) || null,
+    openingBalance: Number(body.opening_balance ?? 0) || 0,
+    closingBalance: Number(body.closing_balance ?? 0) || 0,
+    totalSales: body.total_sales === null || body.total_sales === undefined ? null : Number(body.total_sales) || null,
+    notes: body.notes ?? null,
+  }
+}
+
+function getCouponPropertiesForOrder(coupon, subtotal) {
+  return buildOrderCouponFields(coupon, subtotal)
+}
+
+function couponIsRedeemable(coupon) {
+  return validateCouponUsage(coupon)
+}
+
+function getOrderCouponSummary(coupon, subtotal) {
+  if (!coupon) return null
+  const amount = getCouponDiscountAmount(coupon, subtotal)
+  return { code: coupon.code, discount_amount: amount, type: coupon.type }
+}
+
+function getBasicCouponInfo(coupon) {
+  return coupon ? { code: coupon.code, type: coupon.type, value: decimalToNumber(coupon.value) ?? 0 } : null
+}
+
+function buildOrderCouponRecord(coupon, subtotal) {
+  if (!coupon) return { couponId: null, couponCode: null, discountAmount: null, discountType: null }
+  return {
+    couponId: coupon.id,
+    couponCode: coupon.code,
+    discountAmount: String(getCouponDiscountAmount(coupon, subtotal)),
+    discountType: coupon.type,
+  }
+}
+
+function getCouponCodeFromBody(body) {
+  return normalizeCouponCode(body.coupon_code ?? body.couponCode)
+}
+
+function validateOrderCoupon(coupon, subtotal) {
+  return validateCouponPayload(coupon, subtotal)
+}
+
+function getCouponApplicationFields(coupon, subtotal) {
+  if (!coupon) return { couponId: null, couponCode: null, discountAmount: null, discountType: null }
+  return {
+    couponId: coupon.id,
+    couponCode: coupon.code,
+    discountAmount: String(getCouponDiscountAmount(coupon, subtotal)),
+    discountType: coupon.type,
+  }
+}
+
+function getCouponDiscountProperties(coupon, subtotal) {
+  return { discount_amount: getCouponDiscountAmount(coupon, subtotal), type: coupon?.type ?? null }
+}
+
+function getCouponDetails(coupon, subtotal) {
+  return buildCouponResponseShape(coupon, subtotal)
+}
+
+function validateCouponRequest(req) {
+  const code = normalizeCouponCode(req.query.code)
+  const subtotal = parseDecimal(req.query.subtotal)
+  return { code, subtotal }
+}
+
+function getOrderCouponAmount(coupon, subtotal) {
+  return getCouponDiscountAmount(coupon, subtotal)
+}
+
+function buildCouponOrderData(coupon, subtotal) {
+  if (!coupon) return null
+  return {
+    couponId: coupon.id,
+    couponCode: coupon.code,
+    discountAmount: String(getCouponDiscountAmount(coupon, subtotal)),
+    discountType: coupon.type,
+  }
+}
+
+function validateCheckoutCoupon(coupon, subtotal) {
+  return validateCouponPayload(coupon, subtotal)
+}
+
+function getCouponOrderCreationFields(coupon, subtotal) {
+  if (!coupon) return { couponId: null, couponCode: null, discountAmount: null, discountType: null }
+  return {
+    couponId: coupon.id,
+    couponCode: coupon.code,
+    discountAmount: String(getCouponDiscountAmount(coupon, subtotal)),
+    discountType: coupon.type,
+  }
+}
+
+function toApiCouponRecord(coupon) {
+  return toApiCoupon(coupon)
+}
+
+function getCouponAmountForOrder(coupon, subtotal) {
+  return getCouponDiscountAmount(coupon, subtotal)
+}
+
+function toApiSalesTargetRecord(target) {
+  return toApiSalesTarget(target)
+}
+
+function toApiCashClosureRecord(closure) {
+  return toApiCashClosure(closure)
+}
+
+function getCouponForOrder(code) {
+  return prisma.coupon.findUnique({ where: { code: normalizeCouponCode(code) } })
+}
+
+function isCouponEligibleForOrder(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  return validation.valid
+}
+
+function getCouponUpdateData(body) {
+  return normalizeAdminCouponBody(body)
+}
+
+function getSalesTargetUpdateData(body) {
+  return normalizeAdminSalesTargetBody(body)
+}
+
+function getCashClosureCreateData(body) {
+  return normalizeAdminCashClosureBody(body)
+}
+
+function getCouponListResponse(coupons) {
+  return toApiCouponList(coupons)
+}
+
+function getSalesTargetListResponse(targets, progressMap = {}) {
+  return toApiSalesTargetList(targets, progressMap)
+}
+
+function getCashClosureListResponse(closures) {
+  return toApiCashClosureList(closures)
+}
+
+function calculateSalesTargetProgress(target, orders) {
+  const achieved = (orders ?? []).reduce((sum, order) => sum + (Number(order.total) || 0), 0)
+  return getSalesTargetStatusForTarget(target, achieved)
+}
+
+function calculateSalesTargetAchievement(target) {
+  return getSalesTargetProgressValue(target, 0)
+}
+
+function getCouponStats(coupon) {
+  return {
+    ...toApiCoupon(coupon),
+    remaining_uses: getCouponRemaining(coupon),
+  }
+}
+
+function isCouponAvailable(coupon) {
+  return coupon && coupon.isActive && !(coupon.expiresAt && new Date(coupon.expiresAt) < new Date())
+}
+
+function getCouponAdminFields(body) {
+  return normalizeAdminCouponBody(body)
+}
+
+function isSalesTargetActive(target) {
+  return Boolean(target?.isActive)
+}
+
+function formatCashClosureDate(date) {
+  return date ? new Date(date).toISOString().slice(0, 10) : null
+}
+
+function getCashClosurePeriod(closure) {
+  if (!closure) return null
+  return {
+    start: closure.startedAt ? new Date(closure.startedAt).toISOString().slice(0, 10) : null,
+    end: closure.endedAt ? new Date(closure.endedAt).toISOString().slice(0, 10) : null,
+  }
+}
+
+function buildCashClosureSummary(closure) {
+  return {
+    ...toApiCashClosure(closure),
+    balance_difference: closure.closingBalance - closure.openingBalance,
+  }
+}
+
+function getCouponOrderSummary(coupon, subtotal) {
+  if (!coupon) return null
+  return {
+    coupon_code: coupon.code,
+    discount_type: coupon.type,
+    discount_amount: getCouponDiscountAmount(coupon, subtotal),
+  }
+}
+
+function getCouponLabel(coupon) {
+  if (!coupon) return ''
+  return `${coupon.code} (${coupon.type === 'percent' ? `${coupon.value}%` : `${Number(coupon.value).toFixed(2)}€`})`
+}
+
+function normalizeCouponRequestBody(body) {
+  return {
+    code: normalizeCouponCode(body.code),
+    type: formatCouponType(body.type),
+    value: Number(body.value ?? 0) || 0,
+    description: body.description ?? null,
+    maxUses: body.max_uses === null || body.max_uses === undefined ? null : Number(body.max_uses) || null,
+    isActive: body.is_active === false ? false : true,
+    expiresAt: parseDateInput(body.expires_at),
+    minOrderSubtotal: body.min_order_subtotal === null || body.min_order_subtotal === undefined ? null : Number(body.min_order_subtotal) || null,
+  }
+}
+
+function normalizeSalesTargetRequestBody(body) {
+  return {
+    name: String(body.name ?? '').trim(),
+    description: body.description ?? null,
+    startAt: parseDateInput(body.start_at) || new Date(),
+    endAt: parseDateInput(body.end_at) || new Date(),
+    goalAmount: Number(body.goal_amount ?? 0) || 0,
+    isActive: body.is_active === false ? false : true,
+  }
+}
+
+function normalizeCashClosureRequestBody(body) {
+  return {
+    startedAt: parseDateInput(body.started_at) || new Date(),
+    endedAt: parseDateInput(body.ended_at) || null,
+    openingBalance: Number(body.opening_balance ?? 0) || 0,
+    closingBalance: Number(body.closing_balance ?? 0) || 0,
+    totalSales: body.total_sales === null || body.total_sales === undefined ? null : Number(body.total_sales) || null,
+    notes: body.notes ?? null,
+  }
+}
+
+function getCouponListAdminResponse(coupons) {
+  return (coupons ?? []).map(toApiCoupon)
+}
+
+function getSalesTargetAdminResponse(targets) {
+  return (targets ?? []).map(toApiSalesTarget)
+}
+
+function getCashClosureAdminResponse(closures) {
+  return (closures ?? []).map(toApiCashClosure)
+}
+
+function getCouponByCodeOrThrow(code) {
+  return prisma.coupon.findUnique({ where: { code: normalizeCouponCode(code) } })
+}
+
+function getOrderCouponValidation(coupon, subtotal) {
+  return validateCouponPayload(coupon, subtotal)
+}
+
+function getCouponValidationErrorMessage(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  return validation.message
+}
+
+function computeCouponDiscount(coupon, subtotal) {
+  return getCouponDiscountAmount(coupon, subtotal)
+}
+
+function getCouponEffectiveDiscount(coupon, subtotal) {
+  return computeCouponDiscount(coupon, subtotal)
+}
+
+function getOrderCouponCreateData(coupon, subtotal) {
+  return getCouponOrderCreationFields(coupon, subtotal)
+}
+
+function getSalesTargetDetails(target, achieved) {
+  return getSalesTargetStatusForTarget(target, achieved)
+}
+
+function getCashClosureDetails(closure) {
+  return getCashClosureDisplay(closure)
+}
+
+function buildCouponCreationPayload(body) {
+  return normalizeAdminCouponBody(body)
+}
+
+function buildSalesTargetCreationPayload(body) {
+  return normalizeAdminSalesTargetBody(body)
+}
+
+function buildCashClosureCreationPayload(body) {
+  return normalizeAdminCashClosureBody(body)
+}
+
+function getCouponIdentifier(code) {
+  return normalizeCouponCode(code)
+}
+
+function getCouponFromRequestQuery(req) {
+  return normalizeCouponRequestBody(req.query)
+}
+
+function getCouponValidationResult(coupon, subtotal) {
+  return buildCouponResponseShape(coupon, subtotal)
+}
+
+function getCouponParameters(req) {
+  const code = normalizeCouponCode(req.query.code)
+  const subtotal = parseDecimal(req.query.subtotal)
+  return { code, subtotal }
+}
+
+function getCouponUsageSummary(coupon) {
+  return {
+    used: coupon.usedCount,
+    remaining: getCouponRemaining(coupon),
+  }
+}
+
+function getCouponStatusLabel(coupon) {
+  if (!coupon) return 'inativo'
+  if (!coupon.isActive) return 'inativo'
+  if (coupon.expiresAt && coupon.expiresAt < new Date()) return 'expirado'
+  return 'ativo'
+}
+
+function getCouponValidationDescription(coupon, subtotal) {
+  const validation = validateCouponPayload(coupon, subtotal)
+  return validation.message
+}
+
+function getCouponPayload(body) {
+  return normalizeAdminCouponBody(body)
+}
+
+function getSalesTargetPayload(body) {
+  return normalizeAdminSalesTargetBody(body)
+}
+
+function getCashClosurePayload(body) {
+  return normalizeAdminCashClosureBody(body)
+}
+
+function getCouponCodeFromQuery(req) {
+  return normalizeCouponCode(req.query.code)
+}
+
+function getCouponDiscountEstimate(coupon, subtotal) {
+  return getCouponDiscountAmount(coupon, subtotal)
 }
 
 function toPublicBlogComment(c) {
@@ -879,6 +1950,8 @@ function toApiReview(r) {
   return {
     id: r.id,
     product_id: r.productId,
+    product_name: r.product?.name ?? null,
+    product_image: Array.isArray(r.product?.images) ? (r.product.images[0] ?? null) : null,
     rating: r.rating,
     comment: r.comment ?? null,
     author_name: r.authorName ?? null,
@@ -1506,6 +2579,25 @@ app.post('/api/analytics/search', async (req, res) => {
   res.json({ ok: true })
 })
 
+app.get('/api/coupons/validate', async (req, res) => {
+  const code = normalizeCouponCode(req.query.code)
+  if (!code) return res.status(400).json({ error: 'invalid_code', detail: 'código de cupom é obrigatório' })
+
+  const subtotal = parseDecimal(req.query.subtotal)
+  const coupon = await prisma.coupon.findUnique({ where: { code } })
+  if (!coupon) return res.status(404).json({ error: 'coupon_not_found', detail: 'cupom não encontrado' })
+
+  const validation = validateCouponPayload(coupon, subtotal)
+  if (!validation.valid) return res.status(400).json({ error: 'invalid_coupon', detail: validation.message })
+
+  res.json({
+    ...toApiCoupon(coupon),
+    discount_amount: validation.discount_amount ?? 0,
+    remaining_uses:
+      coupon.maxUses === null || coupon.maxUses === undefined ? null : Math.max(0, coupon.maxUses - coupon.usedCount),
+  })
+})
+
 app.get('/api/reviews', async (req, res) => {
   const where = {}
   if (req.query.product_id) where.productId = String(req.query.product_id)
@@ -2085,6 +3177,32 @@ app.post('/api/orders', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
 
   const data = parsed.data
+  const subtotalValue = Number(data.subtotal ?? 0) || 0
+  const shippingCostValue = Number(data.shipping_cost ?? 0) || 0
+
+  let coupon = null
+  let appliedDiscount = 0
+  let couponId = null
+  let couponCode = null
+  let discountType = null
+
+  if (data.coupon_code) {
+    const providedCode = normalizeCouponCode(data.coupon_code)
+    if (!providedCode) return res.status(400).json({ error: 'invalid_coupon', detail: 'cupom inválido' })
+
+    coupon = await prisma.coupon.findUnique({ where: { code: providedCode } })
+    if (!coupon) return res.status(400).json({ error: 'invalid_coupon', detail: 'cupom inválido' })
+
+    const validation = validateCouponPayload(coupon, subtotalValue)
+    if (!validation.valid) return res.status(400).json({ error: 'invalid_coupon', detail: validation.message })
+
+    appliedDiscount = Number(validation.discount_amount ?? 0) || 0
+    couponId = coupon.id
+    couponCode = coupon.code
+    discountType = coupon.type
+  }
+
+  const totalValue = Math.max(0, subtotalValue + shippingCostValue - appliedDiscount)
   const created = await prisma.order.create({
     data: {
       customerName: data.customer_name,
@@ -2096,10 +3214,14 @@ app.post('/api/orders', async (req, res) => {
       shippingCountry: data.shipping_country ?? undefined,
       shippingMethodId: data.shipping_method_id ?? null,
       shippingMethodLabel: data.shipping_method_label ?? null,
+      couponId,
+      couponCode,
+      discountAmount: appliedDiscount ? String(appliedDiscount) : undefined,
+      discountType: discountType ?? null,
       subtotal: data.subtotal === undefined || data.subtotal === null ? undefined : String(data.subtotal),
       shippingCost:
         data.shipping_cost === undefined || data.shipping_cost === null ? undefined : String(data.shipping_cost),
-      total: String(data.total),
+      total: String(totalValue),
       status: data.status ?? 'pending',
       paymentMethod: data.payment_method ?? null,
       notes: data.notes ?? null,
@@ -2116,6 +3238,10 @@ app.post('/api/orders', async (req, res) => {
     },
     include: { items: true },
   })
+
+  if (coupon) {
+    await prisma.coupon.update({ where: { id: coupon.id }, data: { usedCount: { increment: 1 } } })
+  }
 
   await writeAuditLog({ action: 'create', entityType: 'Order', entityId: created.id, meta: { source: 'checkout' } })
 
@@ -2572,6 +3698,272 @@ app.patch('/api/admin/orders/:id', async (req, res) => {
   } catch {
     res.status(404).json({ error: 'not_found' })
   }
+})
+
+app.get('/api/admin/coupons', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const coupons = await prisma.coupon.findMany({
+    orderBy: parseOrderParam(req.query.order),
+    take: parseLimit(req.query.limit, 200),
+  })
+
+  res.json(coupons.map(toApiCoupon))
+})
+
+app.post('/api/admin/coupons', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = couponPayloadSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const code = normalizeCouponCode(parsed.data.code)
+  const created = await prisma.coupon.create({
+    data: {
+      code,
+      type: parsed.data.type ?? 'amount',
+      value: String(Number(parsed.data.value ?? 0) || 0),
+      description: parsed.data.description ?? null,
+      maxUses:
+        parsed.data.max_uses === null || parsed.data.max_uses === undefined
+          ? undefined
+          : Number(parsed.data.max_uses) > 0
+          ? Number(parsed.data.max_uses)
+          : null,
+      isActive: parsed.data.is_active === false ? false : true,
+      expiresAt: parsed.data.expires_at ? new Date(parsed.data.expires_at) : null,
+      minOrderSubtotal:
+        parsed.data.min_order_subtotal === null || parsed.data.min_order_subtotal === undefined
+          ? null
+          : String(Number(parsed.data.min_order_subtotal) || 0),
+    },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'create', entityType: 'Coupon', entityId: created.id, meta: req.body })
+  res.status(201).json(toApiCoupon(created))
+})
+
+app.patch('/api/admin/coupons/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = couponPayloadSchema.partial().safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  try {
+    const updated = await prisma.coupon.update({
+      where: { id: req.params.id },
+      data: {
+        code: parsed.data.code ? normalizeCouponCode(parsed.data.code) : undefined,
+        type: parsed.data.type,
+        value: parsed.data.value === undefined ? undefined : String(Number(parsed.data.value) || 0),
+        description: parsed.data.description,
+        maxUses:
+          parsed.data.max_uses === undefined
+            ? undefined
+            : parsed.data.max_uses === null
+            ? null
+            : Number(parsed.data.max_uses) > 0
+            ? Number(parsed.data.max_uses)
+            : null,
+        isActive: parsed.data.is_active === false ? false : parsed.data.is_active === true ? true : undefined,
+        expiresAt: parsed.data.expires_at === undefined ? undefined : parsed.data.expires_at ? new Date(parsed.data.expires_at) : null,
+        minOrderSubtotal:
+          parsed.data.min_order_subtotal === undefined
+            ? undefined
+            : parsed.data.min_order_subtotal === null
+            ? null
+            : String(Number(parsed.data.min_order_subtotal) || 0),
+      },
+    })
+    await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'Coupon', entityId: updated.id, meta: req.body })
+    res.json(toApiCoupon(updated))
+  } catch {
+    res.status(404).json({ error: 'not_found' })
+  }
+})
+
+app.delete('/api/admin/coupons/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  try {
+    await prisma.coupon.delete({ where: { id: req.params.id } })
+    await writeAuditLog({ actorId: admin.id, action: 'delete', entityType: 'Coupon', entityId: req.params.id })
+    res.status(204).send()
+  } catch {
+    res.status(404).json({ error: 'not_found' })
+  }
+})
+
+app.get('/api/admin/sales-targets', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const targets = await prisma.salesTarget.findMany({
+    orderBy: parseOrderParam(req.query.order),
+    take: parseLimit(req.query.limit, 200),
+  })
+
+  const sales = await prisma.order.groupBy({
+    by: ['status'],
+    where: { status: 'delivered' },
+    _sum: { total: true },
+  })
+  const deliveredTotal = Number(sales.find((row) => row.status === 'delivered')?._sum?.total ?? 0)
+
+  res.json(targets.map((t) => ({
+    ...toApiSalesTarget(t),
+    achieved_amount: deliveredTotal,
+    progress:
+      Number(t.goalAmount) > 0 ? Number(Math.min((deliveredTotal / Number(t.goalAmount)) * 100, 100).toFixed(2)) : 0,
+  })))
+})
+
+app.post('/api/admin/sales-targets', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = salesTargetPayloadSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const created = await prisma.salesTarget.create({
+    data: {
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      startAt: parsed.data.start_at ? new Date(parsed.data.start_at) : new Date(),
+      endAt: parsed.data.end_at ? new Date(parsed.data.end_at) : new Date(),
+      goalAmount: String(Number(parsed.data.goal_amount ?? 0) || 0),
+      isActive: parsed.data.is_active === false ? false : true,
+    },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'create', entityType: 'SalesTarget', entityId: created.id, meta: req.body })
+  res.status(201).json(toApiSalesTarget(created))
+})
+
+app.patch('/api/admin/sales-targets/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = salesTargetPayloadSchema.partial().safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  try {
+    const updated = await prisma.salesTarget.update({
+      where: { id: req.params.id },
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        startAt: parsed.data.start_at === undefined ? undefined : parsed.data.start_at ? new Date(parsed.data.start_at) : undefined,
+        endAt: parsed.data.end_at === undefined ? undefined : parsed.data.end_at ? new Date(parsed.data.end_at) : undefined,
+        goalAmount: parsed.data.goal_amount === undefined ? undefined : String(Number(parsed.data.goal_amount || 0)),
+        isActive: parsed.data.is_active === undefined ? undefined : parsed.data.is_active,
+      },
+    })
+    await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SalesTarget', entityId: updated.id, meta: req.body })
+    res.json(toApiSalesTarget(updated))
+  } catch {
+    res.status(404).json({ error: 'not_found' })
+  }
+})
+
+app.delete('/api/admin/sales-targets/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  try {
+    await prisma.salesTarget.delete({ where: { id: req.params.id } })
+    await writeAuditLog({ actorId: admin.id, action: 'delete', entityType: 'SalesTarget', entityId: req.params.id })
+    res.status(204).send()
+  } catch {
+    res.status(404).json({ error: 'not_found' })
+  }
+})
+
+app.get('/api/admin/cash-closures', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const closures = await prisma.cashClosure.findMany({
+    orderBy: parseOrderParam(req.query.order),
+    take: parseLimit(req.query.limit, 200),
+  })
+
+  res.json(closures.map(toApiCashClosure))
+})
+
+function parseIsoDateOnly(value) {
+  if (!value) return null
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return null
+  return date
+}
+
+async function computeCashClosureTotalSales({ startedAt, endedAt }) {
+  const start = startedAt ?? new Date()
+  const end = endedAt ?? start
+  const endExclusive = new Date(end)
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1)
+
+  const agg = await prisma.order.aggregate({
+    _sum: { total: true },
+    where: {
+      createdAt: { gte: start, lt: endExclusive },
+      status: { in: ['delivered'] },
+    },
+  })
+
+  const sum = agg?._sum?.total
+  if (sum === null || sum === undefined) return 0
+  return Number(sum)
+}
+
+app.get('/api/admin/cash-closures/summary', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const startedAt = parseIsoDateOnly(req.query.started_at)
+  const endedAt = parseIsoDateOnly(req.query.ended_at)
+
+  if (!startedAt || !endedAt) return res.status(400).json({ error: 'invalid_query' })
+  if (endedAt < startedAt) return res.status(400).json({ error: 'invalid_range' })
+
+  const totalSales = await computeCashClosureTotalSales({ startedAt: startedAt, endedAt: endedAt })
+  res.json({ started_at: req.query.started_at, ended_at: req.query.ended_at, total_sales: totalSales })
+})
+
+app.post('/api/admin/cash-closures', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = cashClosurePayloadSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const startedAt = parsed.data.started_at ? parseIsoDateOnly(parsed.data.started_at) : new Date()
+  const endedAt = parsed.data.ended_at ? parseIsoDateOnly(parsed.data.ended_at) : null
+  if (!startedAt) return res.status(400).json({ error: 'invalid_body', issues: [{ path: ['started_at'], message: 'invalid_date' }] })
+  if (endedAt && endedAt < startedAt) return res.status(400).json({ error: 'invalid_body', issues: [{ path: ['ended_at'], message: 'invalid_range' }] })
+
+  const openingBalance = Number(parsed.data.opening_balance ?? 0) || 0
+  const totalSales = endedAt ? await computeCashClosureTotalSales({ startedAt: startedAt, endedAt: endedAt }) : 0
+  const closingBalance = openingBalance + totalSales
+
+  const created = await prisma.cashClosure.create({
+    data: {
+      startedAt: startedAt,
+      endedAt: endedAt,
+      openingBalance: String(openingBalance),
+      closingBalance: String(closingBalance),
+      totalSales: endedAt ? String(totalSales) : null,
+      notes: parsed.data.notes ?? null,
+    },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'create', entityType: 'CashClosure', entityId: created.id, meta: req.body })
+  res.status(201).json(toApiCashClosure(created))
 })
 
 app.get('/api/admin/blog-posts', async (req, res) => {
@@ -3970,6 +5362,7 @@ app.get('/api/admin/reviews', async (req, res) => {
     where,
     orderBy: { createdAt: 'desc' },
     take: parseLimit(req.query.limit, 500),
+    include: { product: { select: { name: true, images: true } } },
   })
 
   res.json(reviews.map(toApiReview))

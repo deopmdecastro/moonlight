@@ -495,10 +495,47 @@ export const base44 = {
           get: async () => authedJsonRequest('/api/admin/content/branding'),
           update: async (data) => authedJsonRequest('/api/admin/content/branding', { method: 'PATCH', body: data }),
         },
-	    },
-    inventory: {
-      list: async (limit = 500) => {
-        const params = new URLSearchParams();
+        },
+        coupons: {
+          list: async (order = '-created_date', limit = 200) => {
+            const params = new URLSearchParams();
+            if (order) params.set('order', order);
+            if (limit) params.set('limit', String(limit));
+            return authedJsonRequest(`/api/admin/coupons?${params.toString()}`);
+          },
+          create: async (data) => authedJsonRequest('/api/admin/coupons', { method: 'POST', body: data }),
+          update: async (id, data) => authedJsonRequest(`/api/admin/coupons/${id}`, { method: 'PATCH', body: data }),
+          delete: async (id) => authedJsonRequest(`/api/admin/coupons/${id}`, { method: 'DELETE' }),
+        },
+        salesTargets: {
+          list: async (order = '-created_date', limit = 200) => {
+            const params = new URLSearchParams();
+            if (order) params.set('order', order);
+            if (limit) params.set('limit', String(limit));
+            return authedJsonRequest(`/api/admin/sales-targets?${params.toString()}`);
+          },
+          create: async (data) => authedJsonRequest('/api/admin/sales-targets', { method: 'POST', body: data }),
+          update: async (id, data) => authedJsonRequest(`/api/admin/sales-targets/${id}`, { method: 'PATCH', body: data }),
+          delete: async (id) => authedJsonRequest(`/api/admin/sales-targets/${id}`, { method: 'DELETE' }),
+        },
+        cashClosures: {
+          list: async (order = '-created_date', limit = 200) => {
+            const params = new URLSearchParams();
+            if (order) params.set('order', order);
+            if (limit) params.set('limit', String(limit));
+            return authedJsonRequest(`/api/admin/cash-closures?${params.toString()}`);
+          },
+          summary: async ({ started_at, ended_at } = {}) => {
+            const params = new URLSearchParams();
+            if (started_at) params.set('started_at', String(started_at));
+            if (ended_at) params.set('ended_at', String(ended_at));
+            return authedJsonRequest(`/api/admin/cash-closures/summary?${params.toString()}`);
+          },
+          create: async (data) => authedJsonRequest('/api/admin/cash-closures', { method: 'POST', body: data }),
+        },
+        inventory: {
+          list: async (limit = 500) => {
+            const params = new URLSearchParams();
         if (limit) params.set('limit', String(limit));
         return authedJsonRequest(`/api/admin/inventory?${params.toString()}`);
       },
@@ -515,6 +552,14 @@ export const base44 = {
       newsletter: {
         subscribe: async (data) => jsonRequest('/api/newsletter/subscribe', { method: 'POST', body: data, token: getToken() }),
         unsubscribe: async (token) => jsonRequest(`/api/newsletter/unsubscribe?token=${encodeURIComponent(String(token ?? ''))}`),
+      },
+      coupons: {
+        validate: async (code, subtotal) => {
+          const params = new URLSearchParams();
+          if (code) params.set('code', code);
+          if (subtotal !== undefined && subtotal !== null) params.set('subtotal', String(subtotal));
+          return jsonRequest(`/api/coupons/validate?${params.toString()}`);
+        },
       },
 	  blog: {
 	    comments: {
@@ -580,4 +625,3 @@ export const base44 = {
     search: async ({ query } = {}) => jsonRequest('/api/analytics/search', { method: 'POST', body: { query } }),
   },
 };
-

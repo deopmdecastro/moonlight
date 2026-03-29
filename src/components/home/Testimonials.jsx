@@ -190,7 +190,7 @@ export default function Testimonials() {
                       rating: Number(form.rating) || 5,
                       comment: form.comment?.trim() || null,
                     });
-                    toast.success('Avaliação enviada (aguarda aprovação).');
+                    toast.success('Avaliação enviada.');
                     setOpen(false);
                   } catch (err) {
                     toast.error(getErrorMessage(err, 'Não foi possível enviar.'));
