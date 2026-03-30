@@ -307,7 +307,7 @@ export default function Account() {
         </div>
 
         <div className="bg-card p-6 rounded-lg border border-border">
-          <h2 className="font-heading text-xl mb-4">Definições</h2>
+          <h2 id="definicoes" className="font-heading text-xl mb-4">Definições</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>

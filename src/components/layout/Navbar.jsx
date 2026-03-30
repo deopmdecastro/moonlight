@@ -21,7 +21,7 @@ export default function Navbar() {
   const logoSrc = String(branding?.logo_primary_url ?? '').trim() || zanaLogo;
   const siteName = String(branding?.site_name ?? 'Zana').trim() || 'Zana';
   const isLogged = Boolean(user);
-  const isAdmin = Boolean(user?.isAdmin);
+  const isAdmin = Boolean(user?.is_admin);
 
   useEffect(() => {
     const updateThemeColor = () => {
@@ -69,7 +69,11 @@ export default function Navbar() {
               <SheetContent side="left" className="w-[320px] sm:w-[360px] p-0">
                 <div className="p-5">
                   <SheetHeader className="space-y-0 text-left">
-                    <SheetTitle className="font-heading text-lg">{siteName}</SheetTitle>
+                    <SheetTitle className="font-heading text-lg">
+                      <Link to="/" className="inline-flex items-center" aria-label={siteName}>
+                        <img src={logoSrc} alt={siteName} className="h-9 w-auto" loading="eager" />
+                      </Link>
+                    </SheetTitle>
                   </SheetHeader>
                 </div>
 
@@ -163,7 +167,7 @@ export default function Navbar() {
                     {isLogged ? (
                       <SheetClose asChild>
                         <Link
-                          to="/conta"
+                          to="/conta#definicoes"
                           className="flex items-center gap-3 rounded-md px-3 py-2 font-body text-sm hover:bg-secondary/60 transition-colors"
                         >
                           <Settings className="w-4 h-4" />
@@ -179,7 +183,7 @@ export default function Navbar() {
                           className="flex items-center gap-3 rounded-md px-3 py-2 font-body text-sm hover:bg-secondary/60 transition-colors"
                         >
                           <LayoutDashboard className="w-4 h-4" />
-                          Admin Dashboard
+                          Painel Admin
                         </Link>
                       </SheetClose>
                     ) : null}
@@ -224,6 +228,12 @@ export default function Navbar() {
             <Link to="/catalogo" className="p-2 hover:text-primary transition-colors" aria-label="Loja">
               <Store className="w-4 h-4" />
             </Link>
+
+            {isAdmin ? (
+              <Link to="/admin" className="p-2 hover:text-primary transition-colors" aria-label="Painel Admin" title="Painel Admin">
+                <LayoutDashboard className="w-4 h-4" />
+              </Link>
+            ) : null}
 
             <Link to="/carrinho" className="p-2 hover:text-primary transition-colors relative" aria-label="Carrinho">
               <ShoppingBag className="w-4 h-4" />
