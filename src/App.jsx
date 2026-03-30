@@ -46,6 +46,8 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
       const NewsletterUnsubscribe = lazy(() => import('@/pages/NewsletterUnsubscribe'));
 			const WishlistPage = lazy(() => import('@/pages/Wishlist'));
 			const Account = lazy(() => import('@/pages/Account'));
+      const Notifications = lazy(() => import('@/pages/Notifications'));
+      const Settings = lazy(() => import('@/pages/Settings'));
       const Appointments = lazy(() => import('@/pages/Appointments'));
       const MyAppointments = lazy(() => import('@/pages/MyAppointments'));
 
@@ -133,6 +135,8 @@ const AuthenticatedApp = () => {
 		        <Route path="/faq" element={<FAQPage />} />
 	        <Route path="/favoritos" element={<WishlistPage />} />
 	        <Route path="/conta" element={<Account />} />
+          <Route path="/notificacoes" element={<Notifications />} />
+          <Route path="/definicoes" element={<Settings />} />
           <Route path="/conta/marcacoes" element={<MyAppointments />} />
           <Route path="/marcacoes" element={<Appointments />} />
 	      </Route>

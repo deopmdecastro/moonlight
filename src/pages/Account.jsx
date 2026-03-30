@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, CalendarClock, Clock, Heart, LogOut, Package, Save, Sparkles, Trash2, User } from 'lucide-react';
+import { Calendar, CalendarClock, Clock, Heart, LogOut, Package, Save, Sparkles, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,6 @@ import Auth from './Auth';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { appointmentStatusBadgeClassName, getAppointmentStatusLabel } from '@/lib/appointmentStatus';
-import { confirmDestructive } from '@/lib/confirm';
 import { cn } from '@/lib/utils';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
 import OrderStatusCard from '@/components/orders/OrderStatusCard';
@@ -180,18 +179,6 @@ export default function Account() {
   const handleSave = () => {
     updateMeMutation.mutate(profileForm);
   };
-
-  const deleteAccountMutation = useMutation({
-    mutationFn: () => base44.account.delete(),
-    onSuccess: () => {
-      toast.success('Conta removida.');
-      logout();
-      queryClient.setQueryData(['me'], null);
-      queryClient.removeQueries();
-      navigate('/conta', { replace: true });
-    },
-    onError: () => toast.error('NÃ£o foi possÃ­vel remover a conta.'),
-  });
 
   if (isLoading) {
     return (
@@ -464,26 +451,6 @@ export default function Account() {
         </div>
       )}
 
-      <div className="bg-card p-6 rounded-lg border border-destructive/30 mt-12">
-        <h2 className="font-heading text-xl mb-2 text-destructive">Zona de perigo</h2>
-        <p className="font-body text-sm text-muted-foreground">
-          Ao apagar a conta, deixa de conseguir aceder ao site com este utilizador.
-        </p>
-        <div className="mt-4">
-          <Button
-            variant="destructive"
-            className="rounded-none font-body text-sm gap-2"
-            disabled={deleteAccountMutation.isPending}
-            onClick={() => {
-              if (!confirmDestructive('Tem certeza que deseja apagar a sua conta?')) return;
-              deleteAccountMutation.mutate();
-            }}
-          >
-            <Trash2 className="w-4 h-4" />
-            {deleteAccountMutation.isPending ? 'A apagar...' : 'Apagar conta'}
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

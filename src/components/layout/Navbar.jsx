@@ -114,7 +114,7 @@ export default function Navbar() {
 
                     <SheetClose asChild>
                       <Link
-                        to="/conta"
+                        to={isLogged ? '/notificacoes' : '/conta'}
                         className="flex items-center gap-3 rounded-md px-3 py-2 font-body text-sm hover:bg-secondary/60 transition-colors"
                       >
                         <Bell className="w-4 h-4" />
@@ -167,7 +167,7 @@ export default function Navbar() {
                     {isLogged ? (
                       <SheetClose asChild>
                         <Link
-                          to="/conta#definicoes"
+                          to="/definicoes"
                           className="flex items-center gap-3 rounded-md px-3 py-2 font-body text-sm hover:bg-secondary/60 transition-colors"
                         >
                           <Settings className="w-4 h-4" />

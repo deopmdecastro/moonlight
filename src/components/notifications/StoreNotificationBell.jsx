@@ -165,8 +165,8 @@ export default function StoreNotificationBell() {
 
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
-          <Link to="/conta" className="font-body text-sm text-primary">
-            Ver detalhes na conta
+          <Link to="/notificacoes" className="font-body text-sm text-primary">
+            Ver todas as notificações
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
