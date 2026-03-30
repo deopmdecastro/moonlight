@@ -23,6 +23,13 @@ const smtpSecure = (process.env.SMTP_SECURE ?? 'false') === 'true'
 const smtpUser = process.env.SMTP_USER ? String(process.env.SMTP_USER).trim() : undefined
 const smtpPass = process.env.SMTP_PASS ? String(process.env.SMTP_PASS).replace(/\s+/g, '').trim() : undefined
 const smtpFrom = process.env.SMTP_FROM ? String(process.env.SMTP_FROM).trim() : undefined
+const smtpConnectionTimeoutMs = Number.parseInt(process.env.SMTP_CONNECTION_TIMEOUT_MS ?? '20000', 10)
+const smtpGreetingTimeoutMs = Number.parseInt(process.env.SMTP_GREETING_TIMEOUT_MS ?? '20000', 10)
+const smtpSocketTimeoutMs = Number.parseInt(process.env.SMTP_SOCKET_TIMEOUT_MS ?? '60000', 10)
+
+const sendgridApiKey = process.env.SENDGRID_API_KEY ? String(process.env.SENDGRID_API_KEY).trim() : undefined
+const sendgridFrom = process.env.SENDGRID_FROM ? String(process.env.SENDGRID_FROM).trim() : undefined
+const sendgridTimeoutMs = Number.parseInt(process.env.SENDGRID_TIMEOUT_MS ?? '20000', 10)
 
 const storeName = process.env.STORE_NAME ? String(process.env.STORE_NAME).trim() : 'Zana'
 const storeEmail = process.env.STORE_EMAIL ? String(process.env.STORE_EMAIL).trim() : smtpUser ?? ''
@@ -40,14 +47,127 @@ function getMailTransport() {
     port: smtpPort,
     secure: smtpSecure,
     auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+    requireTLS: !smtpSecure && smtpPort === 587,
+    connectionTimeout: Number.isFinite(smtpConnectionTimeoutMs) ? smtpConnectionTimeoutMs : 20000,
+    greetingTimeout: Number.isFinite(smtpGreetingTimeoutMs) ? smtpGreetingTimeoutMs : 20000,
+    socketTimeout: Number.isFinite(smtpSocketTimeoutMs) ? smtpSocketTimeoutMs : 60000,
+    tls: { servername: smtpHost },
   })
   return cachedTransport
 }
 
-async function sendPasswordResetEmail({ to, resetUrl }) {
-  const transport = getMailTransport()
-  if (!transport) return false
+function stripHtml(value) {
+  const raw = value === null || value === undefined ? '' : String(value)
+  return raw
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
+function parseFromHeader(value) {
+  const raw = value === null || value === undefined ? '' : String(value).trim()
+  if (!raw) return { email: '', name: '' }
+  const match = /^(.*?)\s*<([^>]+)>\s*$/.exec(raw)
+  if (!match) return { email: raw, name: '' }
+  return { name: match[1].trim(), email: match[2].trim() }
+}
+
+function getFromParts(fromName) {
+  const header = buildFromHeader(fromName)
+  const parsed = parseFromHeader(header)
+  return {
+    email: parsed.email || '',
+    name: parsed.name || '',
+    header,
+  }
+}
+
+async function sendEmailViaSendGrid({ to, subject, text, html, fromName } = {}) {
+  if (!sendgridApiKey) throw new Error('sendgrid_not_configured')
+  const toEmail = normalizeEmail(to)
+  const fromEmail = (sendgridFrom || smtpFrom || storeEmail || smtpUser || '').trim()
+  if (!fromEmail) throw new Error('sendgrid_from_missing')
+  if (!toEmail) throw new Error('sendgrid_to_missing')
+
+  const fromParts = getFromParts(fromName)
+  const fromPayload = { email: fromEmail }
+  if (fromParts.name) fromPayload.name = fromParts.name
+
+  const htmlValue = html === null || html === undefined ? '' : String(html)
+  const textValue =
+    text === null || text === undefined ? (htmlValue ? stripHtml(htmlValue) : '') : String(text)
+
+  const content = []
+  if (textValue) content.push({ type: 'text/plain', value: textValue })
+  if (htmlValue) content.push({ type: 'text/html', value: htmlValue })
+  if (content.length === 0) content.push({ type: 'text/plain', value: '' })
+
+  if (typeof fetch !== 'function') throw new Error('fetch_not_available')
+
+  const controller = new AbortController()
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Number.isFinite(sendgridTimeoutMs) ? sendgridTimeoutMs : 20000,
+  )
+  try {
+    const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${sendgridApiKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: toEmail }] }],
+        from: fromPayload,
+        subject: subject === null || subject === undefined ? '' : String(subject),
+        content,
+      }),
+      signal: controller.signal,
+    })
+
+    if (resp.status >= 400) {
+      let detail = `sendgrid_error_${resp.status}`
+      try {
+        const data = await resp.json()
+        if (data?.errors?.length) {
+          detail =
+            data.errors
+              .map((e) => (e?.message ? String(e.message) : ''))
+              .filter(Boolean)
+              .join(' | ') || detail
+        }
+      } catch {
+        // ignore
+      }
+      const err = new Error(detail)
+      err.code = `SENDGRID_${resp.status}`
+      throw err
+    }
+
+    const messageId = resp.headers.get('x-message-id') || null
+    return { ok: true, message_id: messageId, provider: 'sendgrid' }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+async function sendEmail({ to, subject, text, html, fromName } = {}) {
+  if (sendgridApiKey) return sendEmailViaSendGrid({ to, subject, text, html, fromName })
+  const transport = getMailTransport()
+  if (!transport) return { ok: false, error: 'smtp_not_configured', provider: 'smtp' }
+  const info = await transport.sendMail({
+    from: buildFromHeader(fromName),
+    to,
+    subject: subject ?? '',
+    text: text ?? undefined,
+    html: html ?? undefined,
+  })
+  return { ok: true, message_id: info?.messageId ?? null, provider: 'smtp' }
+}
+
+async function sendPasswordResetEmail({ to, resetUrl }) {
   const subject = 'Recuperação de palavra-passe'
   const text = [
     'Recebemos um pedido para recuperar a sua palavra-passe.',
@@ -57,18 +177,17 @@ async function sendPasswordResetEmail({ to, resetUrl }) {
     'Se não foi você, ignore este email.',
   ].join('\n')
 
-  await transport.sendMail({
-    from: smtpFrom,
-    to,
-    subject,
-    text,
-  })
-
-  return true
+  const res = await sendEmail({ fromName: storeName, to, subject, text })
+  return Boolean(res?.ok)
 }
 
 function isSmtpConfigured() {
   return Boolean(smtpHost && smtpFrom)
+}
+
+function isEmailConfigured() {
+  if (sendgridApiKey) return Boolean((sendgridFrom || smtpFrom || storeEmail || smtpUser || '').trim())
+  return isSmtpConfigured()
 }
 
 function renderTemplate(template, vars) {
@@ -137,24 +256,17 @@ function buildBaseEmailVars(extra = {}) {
 
 function buildFromHeader(fromName) {
   const name = fromName === null || fromName === undefined ? '' : String(fromName).trim()
-  if (!name) return smtpFrom
-  const base = String(smtpFrom ?? '').trim()
-  if (!base) return smtpFrom
+  const baseFrom = (smtpFrom || sendgridFrom || storeEmail || smtpUser || '').trim()
+  if (!name) return baseFrom || smtpFrom
+  const base = String(baseFrom ?? '').trim()
+  if (!base) return baseFrom || smtpFrom
   if (base.includes('<')) return base
   return `${name} <${base}>`
 }
 
 async function sendTemplatedEmail({ to, subject, text, html, fromName }) {
-  const transport = getMailTransport()
-  if (!transport) return false
-  await transport.sendMail({
-    from: buildFromHeader(fromName),
-    to,
-    subject: subject ?? '',
-    text: text ?? undefined,
-    html: html ?? undefined,
-  })
-  return true
+  const res = await sendEmail({ to, subject, text, html, fromName })
+  return Boolean(res?.ok)
 }
 
 const defaultEmailContent = {
@@ -194,7 +306,7 @@ const defaultEmailContent = {
       '              </p>',
       '              <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">',
       '                <tr>',
-      '                  <td style="background:#782641;border:1px solid #782641;border-radius:10px;">',
+      '                  <td style="background:#782641;border:1px solid #782641;border-radius:0;">',
       '                    <a href="{{app_url}}/conta" style="display:inline-block;padding:12px 18px;font-size:12px;line-height:1.2;color:#fbfaf8;text-decoration:none;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;">Entrar na conta</a>',
       '                  </td>',
       '                </tr>',
@@ -286,9 +398,10 @@ const defaultEmailContent = {
       '                </tr>',
       '              </table>',
       '              <div style="height:18px;"></div>',
+      '              {{items_html}}',
       '              <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">',
       '                <tr>',
-      '                  <td style="background:#782641;border:1px solid #782641;border-radius:10px;">',
+      '                  <td style="background:#782641;border:1px solid #782641;border-radius:0;">',
       '                    <a href="{{app_url}}/conta" style="display:inline-block;padding:12px 18px;font-size:12px;line-height:1.2;color:#fbfaf8;text-decoration:none;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;">Ver encomenda</a>',
       '                  </td>',
       '                </tr>',
@@ -318,6 +431,9 @@ const defaultEmailContent = {
       '',
       'Recebemos a tua encomenda {{order_id}}.',
       'Total: {{total}}',
+      '',
+      'Produtos:',
+      '{{items_text}}',
       '',
       'Ver estado: {{app_url}}/conta',
       '',
@@ -361,7 +477,7 @@ const defaultEmailContent = {
       '              <div style="margin:0 0 18px 0;font-size:14px;line-height:1.7;color:#3d2930;word-break:break-word;overflow-wrap:anywhere;">{{content_html}}</div>',
       '              <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">',
       '                <tr>',
-      '                  <td style="background:#782641;border:1px solid #782641;border-radius:10px;">',
+      '                  <td style="background:#782641;border:1px solid #782641;border-radius:0;">',
       '                    <a href="{{app_url}}/catalogo" style="display:inline-block;padding:12px 18px;font-size:12px;line-height:1.2;color:#fbfaf8;text-decoration:none;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;">Explorar catálogo</a>',
       '                  </td>',
       '                </tr>',
@@ -1575,7 +1691,7 @@ function computeAppointmentSlotsForStaff({ availability, busy, weekday, duration
 async function maybeSendAppointmentRemindersForUser(user, appointments) {
   if (!user || !Array.isArray(appointments) || appointments.length === 0) return
 
-  const smtpOk = isSmtpConfigured()
+  const smtpOk = isEmailConfigured()
   const now = Date.now()
   const windowHours = Math.max(1, Math.min(Number.parseInt(process.env.APPOINTMENT_REMINDER_HOURS ?? '24', 10) || 24, 24 * 14))
   const windowMs = windowHours * 60 * 60 * 1000
@@ -1668,7 +1784,7 @@ async function maybeSendGuestAppointmentReminder(a) {
   if (a.status !== 'pending' && a.status !== 'confirmed') return
   if (a.reminderSentAt) return
 
-  const smtpOk = isSmtpConfigured()
+  const smtpOk = isEmailConfigured()
   const now = Date.now()
   const windowHours = Math.max(1, Math.min(Number.parseInt(process.env.APPOINTMENT_REMINDER_HOURS ?? '24', 10) || 24, 24 * 14))
   const windowMs = windowHours * 60 * 60 * 1000
@@ -3063,7 +3179,7 @@ app.post('/api/auth/register', async (req, res) => {
     // Welcome email (best-effort).
     void (async () => {
       try {
-        if (!isSmtpConfigured()) return
+        if (!isEmailConfigured()) return
         const { content } = await getEmailContent()
         if (content?.welcome?.enabled === false) return
 
@@ -4301,16 +4417,102 @@ app.post('/api/orders', async (req, res) => {
   // Order email (best-effort).
   void (async () => {
     try {
-      if (!isSmtpConfigured()) return
+      if (!isEmailConfigured()) return
       const { content } = await getEmailContent()
       if (content?.order?.enabled === false) return
 
       const customerName = created.customerName ?? created.customerEmail
+      const items = Array.isArray(created.items) ? created.items : []
+      const base = String(appBaseUrl ?? '').replace(/\/+$/, '')
+      const resolveImageUrl = (raw) => {
+        const value = raw === null || raw === undefined ? '' : String(raw).trim()
+        if (!value) return ''
+        if (/^https?:\/\//i.test(value) || /^data:/i.test(value)) return value
+        if (!base) return value
+        return value.startsWith('/') ? `${base}${value}` : `${base}/${value}`
+      }
+      const formatEur = (value) => {
+        const n = typeof value === 'number' ? value : Number(String(value ?? '').replace(',', '.'))
+        return Number.isFinite(n) ? `${n.toFixed(2)}€` : ''
+      }
+      const itemsText = items
+        .map((it) => {
+          const name = it?.productName ? String(it.productName) : 'Produto'
+          const qty = Number(it?.quantity ?? 0) || 0
+          const price = Number(String(it?.price ?? '').replace(',', '.'))
+          const lineTotal = Number.isFinite(price) ? price * Math.max(1, qty) : NaN
+          const totalLabel = Number.isFinite(lineTotal) ? formatEur(lineTotal) : ''
+          return `- ${name} x${Math.max(1, qty)}${totalLabel ? ` — ${totalLabel}` : ''}`
+        })
+        .filter(Boolean)
+        .join('\n')
+
+      const itemsHtmlRows = items
+        .map((it, idx) => {
+          const name = it?.productName ? String(it.productName) : 'Produto'
+          const qty = Number(it?.quantity ?? 0) || 0
+          const price = Number(String(it?.price ?? '').replace(',', '.'))
+          const lineTotal = Number.isFinite(price) ? price * Math.max(1, qty) : NaN
+          const lineTotalLabel = Number.isFinite(lineTotal) ? formatEur(lineTotal) : ''
+          const imageUrl = resolveImageUrl(it?.productImage)
+          const color = it?.color ? String(it.color) : ''
+          const metaParts = [`Qtd: ${Math.max(1, qty)}`]
+          if (color) metaParts.push(color)
+          const meta = metaParts.join(' · ')
+          const borderTop = idx === 0 ? 'border-top:none;' : 'border-top:1px solid #e0d9d1;'
+          return [
+            '<tr>',
+            `  <td style="padding:12px 0;${borderTop}">`,
+            '    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">',
+            '      <tr>',
+            '        <td width="64" style="padding:0 12px 0 0;vertical-align:top;">',
+            '          <div style="width:54px;height:54px;border:1px solid #e0d9d1;background:#f8f5f1;overflow:hidden;">',
+            imageUrl
+              ? `            <img src="${escapeHtml(imageUrl)}" width="54" height="54" alt="${escapeHtml(
+                  name,
+                )}" style="display:block;border:0;outline:none;text-decoration:none;"/>`
+              : '            <div style="width:54px;height:54px;display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1.2;color:#7e676f;">Sem imagem</div>',
+            '          </div>',
+            '        </td>',
+            '        <td style="vertical-align:top;">',
+            `          <div style="font-size:13px;line-height:1.4;color:#3d2930;font-weight:700;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(
+              name,
+            )}</div>`,
+            `          <div style="margin-top:2px;font-size:12px;line-height:1.4;color:#7e676f;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(
+              meta,
+            )}</div>`,
+            '        </td>',
+            '        <td align="right" style="padding-left:10px;vertical-align:top;white-space:nowrap;">',
+            `          <div style="font-size:13px;line-height:1.4;color:#3d2930;font-weight:700;">${escapeHtml(
+              lineTotalLabel,
+            )}</div>`,
+            '        </td>',
+            '      </tr>',
+            '    </table>',
+            '  </td>',
+            '</tr>',
+          ].join('\n')
+        })
+        .filter(Boolean)
+        .join('\n')
+
+      const itemsHtml = itemsHtmlRows
+        ? [
+            '<h2 style="margin:0 0 10px 0;font-size:14px;line-height:1.4;color:#3d2930;font-weight:700;">Produtos</h2>',
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">',
+            itemsHtmlRows,
+            '</table>',
+            '<div style="height:18px;"></div>',
+          ].join('')
+        : ''
+
       const vars = buildBaseEmailVars({
         customer_name: customerName,
         first_name: guessFirstName(customerName),
         order_id: created.id,
         total: `${created.total?.toString?.() ?? String(created.total)}€`,
+        items_html: itemsHtml,
+        items_text: itemsText,
       })
       const subject = renderTemplate(content.order.subject, vars)
       const html = renderTemplate(content.order.html, vars)
@@ -4867,7 +5069,7 @@ app.post('/api/appointments', async (req, res) => {
   // Appointment email confirmation (best-effort).
   void (async () => {
     try {
-      if (!isSmtpConfigured()) return
+      if (!isEmailConfigured()) return
       const to = user
         ? user.email
           ? String(user.email).trim().toLowerCase()
@@ -6382,7 +6584,7 @@ app.get('/api/admin/marketing/email', async (req, res) => {
   if (!admin) return
 
   const { content, updatedAt } = await getEmailContent()
-  res.json({ content, updated_date: updatedAt, smtp_configured: isSmtpConfigured() })
+  res.json({ content, updated_date: updatedAt, smtp_configured: isEmailConfigured() })
 })
 
 app.patch('/api/admin/marketing/email', async (req, res) => {
@@ -6408,20 +6610,20 @@ app.patch('/api/admin/marketing/email', async (req, res) => {
   })
 
   const { content } = await getEmailContent()
-  res.json({ content, updated_date: record.updatedAt, smtp_configured: isSmtpConfigured() })
+  res.json({ content, updated_date: record.updatedAt, smtp_configured: isEmailConfigured() })
 })
 
 app.post('/api/admin/smtp/test', async (req, res) => {
   const admin = await requireAdmin(req, res)
   if (!admin) return
 
-  if (!isSmtpConfigured()) return res.status(400).json({ error: 'smtp_not_configured' })
+  if (!isEmailConfigured()) return res.status(400).json({ error: 'smtp_not_configured' })
 
   const parsed = smtpTestSchema.safeParse(req.body ?? {})
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
 
-  const transport = getMailTransport()
-  if (!transport) return res.status(400).json({ error: 'smtp_not_configured' })
+  const transport = sendgridApiKey ? null : getMailTransport()
+  if (!sendgridApiKey && !transport) return res.status(400).json({ error: 'smtp_not_configured' })
 
   const toSmtpErrorPayload = (err) => ({
     error: 'smtp_error',
@@ -6432,15 +6634,17 @@ app.post('/api/admin/smtp/test', async (req, res) => {
     response_code: err?.responseCode ? Number(err.responseCode) : null,
   })
 
-  try {
-    await transport.verify()
-  } catch (err) {
-    const payload = toSmtpErrorPayload(err)
-    payload.error = 'smtp_verify_failed'
-    return res.status(400).json(payload)
+  if (transport) {
+    try {
+      await transport.verify()
+    } catch (err) {
+      const payload = toSmtpErrorPayload(err)
+      payload.error = 'smtp_verify_failed'
+      return res.status(400).json(payload)
+    }
   }
 
-  if (parsed.data.verify_only) return res.json({ ok: true, verified: true })
+  if (parsed.data.verify_only) return res.json({ ok: true, verified: true, provider: sendgridApiKey ? 'sendgrid' : 'smtp' })
 
   const to = normalizeEmail(parsed.data.to)
   const subject = String(parsed.data.subject ?? 'Teste SMTP - Zana').trim() || 'Teste SMTP - Zana'
@@ -6512,7 +6716,7 @@ app.post('/api/admin/smtp/test', async (req, res) => {
         '              </div>',
         '              <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">',
         '                <tr>',
-        '                  <td style="background:#782641;border:1px solid #782641;border-radius:10px;">',
+        '                  <td style="background:#782641;border:1px solid #782641;border-radius:0;">',
         '                    <a href="{{app_url}}" style="display:inline-block;padding:12px 18px;font-size:12px;line-height:1.2;color:#fbfaf8;text-decoration:none;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;">Abrir site</a>',
         '                  </td>',
         '                </tr>',
@@ -6540,8 +6744,8 @@ app.post('/api/admin/smtp/test', async (req, res) => {
       vars,
     )
 
-    const info = await transport.sendMail({
-      from: buildFromHeader(emailContent?.from_name),
+    const result = await sendEmail({
+      fromName: emailContent?.from_name,
       to,
       subject,
       text: messageText,
@@ -6556,7 +6760,7 @@ app.post('/api/admin/smtp/test', async (req, res) => {
       meta: { to, subject },
     })
 
-    res.json({ ok: true, verified: true, message_id: info?.messageId ?? null })
+    res.json({ ok: true, verified: true, message_id: result?.message_id ?? null, provider: result?.provider ?? null })
   } catch (err) {
     const payload = toSmtpErrorPayload(err)
     payload.error = 'smtp_send_failed'
@@ -6598,7 +6802,7 @@ app.post('/api/admin/newsletter/send', async (req, res) => {
   const admin = await requireAdmin(req, res)
   if (!admin) return
 
-  if (!isSmtpConfigured()) return res.status(400).json({ error: 'smtp_not_configured' })
+  if (!isEmailConfigured()) return res.status(400).json({ error: 'smtp_not_configured' })
 
   const parsed = newsletterCampaignSendSchema.safeParse(req.body ?? {})
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
