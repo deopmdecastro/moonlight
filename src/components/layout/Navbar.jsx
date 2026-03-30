@@ -53,15 +53,18 @@ export default function Navbar() {
     navigate('/conta', { replace: true });
   };
 
+  const iconLinkClassName =
+    'inline-flex items-center justify-center rounded-md p-2 hover:text-primary hover:bg-secondary/40 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+
   return (
-    <nav id="app-topbar" className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
+    <nav id="app-topbar" className="sticky top-0 z-50 bg-card border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-3 items-center h-16 md:h-20">
           {/* Left: Hamburger */}
           <div className="flex items-center justify-start">
             <Sheet>
               <SheetTrigger asChild>
-                <button className="p-2 hover:text-primary transition-colors" aria-label="Abrir menu">
+                <button className={iconLinkClassName} aria-label="Abrir menu">
                   <Menu className="w-5 h-5" />
                 </button>
               </SheetTrigger>
@@ -219,23 +222,23 @@ export default function Navbar() {
               {isLogged ? (
                 <StoreNotificationBell />
               ) : (
-                <Link to="/conta" className="p-2 hover:text-primary transition-colors" aria-label="Notificações">
+                <Link to="/conta" className={iconLinkClassName} aria-label="Notificações">
                   <Bell className="w-4 h-4" />
                 </Link>
               )}
             </div>
 
-            <Link to="/catalogo" className="p-2 hover:text-primary transition-colors" aria-label="Loja">
+            <Link to="/catalogo" className={iconLinkClassName} aria-label="Loja">
               <Store className="w-4 h-4" />
             </Link>
 
             {isAdmin ? (
-              <Link to="/admin" className="p-2 hover:text-primary transition-colors" aria-label="Painel Admin" title="Painel Admin">
+              <Link to="/admin" className={iconLinkClassName} aria-label="Painel Admin" title="Painel Admin">
                 <LayoutDashboard className="w-4 h-4" />
               </Link>
             ) : null}
 
-            <Link to="/carrinho" className="p-2 hover:text-primary transition-colors relative" aria-label="Carrinho">
+            <Link to="/carrinho" className={`${iconLinkClassName} relative`} aria-label="Carrinho">
               <ShoppingBag className="w-4 h-4" />
               {itemCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-body">
@@ -249,3 +252,4 @@ export default function Navbar() {
     </nav>
   );
 }
+
