@@ -7,6 +7,7 @@ const ddl = [
   `DO $$ BEGIN CREATE TYPE "ProductMaterial" AS ENUM ('aco_inox','prata','dourado','rose_gold','perolas','cristais'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "ProductStatus" AS ENUM ('active','inactive','out_of_stock'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "OrderStatus" AS ENUM ('pending','confirmed','processing','shipped','delivered','cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `DO $$ BEGIN CREATE TYPE "AppointmentStatus" AS ENUM ('pending','confirmed','cancelled','completed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "PaymentMethod" AS ENUM ('mbway','transferencia','multibanco','paypal'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "CouponType" AS ENUM ('amount','percent'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "BlogCategory" AS ENUM ('tendencias','dicas','novidades','inspiracao'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
@@ -214,6 +215,89 @@ const ddl = [
   `ALTER TABLE IF EXISTS "Review" ADD COLUMN IF NOT EXISTS "isApproved" BOOLEAN NOT NULL DEFAULT FALSE;`,
   `CREATE INDEX IF NOT EXISTS "Review_productId_idx" ON "Review" ("productId");`,
   `CREATE INDEX IF NOT EXISTS "Review_isApproved_idx" ON "Review" ("isApproved");`,
+
+  `
+  CREATE TABLE IF NOT EXISTS "Service" (
+    "id" TEXT PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "imageUrl" TEXT,
+    "durationMinutes" INTEGER NOT NULL DEFAULT 30,
+    "price" NUMERIC(12,2),
+    "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
+  `CREATE INDEX IF NOT EXISTS "Service_isActive_idx" ON "Service" ("isActive");`,
+  `CREATE INDEX IF NOT EXISTS "Service_createdAt_idx" ON "Service" ("createdAt");`,
+  `ALTER TABLE IF EXISTS "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;`,
+  `ALTER TABLE IF EXISTS "Service" ADD COLUMN IF NOT EXISTS "durationMinutes" INTEGER NOT NULL DEFAULT 30;`,
+  `ALTER TABLE IF EXISTS "Service" ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT TRUE;`,
+
+  `
+  CREATE TABLE IF NOT EXISTS "StaffMember" (
+    "id" TEXT PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "email" TEXT,
+    "phone" TEXT,
+    "availability" JSONB,
+    "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
+  `CREATE INDEX IF NOT EXISTS "StaffMember_isActive_idx" ON "StaffMember" ("isActive");`,
+  `CREATE INDEX IF NOT EXISTS "StaffMember_createdAt_idx" ON "StaffMember" ("createdAt");`,
+  `ALTER TABLE IF EXISTS "StaffMember" ADD COLUMN IF NOT EXISTS "availability" JSONB;`,
+  `ALTER TABLE IF EXISTS "StaffMember" ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT TRUE;`,
+
+  `
+  CREATE TABLE IF NOT EXISTS "StaffService" (
+    "staffId" TEXT NOT NULL,
+    "serviceId" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY ("staffId","serviceId"),
+    CONSTRAINT "StaffService_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "StaffMember"("id") ON DELETE CASCADE,
+    CONSTRAINT "StaffService_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "Service"("id") ON DELETE CASCADE
+  );
+  `,
+  `CREATE INDEX IF NOT EXISTS "StaffService_serviceId_idx" ON "StaffService" ("serviceId");`,
+  `CREATE INDEX IF NOT EXISTS "StaffService_staffId_idx" ON "StaffService" ("staffId");`,
+  `CREATE INDEX IF NOT EXISTS "StaffService_createdAt_idx" ON "StaffService" ("createdAt");`,
+
+  `
+  CREATE TABLE IF NOT EXISTS "Appointment" (
+    "id" TEXT PRIMARY KEY,
+    "userId" TEXT,
+    "guestName" TEXT,
+    "guestEmail" TEXT,
+    "guestPhone" TEXT,
+    "serviceId" TEXT NOT NULL,
+    "staffId" TEXT NOT NULL,
+    "startAt" TIMESTAMPTZ NOT NULL,
+    "durationMinutes" INTEGER NOT NULL,
+    "endAt" TIMESTAMPTZ NOT NULL,
+    "status" "AppointmentStatus" NOT NULL DEFAULT 'pending',
+    "observations" TEXT,
+    "reminderSentAt" TIMESTAMPTZ,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT "Appointment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE,
+    CONSTRAINT "Appointment_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "Service"("id") ON DELETE RESTRICT,
+    CONSTRAINT "Appointment_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "StaffMember"("id") ON DELETE RESTRICT
+  );
+  `,
+  `CREATE INDEX IF NOT EXISTS "Appointment_userId_idx" ON "Appointment" ("userId");`,
+  `CREATE INDEX IF NOT EXISTS "Appointment_serviceId_idx" ON "Appointment" ("serviceId");`,
+  `CREATE INDEX IF NOT EXISTS "Appointment_staffId_startAt_idx" ON "Appointment" ("staffId","startAt");`,
+  `CREATE INDEX IF NOT EXISTS "Appointment_status_idx" ON "Appointment" ("status");`,
+  `CREATE INDEX IF NOT EXISTS "Appointment_startAt_idx" ON "Appointment" ("startAt");`,
+  `ALTER TABLE IF EXISTS "Appointment" ADD COLUMN IF NOT EXISTS "reminderSentAt" TIMESTAMPTZ;`,
+  `ALTER TABLE IF EXISTS "Appointment" ADD COLUMN IF NOT EXISTS "observations" TEXT;`,
+  `ALTER TABLE IF EXISTS "Appointment" ADD COLUMN IF NOT EXISTS "guestName" TEXT;`,
+  `ALTER TABLE IF EXISTS "Appointment" ADD COLUMN IF NOT EXISTS "guestEmail" TEXT;`,
+  `ALTER TABLE IF EXISTS "Appointment" ADD COLUMN IF NOT EXISTS "guestPhone" TEXT;`,
 
   `
   CREATE TABLE IF NOT EXISTS "WishlistItem" (
@@ -536,6 +620,9 @@ const ddl = [
   `ALTER TABLE IF EXISTS "Order" ALTER COLUMN "status" DROP DEFAULT;`,
   `ALTER TABLE IF EXISTS "Order" ALTER COLUMN "status" TYPE "OrderStatus" USING ("status"::"OrderStatus");`,
   `ALTER TABLE IF EXISTS "Order" ALTER COLUMN "status" SET DEFAULT 'pending'::"OrderStatus";`,
+  `ALTER TABLE IF EXISTS "Appointment" ALTER COLUMN "status" DROP DEFAULT;`,
+  `ALTER TABLE IF EXISTS "Appointment" ALTER COLUMN "status" TYPE "AppointmentStatus" USING ("status"::"AppointmentStatus");`,
+  `ALTER TABLE IF EXISTS "Appointment" ALTER COLUMN "status" SET DEFAULT 'pending'::"AppointmentStatus";`,
   `ALTER TABLE IF EXISTS "Order" ALTER COLUMN "paymentMethod" TYPE "PaymentMethod" USING ("paymentMethod"::"PaymentMethod");`,
   `ALTER TABLE IF EXISTS "BlogPost" ALTER COLUMN "category" TYPE "BlogCategory" USING ("category"::"BlogCategory");`,
   `ALTER TABLE IF EXISTS "BlogPost" ALTER COLUMN "status" DROP DEFAULT;`,
