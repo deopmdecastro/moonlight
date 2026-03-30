@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 import { Code, Eye, Plus, Pencil, Truck } from 'lucide-react';
 import DeleteIcon from '@/components/ui/delete-icon';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 const emptySupplier = { name: '', email: '', phone: '', link: '', address: '', notes: '' };
 
@@ -31,11 +32,14 @@ export default function AdminSuppliers() {
   const [viewing, setViewing] = useState(null);
   const [form, setForm] = useState(emptySupplier);
   const [jsonText, setJsonText] = useState('');
+  const [limit, setLimit] = useState(50);
 
-  const { data: suppliers = [] } = useQuery({
-    queryKey: ['admin-suppliers'],
-    queryFn: () => base44.entities.Supplier.list('-created_date', 500),
+  const { data: suppliers = [], isLoading } = useQuery({
+    queryKey: ['admin-suppliers', limit],
+    queryFn: () => base44.entities.Supplier.list('-created_date', limit),
   });
+
+  const canLoadMore = !isLoading && Array.isArray(suppliers) && suppliers.length === limit && limit < 500;
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Supplier.create(data),
@@ -294,6 +298,14 @@ export default function AdminSuppliers() {
           </div>
         )}
       </div>
+
+      <LoadMoreControls
+        leftText={`A mostrar ${Array.isArray(suppliers) ? suppliers.length : 0} fornecedores.`}
+        onLess={() => setLimit(50)}
+        lessDisabled={isLoading || limit <= 50}
+        onMore={() => setLimit((p) => Math.min(500, p + 50))}
+        moreDisabled={!canLoadMore}
+      />
 
       <Dialog
         open={dialogOpen}

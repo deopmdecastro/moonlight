@@ -10,11 +10,13 @@ import { getErrorMessage } from '@/lib/toast';
 import { MessageSquare } from 'lucide-react';
 import DeleteIcon from '@/components/ui/delete-icon';
 import { getPrimaryImage } from '@/lib/images';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 export default function AdminReviews() {
   const queryClient = useQueryClient();
   const [approved, setApproved] = useState('false');
   const [selected, setSelected] = useState(null);
+  const [limit, setLimit] = useState(50);
 
   const { data: products = [] } = useQuery({
     queryKey: ['admin-products'],
@@ -22,8 +24,8 @@ export default function AdminReviews() {
   });
 
   const { data: reviews = [], isLoading } = useQuery({
-    queryKey: ['admin-reviews', approved],
-    queryFn: () => base44.admin.reviews.list({ approved, limit: 500 }),
+    queryKey: ['admin-reviews', approved, limit],
+    queryFn: () => base44.admin.reviews.list({ approved, limit }),
   });
 
   const approveMutation = useMutation({
@@ -49,6 +51,8 @@ export default function AdminReviews() {
   const sorted = useMemo(() => {
     return [...reviews].sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
   }, [reviews]);
+
+  const canLoadMore = !isLoading && Array.isArray(reviews) && reviews.length === limit && limit < 500;
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
@@ -127,6 +131,14 @@ export default function AdminReviews() {
           </div>
         )}
       </div>
+
+      <LoadMoreControls
+        leftText={`A mostrar os últimos ${Math.min(limit, Array.isArray(reviews) ? reviews.length : 0)} itens.`}
+        onLess={() => setLimit(50)}
+        lessDisabled={isLoading || limit <= 50}
+        onMore={() => setLimit((p) => Math.min(500, p + 50))}
+        moreDisabled={!canLoadMore}
+      />
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-xl">

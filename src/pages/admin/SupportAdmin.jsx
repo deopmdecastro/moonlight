@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 import { entityCode } from '@/utils/entityCode';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 function statusLabel(status) {
   return status === 'closed' ? 'Fechado' : 'Aberto';
@@ -17,15 +18,19 @@ export default function SupportAdmin() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState(null);
   const [reply, setReply] = useState('');
+  const [limit, setLimit] = useState(50);
 
   const { data: tickets = [], isLoading: isLoadingTickets } = useQuery({
-    queryKey: ['admin-support-tickets'],
-    queryFn: () => base44.admin.support.tickets.list(500),
+    queryKey: ['admin-support-tickets', limit],
+    queryFn: () => base44.admin.support.tickets.list(limit),
   });
 
   const sortedTickets = useMemo(() => {
     return [...(tickets ?? [])].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
   }, [tickets]);
+
+  const canLoadMoreTickets =
+    !isLoadingTickets && Array.isArray(tickets) && tickets.length === limit && limit < 500;
 
   const { data: thread, isLoading: isLoadingThread } = useQuery({
     queryKey: ['admin-support-ticket', selectedId],
@@ -111,6 +116,17 @@ export default function SupportAdmin() {
               })}
             </div>
           )}
+
+          <div className="p-4 border-t border-border">
+            <LoadMoreControls
+              className="mt-0"
+              leftText={`A mostrar os últimos ${Math.min(limit, Array.isArray(tickets) ? tickets.length : 0)} tickets.`}
+              onLess={() => setLimit(50)}
+              lessDisabled={isLoadingTickets || limit <= 50}
+              onMore={() => setLimit((p) => Math.min(500, p + 50))}
+              moreDisabled={!canLoadMoreTickets}
+            />
+          </div>
         </div>
 
         <div className="lg:col-span-3 bg-card border border-border rounded-lg overflow-hidden flex flex-col min-h-[520px]">

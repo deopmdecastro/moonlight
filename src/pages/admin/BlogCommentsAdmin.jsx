@@ -10,21 +10,25 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 import { MessageSquare } from 'lucide-react';
 import DeleteIcon from '@/components/ui/delete-icon';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 export default function BlogCommentsAdmin() {
   const queryClient = useQueryClient();
   const [approved, setApproved] = useState('false');
   const [selected, setSelected] = useState(null);
   const [reply, setReply] = useState('');
+  const [limit, setLimit] = useState(50);
 
   const { data: comments = [], isLoading } = useQuery({
-    queryKey: ['admin-blog-comments', approved],
-    queryFn: () => base44.admin.blogComments.list({ approved, limit: 500 }),
+    queryKey: ['admin-blog-comments', approved, limit],
+    queryFn: () => base44.admin.blogComments.list({ approved, limit }),
   });
 
   const sorted = useMemo(() => {
     return [...(comments ?? [])].sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
   }, [comments]);
+
+  const canLoadMore = !isLoading && Array.isArray(comments) && comments.length === limit && limit < 500;
 
   const approveMutation = useMutation({
     mutationFn: ({ id, is_approved }) => base44.admin.blogComments.approve(id, is_approved),
@@ -140,6 +144,14 @@ export default function BlogCommentsAdmin() {
           </div>
         )}
       </div>
+
+      <LoadMoreControls
+        leftText={`A mostrar os últimos ${Math.min(limit, Array.isArray(comments) ? comments.length : 0)} comentários.`}
+        onLess={() => setLimit(50)}
+        lessDisabled={isLoading || limit <= 50}
+        onMore={() => setLimit((p) => Math.min(500, p + 50))}
+        moreDisabled={!canLoadMore}
+      />
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-xl">

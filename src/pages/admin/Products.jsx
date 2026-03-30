@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { entityCode } from '@/utils/entityCode';
 import DeleteIcon from '@/components/ui/delete-icon';
 import SearchableSelect from '@/components/ui/searchable-select';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 const emptyProduct = {
   name: '', description: '', price: '', acquisition_cost: '', original_price: '', category: 'colares',
@@ -48,10 +49,11 @@ export default function AdminProducts() {
   const [imageInput, setImageInput] = useState('');
   const [videoInput, setVideoInput] = useState('');
   const [jsonText, setJsonText] = useState('');
+  const [limit, setLimit] = useState(50);
 
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ['admin-products'],
-    queryFn: () => base44.entities.Product.list('-created_date', 500),
+    queryKey: ['admin-products', limit],
+    queryFn: () => base44.entities.Product.list('-created_date', limit),
   });
 
   const { data: purchases = [] } = useQuery({
@@ -279,6 +281,7 @@ export default function AdminProducts() {
     }
   };
 
+  const canLoadMore = !isLoading && Array.isArray(products) && products.length === limit && limit < 500;
   const filtered = products.filter(p => p.name?.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -368,6 +371,14 @@ export default function AdminProducts() {
         </table>
         {filtered.length === 0 && <p className="text-center py-8 font-body text-sm text-muted-foreground">Sem produtos</p>}
       </div>
+
+      <LoadMoreControls
+        leftText={`A mostrar ${Array.isArray(products) ? products.length : 0} produtos.`}
+        onLess={() => setLimit(50)}
+        lessDisabled={isLoading || limit <= 50}
+        onMore={() => setLimit((p) => Math.min(500, p + 50))}
+        moreDisabled={!canLoadMore}
+      />
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

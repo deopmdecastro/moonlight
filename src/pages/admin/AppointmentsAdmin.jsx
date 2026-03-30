@@ -22,6 +22,7 @@ import {
 } from '@/lib/appointmentStatus';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/toast';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 const WEEKDAYS = [
   { value: 1, label: 'Seg' },
@@ -74,7 +75,7 @@ export default function AppointmentsAdmin() {
   });
 
   const [apptLimit, setApptLimit] = useState(5);
-  const { data: apptRes } = useQuery({
+  const { data: apptRes, isLoading: isLoadingAppointments } = useQuery({
     queryKey: ['admin-appointments', apptLimit],
     queryFn: () => base44.admin.appointments.list({ limit: apptLimit }),
   });
@@ -206,6 +207,9 @@ export default function AppointmentsAdmin() {
   const upcoming = useMemo(() => {
     return appointments.slice().sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
   }, [appointments]);
+
+  const canLoadMoreAppointments =
+    !isLoadingAppointments && Array.isArray(appointments) && appointments.length === apptLimit && apptLimit < 500;
 
   const toLocalDateTimeInput = (value) => {
     if (!value) return '';
@@ -857,14 +861,15 @@ export default function AppointmentsAdmin() {
                   )}
                 </tbody>
               </table>
-              {appointments.length >= apptLimit ? (
-                <div className="p-4 text-center border-t border-border">
-                  <Button variant="outline" className="rounded-none font-body text-sm" onClick={() => setApptLimit((l) => l * 2)}>
-                    Ver mais marcações
-                  </Button>
-                </div>
-              ) : null}
             </div>
+
+            <LoadMoreControls
+              leftText={`A mostrar ${Array.isArray(upcoming) ? upcoming.length : 0} marcações.`}
+              onLess={() => setApptLimit(5)}
+              lessDisabled={isLoadingAppointments || apptLimit <= 5}
+              onMore={() => setApptLimit((p) => Math.min(500, p + 10))}
+              moreDisabled={!canLoadMoreAppointments}
+            />
 
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
               <DialogContent className="max-w-lg">

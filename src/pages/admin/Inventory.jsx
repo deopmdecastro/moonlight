@@ -9,16 +9,18 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 import { PackageSearch } from 'lucide-react';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 export default function AdminInventory() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState(null);
   const [delta, setDelta] = useState(0);
   const [reason, setReason] = useState('');
+  const [limit, setLimit] = useState(50);
 
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ['admin-inventory'],
-    queryFn: () => base44.admin.inventory.list(500),
+    queryKey: ['admin-inventory', limit],
+    queryFn: () => base44.admin.inventory.list(limit),
   });
 
   const adjustMutation = useMutation({
@@ -37,6 +39,7 @@ export default function AdminInventory() {
   });
 
   const lowStock = useMemo(() => products.filter((p) => (p.stock ?? 0) <= 2), [products]);
+  const canLoadMore = !isLoading && Array.isArray(products) && products.length === limit && limit < 500;
 
   const openAdjust = (p) => {
     setSelected(p);
@@ -66,8 +69,9 @@ export default function AdminInventory() {
       {isLoading ? (
         <p className="font-body text-sm text-muted-foreground">A carregar...</p>
       ) : (
-        <div className="bg-card rounded-lg border border-border overflow-x-auto">
-          <table className="w-full">
+        <div>
+          <div className="bg-card rounded-lg border border-border overflow-x-auto">
+            <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-secondary/30">
                 <th className="text-left p-3 font-body text-xs text-muted-foreground">Produto</th>
@@ -98,13 +102,22 @@ export default function AdminInventory() {
                 </tr>
               ))}
             </tbody>
-          </table>
-          {products.length === 0 && (
-            <div className="text-center py-10">
-              <PackageSearch className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="font-body text-sm text-muted-foreground">Sem produtos</p>
-            </div>
-          )}
+            </table>
+            {products.length === 0 && (
+              <div className="text-center py-10">
+                <PackageSearch className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="font-body text-sm text-muted-foreground">Sem produtos</p>
+              </div>
+            )}
+          </div>
+
+          <LoadMoreControls
+            leftText={`A mostrar ${Math.min(limit, Array.isArray(products) ? products.length : 0)} produtos.`}
+            onLess={() => setLimit(50)}
+            lessDisabled={isLoading || limit <= 50}
+            onMore={() => setLimit((p) => Math.min(500, p + 50))}
+            moreDisabled={!canLoadMore}
+          />
         </div>
       )}
 

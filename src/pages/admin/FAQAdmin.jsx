@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 import { Plus, Pencil, HelpCircle } from 'lucide-react';
 import DeleteIcon from '@/components/ui/delete-icon';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 const emptyItem = { question: '', answer: '', order: 0, is_active: true };
 
@@ -21,6 +22,7 @@ export default function FAQAdmin() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyItem);
   const [questionStatus, setQuestionStatus] = useState('pending');
+  const [questionsLimit, setQuestionsLimit] = useState(50);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [answerDraft, setAnswerDraft] = useState('');
   const [publish, setPublish] = useState(false);
@@ -31,9 +33,12 @@ export default function FAQAdmin() {
   });
 
   const { data: questions = [], isLoading: isLoadingQuestions } = useQuery({
-    queryKey: ['admin-faq-questions', questionStatus],
-    queryFn: () => base44.admin.faqQuestions.list({ status: questionStatus, public: 'all', limit: 500 }),
+    queryKey: ['admin-faq-questions', questionStatus, questionsLimit],
+    queryFn: () => base44.admin.faqQuestions.list({ status: questionStatus, public: 'all', limit: questionsLimit }),
   });
+
+  const canLoadMoreQuestions =
+    !isLoadingQuestions && Array.isArray(questions) && questions.length === questionsLimit && questionsLimit < 500;
 
   const sorted = useMemo(() => {
     return [...items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -176,6 +181,14 @@ export default function FAQAdmin() {
             </div>
           ) : null}
         </div>
+
+        <LoadMoreControls
+          leftText={`A mostrar as últimas ${Math.min(questionsLimit, Array.isArray(questions) ? questions.length : 0)} perguntas.`}
+          onLess={() => setQuestionsLimit(50)}
+          lessDisabled={isLoadingQuestions || questionsLimit <= 50}
+          onMore={() => setQuestionsLimit((p) => Math.min(500, p + 50))}
+          moreDisabled={!canLoadMoreQuestions}
+        />
       </div>
 
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">

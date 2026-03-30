@@ -19,6 +19,7 @@ import { getErrorMessage, toastApiPromise } from '@/lib/toast';
 import { getPrimaryImage } from '@/lib/images';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
 import DeleteIcon from '@/components/ui/delete-icon';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 const statusLabels = {
   pending: 'Pendente',
@@ -83,6 +84,7 @@ export default function AdminOrders() {
   const [selected, setSelected] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [trackingForm, setTrackingForm] = useState({ tracking_carrier: '', tracking_code: '', tracking_url: '' });
+  const [limit, setLimit] = useState(50);
 
   const [saleOpen, setSaleOpen] = useState(false);
   const [saleForm, setSaleForm] = useState({
@@ -101,9 +103,9 @@ export default function AdminOrders() {
 	  const [saleLines, setSaleLines] = useState([{ product_id: '', quantity: 1 }]);
 	  const [productPickerOpenIndex, setProductPickerOpenIndex] = useState(null);
 
-  const { data: orders = [] } = useQuery({
-    queryKey: ['admin-orders'],
-    queryFn: () => base44.entities.Order.list('-created_date', 500),
+  const { data: orders = [], isLoading: isLoadingOrders } = useQuery({
+    queryKey: ['admin-orders', limit],
+    queryFn: () => base44.entities.Order.list('-created_date', limit),
   });
 
   const { data: products = [] } = useQuery({
@@ -130,6 +132,8 @@ export default function AdminOrders() {
   const filtered = useMemo(() => {
     return statusFilter === 'all' ? orders : orders.filter((o) => o.status === statusFilter);
   }, [orders, statusFilter]);
+
+  const canLoadMore = !isLoadingOrders && Array.isArray(orders) && orders.length === limit && limit < 500;
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
@@ -377,6 +381,14 @@ export default function AdminOrders() {
           <p className="text-center py-8 font-body text-sm text-muted-foreground">Sem encomendas</p>
         )}
       </div>
+
+      <LoadMoreControls
+        leftText={`A mostrar as últimas ${Math.min(limit, Array.isArray(orders) ? orders.length : 0)} encomendas.`}
+        onLess={() => setLimit(50)}
+        lessDisabled={isLoadingOrders || limit <= 50}
+        onMore={() => setLimit((p) => Math.min(500, p + 50))}
+        moreDisabled={!canLoadMore}
+      />
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">

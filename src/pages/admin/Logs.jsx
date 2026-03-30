@@ -7,10 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SearchableSelect from '@/components/ui/searchable-select';
-import { ChevronDown, ChevronUp, FileText, Search, TrendingUp, MapPin, Clock } from 'lucide-react';
+import { FileText, Search, TrendingUp, MapPin, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { appointmentStatusLabels } from '@/lib/appointmentStatus';
 import { entityCode } from '@/utils/entityCode';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 function safeJson(value) {
   if (value === null || value === undefined) return null;
@@ -153,6 +154,8 @@ export default function AdminLogs() {
     queryKey: ['admin-logs', limit],
     queryFn: () => base44.admin.logs.list(limit),
   });
+
+  const canLoadMore = !isLoading && Array.isArray(logs) && logs.length === limit && limit < 500;
 
   const entityFirstSeen = useMemo(() => {
     const seen = new Map();
@@ -381,28 +384,13 @@ export default function AdminLogs() {
         )}
       </div>
 
-      <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
-        <div className="font-body text-xs text-muted-foreground">A mostrar os últimos {limit} logs.</div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="rounded-none font-body text-sm gap-2"
-            onClick={() => setLimit(10)}
-            disabled={limit <= 10 || isLoading}
-          >
-            <ChevronUp className="w-4 h-4" />
-            Mostrar menos
-          </Button>
-          <Button
-            className="rounded-none font-body text-sm gap-2"
-            onClick={() => setLimit((p) => Math.min(500, p + 20))}
-            disabled={isLoading || limit >= 500}
-          >
-            <ChevronDown className="w-4 h-4" />
-            Carregar mais
-          </Button>
-        </div>
-      </div>
+      <LoadMoreControls
+        leftText={`A mostrar os últimos ${Math.min(limit, Array.isArray(logs) ? logs.length : 0)} logs.`}
+        onLess={() => setLimit(10)}
+        lessDisabled={isLoading || limit <= 10}
+        onMore={() => setLimit((p) => Math.min(500, p + 20))}
+        moreDisabled={!canLoadMore}
+      />
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
