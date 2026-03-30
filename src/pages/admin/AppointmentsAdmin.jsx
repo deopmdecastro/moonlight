@@ -299,14 +299,14 @@ export default function AppointmentsAdmin() {
           </div>
 
           <div className="bg-card p-6 rounded-lg border border-border">
-            <div className="font-heading text-lg mb-1">Disponibilidade do calendÃ¡rio</div>
+            <div className="font-heading text-lg mb-1">Disponibilidade do calendário</div>
             <div className="font-body text-sm text-muted-foreground mb-4">
-              Estes valores controlam os dias/horÃ¡rios que podem ser marcados e os dias que aparecem destacados no calendÃ¡rio do cliente.
+              Estes valores controlam os dias/horários que podem ser marcados e os dias que aparecem destacados no calendário do cliente.
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
-                <Label className="font-body text-xs">Dias disponÃ­veis</Label>
+                <Label className="font-body text-xs">Dias disponíveis</Label>
                 <div className="mt-2 flex items-center gap-4 flex-wrap">
                   {WEEKDAYS.map((d) => (
                     <label key={d.value} className="inline-flex items-center gap-2 cursor-pointer">
@@ -330,7 +330,7 @@ export default function AppointmentsAdmin() {
               </div>
 
               <div>
-                <Label className="font-body text-xs">Passo de horÃ¡rios (min)</Label>
+                <Label className="font-body text-xs">Passo de horários (min)</Label>
                 <Input
                   type="number"
                   min={5}
@@ -344,7 +344,7 @@ export default function AppointmentsAdmin() {
               </div>
 
               <div>
-                <Label className="font-body text-xs">Hora inÃ­cio</Label>
+                <Label className="font-body text-xs">Hora início</Label>
                 <Input
                   type="time"
                   value={settingsForm.start_time}

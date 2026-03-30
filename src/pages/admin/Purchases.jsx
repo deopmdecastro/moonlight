@@ -911,7 +911,7 @@ export default function AdminPurchases() {
                             <div className="font-body text-xs text-muted-foreground break-all mt-1">ID: {it.product_id}</div>
                           ) : it.product_payload?.name ? (
                             <div className="font-body text-xs text-muted-foreground mt-1 whitespace-normal break-words">
-                              Produto serÃ¡ criado a partir do JSON
+                              Produto será criado a partir do JSON
                             </div>
                           ) : (
                             <div className="font-body text-xs text-destructive mt-1 whitespace-normal break-words">

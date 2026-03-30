@@ -61,6 +61,22 @@ export default function AdminProducts() {
     queryFn: () => base44.entities.Purchase.list('-purchased_at', 500),
   });
 
+  const purchaseSuggestionByName = useMemo(() => {
+    const map = new Map();
+    for (const p of purchases ?? []) {
+      const items = Array.isArray(p?.items) ? p.items : [];
+      for (const it of items) {
+        const name = String(it?.product_name ?? it?.productName ?? '').trim();
+        if (!name || map.has(name)) continue;
+
+        const unitCost = Number(it?.unit_cost ?? it?.unitCost ?? it?.cost ?? 0) || 0;
+        const image = String(it?.product_image ?? it?.productImage ?? it?.image ?? '').trim();
+        map.set(name, { unitCost, image });
+      }
+    }
+    return map;
+  }, [purchases]);
+
   const purchasedProductNameOptions = useMemo(() => {
     const set = new Set();
     for (const p of purchases ?? []) {
@@ -273,7 +289,7 @@ export default function AdminProducts() {
     const value = videoInput.trim();
     if (value) {
       if (/^[a-zA-Z]:\\/.test(value) || value.startsWith('file:') || value.startsWith('\\\\')) {
-        toast.error('Caminho local nÃ£o funciona no browser. Use uma URL.');
+        toast.error('Caminho local não funciona no browser. Use uma URL.');
         return;
       }
       setForm((prev) => ({ ...prev, videos: [...(prev.videos || []), value] }));
@@ -397,8 +413,22 @@ export default function AdminProducts() {
                       setNameChoice('__manual__');
                       return;
                     }
-                    setNameChoice(v);
-                    setForm((prev) => ({ ...prev, name: v }));
+                    const nextName = String(v ?? '').trim();
+                    setNameChoice(nextName);
+                    setForm((prev) => {
+                      const next = { ...prev, name: nextName };
+                      if (!editing && nextName) {
+                        const suggestion = purchaseSuggestionByName.get(nextName);
+                        if (suggestion) {
+                          if (suggestion.unitCost) next.acquisition_cost = String(suggestion.unitCost);
+                          if (suggestion.image) {
+                            const current = Array.isArray(next.images) ? next.images : [];
+                            next.images = current.includes(suggestion.image) ? current : [suggestion.image, ...current];
+                          }
+                        }
+                      }
+                      return next;
+                    });
                   }}
                   options={purchasedProductNameOptions}
                   placeholder="Selecionar (baseado em compras)..."
@@ -413,7 +443,7 @@ export default function AdminProducts() {
                   />
                 ) : null}
                 <p className="font-body text-xs text-muted-foreground">
-                  SugestÃµes geradas a partir dos nomes usados nas compras.
+                  Sugestões geradas a partir dos nomes usados nas compras.
                 </p>
               </div>
             </div>
