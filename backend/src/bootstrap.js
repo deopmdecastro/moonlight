@@ -182,6 +182,8 @@ const ddl = [
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "couponCode" TEXT;`,
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "discountAmount" NUMERIC(12,2);`,
   `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "discountType" "CouponType";`,
+  `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "pointsUsed" INTEGER NOT NULL DEFAULT 0;`,
+  `ALTER TABLE IF EXISTS "Order" ADD COLUMN IF NOT EXISTS "pointsDiscount" NUMERIC(12,2) NOT NULL DEFAULT 0;`,
 
   `
   CREATE TABLE IF NOT EXISTS "OrderItem" (
@@ -204,17 +206,26 @@ const ddl = [
   CREATE TABLE IF NOT EXISTS "Review" (
     "id" TEXT PRIMARY KEY,
     "productId" TEXT NOT NULL,
+    "userId" TEXT,
     "rating" INTEGER NOT NULL,
     "comment" TEXT,
     "authorName" TEXT,
     "isApproved" BOOLEAN NOT NULL DEFAULT FALSE,
+    "images" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    "videos" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    "pointsAwarded" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT "Review_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE
   );
   `,
   `ALTER TABLE IF EXISTS "Review" ADD COLUMN IF NOT EXISTS "isApproved" BOOLEAN NOT NULL DEFAULT FALSE;`,
+  `ALTER TABLE IF EXISTS "Review" ADD COLUMN IF NOT EXISTS "userId" TEXT;`,
+  `ALTER TABLE IF EXISTS "Review" ADD COLUMN IF NOT EXISTS "images" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];`,
+  `ALTER TABLE IF EXISTS "Review" ADD COLUMN IF NOT EXISTS "videos" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];`,
+  `ALTER TABLE IF EXISTS "Review" ADD COLUMN IF NOT EXISTS "pointsAwarded" INTEGER NOT NULL DEFAULT 0;`,
   `CREATE INDEX IF NOT EXISTS "Review_productId_idx" ON "Review" ("productId");`,
   `CREATE INDEX IF NOT EXISTS "Review_isApproved_idx" ON "Review" ("isApproved");`,
+  `CREATE INDEX IF NOT EXISTS "Review_userId_idx" ON "Review" ("userId");`,
 
   `
   CREATE TABLE IF NOT EXISTS "Service" (
