@@ -7812,6 +7812,17 @@ async function bootstrapAndListen() {
     console.error('❌ Não foi possível ligar à base de dados.')
     console.error('   - Confirme `backend/.env` (DATABASE_URL).')
     console.error('   - Se estiver a usar Docker: `docker compose up -d` (porta 5433).')
+    try {
+      const raw = process.env.DATABASE_URL
+      const value = typeof raw === 'string' ? raw.trim() : ''
+      if (!value) {
+        console.error('   - DATABASE_URL está vazio/não definido no ambiente.')
+      } else if (!/^postgres(ql)?:\/\//i.test(value)) {
+        console.error(`   - DATABASE_URL inválido (início): ${JSON.stringify(value.slice(0, 32))} (len=${value.length})`)
+      }
+    } catch {
+      // ignore diagnostics errors
+    }
     console.error(err)
     process.exit(1)
   }

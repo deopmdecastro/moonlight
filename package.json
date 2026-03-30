@@ -7,6 +7,8 @@
     "dev": "node scripts/dev.js",
     "dev:frontend": "vite --configLoader native",
     "dev:backend": "cd backend && node src/index.js",
+    "prisma:deploy": "npm --prefix backend run prisma:deploy",
+    "prisma:generate": "npm --prefix backend run prisma:generate",
     "build": "vite build --configLoader native",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
