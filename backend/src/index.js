@@ -1107,7 +1107,8 @@ const supplierPayloadSchema = z
 const purchaseItemPayloadSchema = z.object({
   product_id: z.string().optional().nullable(),
   product_name: z.string().min(1).max(200),
-  product_image: z.string().max(5000).optional().nullable(),
+  // Can be an URL or a data URL (upload stub in dev).
+  product_image: z.string().max(2_500_000).optional().nullable(),
   unit_cost: z.union([z.number(), z.string()]),
   quantity: z.number().int().positive(),
 })

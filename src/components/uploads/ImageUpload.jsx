@@ -16,7 +16,9 @@ export default function ImageUpload({
   label = 'Imagem',
   helper,
   accept = 'image/*',
-  recommended = '1200×800',
+  recommended = '1200x800',
+  variant = 'card', // 'card' | 'compact'
+  buttonLabel = 'Upload',
 } = {}) {
   const inputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -48,6 +50,49 @@ export default function ImageUpload({
     const file = e.dataTransfer.files?.[0];
     await uploadFile(file);
   };
+
+  if (variant === 'compact') {
+    return (
+      <div className="min-w-0">
+        {label ? <div className="font-body text-xs text-muted-foreground">{label}</div> : null}
+        <div className="mt-2 flex items-center gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-md overflow-hidden bg-secondary/30 border border-border flex items-center justify-center shrink-0">
+            {preview ? (
+              <ImageWithFallback
+                src={preview}
+                alt=""
+                className="w-full h-full object-cover"
+                iconClassName="w-5 h-5 text-muted-foreground/50"
+              />
+            ) : (
+              <ImageIcon className="w-5 h-5 text-muted-foreground/50" />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="font-body text-xs text-muted-foreground truncate">
+              Recomendado: {recommended}.{helper ? ` ${helper}` : ''}
+            </div>
+            <div className="font-body text-sm text-foreground/90 truncate">{value ? 'Imagem selecionada' : 'Nenhuma imagem'}</div>
+          </div>
+
+          <div className="shrink-0 flex items-center gap-2">
+            <Button type="button" onClick={onPick} className="rounded-none font-body text-sm h-9 px-3 gap-2">
+              <UploadCloud className="w-4 h-4" />
+              {buttonLabel}
+            </Button>
+            {value ? (
+              <Button type="button" variant="outline" className="rounded-none h-9 px-3 text-sm" onClick={() => onChange?.('')}>
+                <X className="w-4 h-4" />
+              </Button>
+            ) : null}
+          </div>
+
+          <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={onInputChange} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -96,7 +141,7 @@ export default function ImageUpload({
           </div>
           <Button type="button" onClick={onPick} className="rounded-none font-body text-sm gap-2">
             <UploadCloud className="w-4 h-4" />
-            Upload
+            {buttonLabel}
           </Button>
           <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={onInputChange} />
         </div>

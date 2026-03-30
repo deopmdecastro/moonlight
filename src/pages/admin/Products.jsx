@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { getProductStatusLabel, productStatusBadgeClassName } from '@/lib/produc
 import { cn } from '@/lib/utils';
 import { entityCode } from '@/utils/entityCode';
 import DeleteIcon from '@/components/ui/delete-icon';
+import SearchableSelect from '@/components/ui/searchable-select';
 
 const emptyProduct = {
   name: '', description: '', price: '', acquisition_cost: '', original_price: '', category: 'colares',
@@ -42,6 +43,7 @@ export default function AdminProducts() {
   const [jsonSaving, setJsonSaving] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyProduct);
+  const [nameChoice, setNameChoice] = useState('');
   const [search, setSearch] = useState('');
   const [imageInput, setImageInput] = useState('');
   const [videoInput, setVideoInput] = useState('');
@@ -51,6 +53,34 @@ export default function AdminProducts() {
     queryKey: ['admin-products'],
     queryFn: () => base44.entities.Product.list('-created_date', 500),
   });
+
+  const { data: purchases = [] } = useQuery({
+    queryKey: ['admin-purchases'],
+    queryFn: () => base44.entities.Purchase.list('-purchased_at', 500),
+  });
+
+  const purchasedProductNameOptions = useMemo(() => {
+    const set = new Set();
+    for (const p of purchases ?? []) {
+      for (const it of p?.items ?? []) {
+        const name = String(it?.product_name ?? '').trim();
+        if (name) set.add(name);
+      }
+    }
+
+    const currentName = String(form?.name ?? '').trim();
+    const hasCurrentName = Boolean(currentName);
+    const currentInList = hasCurrentName && set.has(currentName);
+
+    const sorted = Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-PT'));
+    const opts = sorted.map((name) => ({ value: name, label: name }));
+
+    return [
+      ...(hasCurrentName && !currentInList ? [{ value: currentName, label: `${currentName} (atual)` }] : []),
+      { value: '__manual__', label: 'Outro (escrever manualmente)' },
+      ...opts,
+    ];
+  }, [purchases, form?.name]);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Product.create(data),
@@ -70,7 +100,7 @@ export default function AdminProducts() {
     onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível remover o produto.')),
   });
 
-  const openCreate = () => { setEditing(null); setForm(emptyProduct); setImageInput(''); setVideoInput(''); setJsonText(''); setDialogOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(emptyProduct); setNameChoice(''); setImageInput(''); setVideoInput(''); setJsonText(''); setDialogOpen(true); };
   const openEdit = (p) => {
     setEditing(p);
     setForm({
@@ -83,6 +113,7 @@ export default function AdminProducts() {
       images: p.images ?? [],
       videos: p.videos ?? [],
     });
+    setNameChoice(String(p?.name ?? ''));
     setImageInput('');
     setVideoInput('');
     setJsonText('');
@@ -252,11 +283,15 @@ export default function AdminProducts() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
         <h1 className="font-heading text-3xl">Produtos</h1>
-        <div className="flex items-center gap-2">
-          <Button onClick={openCreate} className="rounded-none font-body text-sm gap-2"><Plus className="w-4 h-4" /> Novo Produto</Button>
-          <Button onClick={openJson} variant="outline" className="rounded-none font-body text-sm gap-2"><Code className="w-4 h-4" /> JSON</Button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
+          <Button onClick={openCreate} className="rounded-none font-body text-sm gap-2 w-full sm:w-auto">
+            <Plus className="w-4 h-4" /> Novo Produto
+          </Button>
+          <Button onClick={openJson} variant="outline" className="rounded-none font-body text-sm gap-2 w-full sm:w-auto">
+            <Code className="w-4 h-4" /> JSON
+          </Button>
         </div>
       </div>
 
@@ -343,7 +378,33 @@ export default function AdminProducts() {
           <div className="space-y-4">
             <div>
               <Label className="font-body text-xs">Nome *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-none mt-1" />
+              <div className="mt-1 space-y-2">
+                <SearchableSelect
+                  value={nameChoice || ''}
+                  onChange={(v) => {
+                    if (v === '__manual__') {
+                      setNameChoice('__manual__');
+                      return;
+                    }
+                    setNameChoice(v);
+                    setForm((prev) => ({ ...prev, name: v }));
+                  }}
+                  options={purchasedProductNameOptions}
+                  placeholder="Selecionar (baseado em compras)..."
+                  searchPlaceholder="Pesquisar produto comprado..."
+                />
+                {nameChoice === '__manual__' ? (
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="rounded-none"
+                    placeholder="Escreva o nome do produto..."
+                  />
+                ) : null}
+                <p className="font-body text-xs text-muted-foreground">
+                  SugestÃµes geradas a partir dos nomes usados nas compras.
+                </p>
+              </div>
             </div>
             <div>
               <Label className="font-body text-xs">Descrição</Label>

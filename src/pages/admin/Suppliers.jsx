@@ -210,13 +210,13 @@ export default function AdminSuppliers() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
         <h1 className="font-heading text-3xl">Fornecedores</h1>
-        <div className="flex items-center gap-2">
-          <Button onClick={openCreate} className="rounded-none font-body text-sm gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
+          <Button onClick={openCreate} className="rounded-none font-body text-sm gap-2 w-full sm:w-auto">
             <Plus className="w-4 h-4" /> Novo
           </Button>
-          <Button onClick={openJson} variant="outline" className="rounded-none font-body text-sm gap-2">
+          <Button onClick={openJson} variant="outline" className="rounded-none font-body text-sm gap-2 w-full sm:w-auto">
             <Code className="w-4 h-4" /> JSON
           </Button>
         </div>

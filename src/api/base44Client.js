@@ -382,12 +382,66 @@ export const base44 = {
     Core: {
       UploadFile: async ({ file } = {}) => {
         if (!file) throw new Error('Missing file');
-        const dataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error('file_read_failed'));
-          reader.readAsDataURL(file);
-        });
+
+        const readAsDataUrl = (blob) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('file_read_failed'));
+            reader.readAsDataURL(blob);
+          });
+
+        const optimizeImageToDataUrl = async (imageFile) => {
+          const objectUrl = URL.createObjectURL(imageFile);
+          try {
+            const img = new Image();
+            img.decoding = 'async';
+            img.src = objectUrl;
+            if (typeof img.decode === 'function') await img.decode();
+            else {
+              await new Promise((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error('image_decode_failed'));
+              });
+            }
+
+            const maxSide = 1600;
+            const width = img.naturalWidth || img.width || 1;
+            const height = img.naturalHeight || img.height || 1;
+            const scale = Math.min(1, maxSide / Math.max(width, height));
+            const targetW = Math.max(1, Math.round(width * scale));
+            const targetH = Math.max(1, Math.round(height * scale));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('canvas_context_failed');
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+
+            const quality = 0.85;
+            let dataUrl = '';
+            try {
+              dataUrl = canvas.toDataURL('image/webp', quality);
+            } catch {
+              dataUrl = '';
+            }
+            if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+              try {
+                dataUrl = canvas.toDataURL('image/jpeg', quality);
+              } catch {
+                dataUrl = '';
+              }
+            }
+
+            return dataUrl || (await readAsDataUrl(imageFile));
+          } finally {
+            URL.revokeObjectURL(objectUrl);
+          }
+        };
+
+        const isImage = typeof file?.type === 'string' && file.type.startsWith('image/');
+        const dataUrl = isImage ? await optimizeImageToDataUrl(file) : await readAsDataUrl(file);
         return { file_url: String(dataUrl) };
       },
     },

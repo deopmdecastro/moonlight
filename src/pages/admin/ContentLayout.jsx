@@ -24,13 +24,13 @@ export default function ContentLayout() {
       </div>
 
       <div className="bg-card border border-border rounded-lg p-2">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto md:overflow-x-visible pb-1">
           {tabs.map((t) => (
             <NavLink
               key={t.to}
               to={t.to}
               className={({ isActive }) =>
-                `inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-body transition-colors ${
+                `inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-body transition-colors whitespace-nowrap shrink-0 ${
                   isActive ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-secondary'
                 }`
               }

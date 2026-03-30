@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 import { Plus, Pencil, CheckCircle, Code } from 'lucide-react';
 import { getPrimaryImage } from '@/lib/images';
+import ImageUpload from '@/components/uploads/ImageUpload';
 
 function safeJson(value) {
   if (value === null || value === undefined) return null;
@@ -602,13 +603,13 @@ export default function AdminPurchases() {
 
   return (
 	    <div>
-	      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+	      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
 	        <h1 className="font-heading text-3xl">Compras</h1>
-	        <div className="flex items-center gap-2">
-	          <Button onClick={openCreate} className="rounded-none font-body text-sm gap-2">
+	        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
+	          <Button onClick={openCreate} className="rounded-none font-body text-sm gap-2 w-full sm:w-auto">
 	            <Plus className="w-4 h-4" /> Nova
 	          </Button>
-	          <Button onClick={openJson} variant="outline" className="rounded-none font-body text-sm gap-2">
+	          <Button onClick={openJson} variant="outline" className="rounded-none font-body text-sm gap-2 w-full sm:w-auto">
 	            <Code className="w-4 h-4" /> JSON
 	          </Button>
 	        </div>
@@ -725,8 +726,22 @@ export default function AdminPurchases() {
             <div className="space-y-3">
               {(form.items ?? []).map((it, idx) => (
                 <div key={idx} className="border border-border rounded-md p-4 bg-secondary/20">
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-                    <div className="md:col-span-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-body text-xs text-muted-foreground">Item {idx + 1}</div>
+                    {!isLocked ? (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={() => removeItem(idx)}
+                        className="rounded-none font-body text-xs h-8 px-3"
+                      >
+                        Remover
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <div className="md:col-span-4">
                       <Label className="font-body text-xs">Produto (opcional)</Label>
                       {productOptions.length > 10 ? (
                         <SearchableSelect
@@ -776,51 +791,67 @@ export default function AdminPurchases() {
                         </Select>
                       )}
                     </div>
-	                    <div className="md:col-span-2">
-	                      <Label className="font-body text-xs">Nome do item</Label>
-	                      <Input
-	                        value={it.product_name}
-	                        onChange={(e) => updateItem(idx, { product_name: e.target.value })}
-	                        className="rounded-none mt-1"
-	                        disabled={isLocked}
-	                      />
-	                    </div>
-	                    <div className="md:col-span-2">
-	                      <Label className="font-body text-xs">Imagem (URL)</Label>
-	                      <Input
-	                        value={it.product_image}
-	                        onChange={(e) => updateItem(idx, { product_image: e.target.value })}
-	                        className="rounded-none mt-1"
-	                        placeholder="https://..."
-	                        disabled={isLocked}
-	                      />
-	                      {it.product_image ? (
-	                        <img
-	                          src={it.product_image}
-	                          alt=""
-	                          className="mt-2 w-12 h-12 rounded object-cover border border-border"
-	                          onError={(e) => {
-	                            e.currentTarget.style.display = 'none';
-	                          }}
-	                        />
-	                      ) : null}
-	                    </div>
-	                    <div className="md:col-span-1">
-	                      <Label className="font-body text-xs">Custo</Label>
-	                      <Input type="number" value={it.unit_cost} onChange={(e) => updateItem(idx, { unit_cost: e.target.value })} className="rounded-none mt-1" disabled={isLocked} />
-	                    </div>
-	                    <div className="md:col-span-1">
-	                      <Label className="font-body text-xs">Qtd</Label>
-	                      <Input type="number" value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} className="rounded-none mt-1" disabled={isLocked} />
-	                    </div>
-                  </div>
-                  {!isLocked && (
-                    <div className="mt-3 flex justify-end">
-                      <Button type="button" variant="destructive" onClick={() => removeItem(idx)} className="rounded-none font-body text-sm">
-                        Remover
-                      </Button>
+
+                    <div className="md:col-span-4">
+                      <Label className="font-body text-xs">Nome do item</Label>
+                      <Input
+                        value={it.product_name}
+                        onChange={(e) => updateItem(idx, { product_name: e.target.value })}
+                        className="rounded-none mt-1"
+                        disabled={isLocked}
+                      />
                     </div>
-                  )}
+
+                    <div className="md:col-span-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="font-body text-xs">Custo</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={it.unit_cost}
+                            onChange={(e) => updateItem(idx, { unit_cost: e.target.value })}
+                            className="rounded-none mt-1"
+                            disabled={isLocked}
+                          />
+                        </div>
+                        <div>
+                          <Label className="font-body text-xs">Qtd</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={it.quantity}
+                            onChange={(e) => updateItem(idx, { quantity: e.target.value })}
+                            className="rounded-none mt-1"
+                            disabled={isLocked}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-12">
+                      <Label className="font-body text-xs">Imagem</Label>
+                      <div className="mt-1">
+                        <Input
+                          value={it.product_image}
+                          onChange={(e) => updateItem(idx, { product_image: e.target.value })}
+                          className="rounded-none"
+                          placeholder="URL (opcional) - https://..."
+                          disabled={isLocked}
+                        />
+                        <div className="mt-2">
+                          <ImageUpload
+                            value={it.product_image}
+                            onChange={(value) => updateItem(idx, { product_image: value })}
+                            label=""
+                            variant="compact"
+                            recommended="600x600"
+                            buttonLabel="Upload"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -957,15 +988,29 @@ export default function AdminPurchases() {
 			                        />
 			                      </div>
 			                      <div className="md:col-span-3">
-			                        <Label className="font-body text-xs">Imagem (URL)</Label>
-			                        <Input
-			                          value={it.product_image}
-			                          onChange={(e) =>
-			                            setFixupItems((p) => p.map((x, i) => (i === idx ? { ...x, product_image: e.target.value } : x)))
-			                          }
-			                          className="rounded-none mt-1"
-			                          placeholder="https://..."
-			                        />
+			                        <Label className="font-body text-xs">Imagem</Label>
+                              <div className="mt-1">
+			                          <Input
+			                            value={it.product_image}
+			                            onChange={(e) =>
+			                              setFixupItems((p) => p.map((x, i) => (i === idx ? { ...x, product_image: e.target.value } : x)))
+			                            }
+			                            className="rounded-none"
+			                            placeholder="URL (opcional) - https://..."
+			                          />
+                                <div className="mt-2">
+                                  <ImageUpload
+                                    value={it.product_image}
+                                    onChange={(value) =>
+                                      setFixupItems((p) => p.map((x, i) => (i === idx ? { ...x, product_image: value } : x)))
+                                    }
+                                    label=""
+                                    variant="compact"
+                                    recommended="600x600"
+                                    buttonLabel="Upload"
+                                  />
+                                </div>
+                              </div>
 			                      </div>
 			                      <div className="md:col-span-2">
 			                        <Label className="font-body text-xs">Custo</Label>
