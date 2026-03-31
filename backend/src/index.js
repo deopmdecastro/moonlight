@@ -939,6 +939,7 @@ const productPayloadSchema = z
       .optional()
       .nullable(),
     colors: z.array(z.string()).optional(),
+    sizes: z.array(z.string()).optional(),
     images: z.array(z.string()).optional(),
     videos: z.array(z.string()).optional(),
 	    stock: z.union([z.number(), z.string()]).optional().nullable(),
@@ -1042,6 +1043,32 @@ const returnsContentSchema = z
     enabled: z.boolean().optional(),
     days_allowed: z.number().int().min(0).max(60).optional(),
     conditions_text: z.string().max(20_000).optional(),
+  })
+  .passthrough()
+
+const productOptionsSchema = z
+  .object({
+    categories: z
+      .array(
+        z.object({
+          value: z.enum(['colares', 'brincos', 'pulseiras', 'aneis', 'conjuntos']),
+          label: z.string().min(1).max(80),
+          enabled: z.boolean().optional(),
+        }),
+      )
+      .optional(),
+    materials: z
+      .array(
+        z.object({
+          value: z.enum(['aco_inox', 'prata', 'dourado', 'rose_gold', 'perolas', 'cristais']),
+          label: z.string().min(1).max(80),
+          enabled: z.boolean().optional(),
+        }),
+      )
+      .optional(),
+    colors: z.array(z.string().min(1).max(50)).optional(),
+    sizes: z.array(z.string().min(1).max(50)).optional(),
+    attributes: z.array(z.string().min(1).max(80)).optional(),
   })
   .passthrough()
 
@@ -1680,6 +1707,7 @@ function toApiProduct(p) {
     category: p.category,
     material: p.material ?? null,
     colors: Array.isArray(p.colors) ? p.colors : [],
+    sizes: Array.isArray(p.sizes) ? p.sizes : [],
     images: Array.isArray(p.images) ? p.images : [],
     videos: Array.isArray(p.videos) ? p.videos : [],
     stock: p.stock ?? 0,
@@ -3994,6 +4022,35 @@ app.get('/api/content/returns', async (req, res) => {
   res.json({ content, updated_date: updatedAt ?? null })
 })
 
+app.get('/api/content/product-options', async (req, res) => {
+  const defaults = {
+    categories: [
+      { value: 'colares', label: 'Colares', enabled: true },
+      { value: 'brincos', label: 'Brincos', enabled: true },
+      { value: 'pulseiras', label: 'Pulseiras', enabled: true },
+      { value: 'aneis', label: 'Anéis', enabled: true },
+      { value: 'conjuntos', label: 'Conjuntos', enabled: true },
+    ],
+    materials: [
+      { value: 'aco_inox', label: 'Aço Inox', enabled: true },
+      { value: 'prata', label: 'Prata', enabled: true },
+      { value: 'dourado', label: 'Dourado', enabled: true },
+      { value: 'rose_gold', label: 'Rose Gold', enabled: true },
+      { value: 'perolas', label: 'Pérolas', enabled: true },
+      { value: 'cristais', label: 'Cristais', enabled: true },
+    ],
+    colors: ['Dourado', 'Prata', 'Preto', 'Branco', 'Rosa', 'Azul', 'Vermelho', 'Verde'],
+    sizes: ['Único', 'PP', 'P', 'M', 'G'],
+    attributes: ['Material', 'Cor', 'Tamanho'],
+  }
+
+  const record = await prisma.siteContent.findUnique({ where: { key: 'product_options' } })
+  const value = record?.value ?? null
+  const parsed = productOptionsSchema.safeParse(value && typeof value === 'object' ? value : {})
+  const content = parsed.success ? { ...defaults, ...parsed.data } : defaults
+  res.json({ content, updated_date: record?.updatedAt ?? null })
+})
+
 // Newsletter (public)
 app.post('/api/newsletter/subscribe', async (req, res) => {
   const parsed = newsletterSubscribeSchema.safeParse(req.body ?? {})
@@ -6094,6 +6151,7 @@ app.post('/api/admin/products', async (req, res) => {
 	      category: data.category,
 	      material: data.material ?? null,
 	      colors: data.colors ?? [],
+        sizes: data.sizes ?? [],
 		      images: data.images ?? [],
 		      videos: data.videos ?? [],
 		      stock:
@@ -6136,6 +6194,7 @@ app.patch('/api/admin/products/:id', async (req, res) => {
 	        category: data.category,
 	        material: data.material === undefined ? undefined : data.material,
 		        colors: data.colors,
+            sizes: data.sizes,
 		        images: data.images,
 		        videos: data.videos,
 		        stock: data.stock === undefined ? undefined : data.stock === null ? null : Number.parseInt(String(data.stock), 10) || 0,
@@ -6926,6 +6985,33 @@ app.patch('/api/admin/content/branding', async (req, res) => {
   })
 
   await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'branding', meta: { keys: Object.keys(value ?? {}) } })
+  res.json({ content: record.value, updated_date: record.updatedAt })
+})
+
+// Content (Product Options)
+app.get('/api/admin/content/product-options', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const record = await prisma.siteContent.findUnique({ where: { key: 'product_options' } })
+  res.json({ content: record?.value ?? null, updated_date: record?.updatedAt ?? null })
+})
+
+app.patch('/api/admin/content/product-options', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = productOptionsSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const value = parsed.data
+  const record = await prisma.siteContent.upsert({
+    where: { key: 'product_options' },
+    create: { key: 'product_options', value },
+    update: { value },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'product_options', meta: { keys: Object.keys(value ?? {}) } })
   res.json({ content: record.value, updated_date: record.updatedAt })
 })
 
@@ -8339,6 +8425,137 @@ app.post('/api/admin/purchases/:id/return', async (req, res) => {
     entityType: 'Inventory',
     entityId: purchase.id,
     meta: { source: 'purchase_return' },
+  })
+
+  res.json({ ok: true })
+})
+
+app.post('/api/admin/purchases/:id/writeoff', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const schema = z
+    .object({
+      reason: z.string().max(2000).optional().nullable(),
+      reason_kind: z.string().max(80).optional().nullable(),
+      items: z
+        .array(
+          z.object({
+            purchase_item_id: z.string().min(1),
+            quantity: z.union([z.number(), z.string()]),
+          }),
+        )
+        .min(1),
+    })
+    .passthrough()
+
+  const parsed = schema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const purchase = await prisma.purchase.findUnique({
+    where: { id: req.params.id },
+    include: { items: true, supplier: true },
+  })
+  if (!purchase) return res.status(404).json({ error: 'not_found' })
+  if (purchase.status !== 'received') return res.status(409).json({ error: 'purchase_not_received' })
+
+  const byItemId = new Map((purchase.items ?? []).map((it) => [it.id, it]))
+
+  const requested = parsed.data.items
+    .map((r) => {
+      const item = byItemId.get(r.purchase_item_id) ?? null
+      if (!item) return null
+      const qtyNumber = typeof r.quantity === 'string' ? Number(r.quantity) : r.quantity
+      const qty = Number.isFinite(qtyNumber) ? Math.floor(qtyNumber) : 0
+      if (qty <= 0) return null
+      if (qty > item.quantity) return { error: 'invalid_quantity', item_id: item.id }
+      return { item, quantity: qty }
+    })
+    .filter(Boolean)
+
+  const invalid = requested.find((x) => x && x.error)
+  if (invalid) return res.status(400).json({ error: invalid.error, item_id: invalid.item_id })
+
+  if (!requested.length) return res.status(400).json({ error: 'invalid_items' })
+
+  // Validate stock availability for each product.
+  const productIds = Array.from(new Set(requested.map((r) => r.item.productId).filter(Boolean)))
+  const products = productIds.length ? await prisma.product.findMany({ where: { id: { in: productIds } } }) : []
+  const byProductId = new Map(products.map((p) => [p.id, p]))
+
+  for (const r of requested) {
+    const productId = r.item.productId
+    if (!productId) continue
+    const p = byProductId.get(productId)
+    if (!p) continue
+    const nextStock = (p.stock ?? 0) - r.quantity
+    if (nextStock < 0) return res.status(409).json({ error: 'insufficient_stock', product_id: productId })
+  }
+
+  const reason = parsed.data.reason ? String(parsed.data.reason).trim() : ''
+  const reasonKind = parsed.data.reason_kind ? String(parsed.data.reason_kind).trim() : ''
+
+  const metaBase = {
+    kind: 'purchase_writeoff',
+    purchase_id: purchase.id,
+    purchase_reference: purchase.reference ?? null,
+    supplier_id: purchase.supplierId ?? null,
+    supplier_name: purchase.supplier?.name ?? null,
+    reason: reason || null,
+    reason_kind: reasonKind || null,
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const r of requested) {
+      const productId = r.item.productId
+      if (!productId) continue
+
+      await tx.product.update({
+        where: { id: productId },
+        data: { stock: { decrement: r.quantity } },
+      })
+
+      try {
+        await tx.inventoryMovement.create({
+          data: {
+            productId,
+            type: 'manual',
+            quantityChange: -r.quantity,
+            unitCost: r.item.unitCost,
+            purchaseId: purchase.id,
+            actorId: admin.id,
+            meta: { ...metaBase, purchase_item_id: r.item.id },
+          },
+        })
+      } catch (err) {
+        console.error('inventory movement create failed (purchase_writeoff)', err)
+      }
+    }
+  })
+
+  await writeAuditLog({
+    actorId: admin.id,
+    action: 'writeoff',
+    entityType: 'Purchase',
+    entityId: purchase.id,
+    meta: {
+      ...metaBase,
+      items: requested.map((r) => ({
+        purchase_item_id: r.item.id,
+        product_id: r.item.productId ?? null,
+        product_name: r.item.productName,
+        quantity: r.quantity,
+        unit_cost: decimalToNumber(r.item.unitCost) ?? 0,
+      })),
+    },
+  })
+
+  await writeAuditLog({
+    actorId: admin.id,
+    action: 'update',
+    entityType: 'Inventory',
+    entityId: purchase.id,
+    meta: { source: 'purchase_writeoff' },
   })
 
   res.json({ ok: true })

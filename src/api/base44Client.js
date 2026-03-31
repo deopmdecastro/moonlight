@@ -355,6 +355,8 @@ export const base44 = {
       update: async (id, data) => authedJsonRequest(`/api/admin/purchases/${id}`, { method: 'PATCH', body: data }),
       returnToSupplier: async (id, data) =>
         authedJsonRequest(`/api/admin/purchases/${encodeURIComponent(String(id ?? ''))}/return`, { method: 'POST', body: data }),
+      writeOff: async (id, data) =>
+        authedJsonRequest(`/api/admin/purchases/${encodeURIComponent(String(id ?? ''))}/writeoff`, { method: 'POST', body: data }),
     },
     FaqItem: {
       list: async (limit = 500) => {
@@ -595,6 +597,10 @@ export const base44 = {
           get: async () => authedJsonRequest('/api/admin/content/shipping'),
           update: async (data) => authedJsonRequest('/api/admin/content/shipping', { method: 'PATCH', body: data }),
         },
+        productOptions: {
+          get: async () => authedJsonRequest('/api/admin/content/product-options'),
+          update: async (data) => authedJsonRequest('/api/admin/content/product-options', { method: 'PATCH', body: data }),
+        },
         branding: {
           get: async () => authedJsonRequest('/api/admin/content/branding'),
           update: async (data) => authedJsonRequest('/api/admin/content/branding', { method: 'PATCH', body: data }),
@@ -683,6 +689,7 @@ export const base44 = {
         branding: async () => jsonRequest('/api/content/branding'),
         loyalty: async () => jsonRequest('/api/content/loyalty'),
         returns: async () => jsonRequest('/api/content/returns'),
+        productOptions: async () => jsonRequest('/api/content/product-options'),
 		  },
       newsletter: {
         subscribe: async (data) => jsonRequest('/api/newsletter/subscribe', { method: 'POST', body: data, token: getToken() }),

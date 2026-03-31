@@ -24,7 +24,7 @@ import LoadMoreControls from '@/components/ui/load-more-controls';
 
 const emptyProduct = {
   name: '', description: '', price: '', acquisition_cost: '', original_price: '', category: 'colares',
-  material: 'dourado', colors: [], images: [], stock: 0, is_featured: false,
+  material: 'dourado', colors: [], sizes: [], images: [], stock: 0, is_featured: false,
   videos: [], free_shipping: false, is_new: false, is_bestseller: false, status: 'active'
 };
 
@@ -48,6 +48,8 @@ export default function AdminProducts() {
   const [search, setSearch] = useState('');
   const [imageInput, setImageInput] = useState('');
   const [videoInput, setVideoInput] = useState('');
+  const [colorInput, setColorInput] = useState('');
+  const [sizeInput, setSizeInput] = useState('');
   const [jsonText, setJsonText] = useState('');
   const [limit, setLimit] = useState(50);
 
@@ -55,6 +57,108 @@ export default function AdminProducts() {
     queryKey: ['admin-products', limit],
     queryFn: () => base44.entities.Product.list('-created_date', limit),
   });
+
+  const { data: adminLogs = [] } = useQuery({
+    queryKey: ['admin-logs-products-flags'],
+    queryFn: () => base44.admin.logs.list(500),
+  });
+
+  const { data: productOptionsRes } = useQuery({
+    queryKey: ['product-options'],
+    queryFn: () => base44.content.productOptions(),
+  });
+
+  const productOptions = useMemo(() => {
+    const content = productOptionsRes?.content && typeof productOptionsRes.content === 'object' ? productOptionsRes.content : {};
+    const categories = Array.isArray(content.categories) ? content.categories : [];
+    const materials = Array.isArray(content.materials) ? content.materials : [];
+    const colors = Array.isArray(content.colors) ? content.colors : [];
+    const sizes = Array.isArray(content.sizes) ? content.sizes : [];
+
+    const categoryLabel = new Map();
+    const materialLabel = new Map();
+    const enabledCategories = [];
+    const enabledMaterials = [];
+
+    for (const c of categories) {
+      const value = String(c?.value ?? '').trim();
+      if (!value) continue;
+      const label = String(c?.label ?? value).trim() || value;
+      categoryLabel.set(value, label);
+      if (c?.enabled !== false) enabledCategories.push({ value, label });
+    }
+
+    for (const m of materials) {
+      const value = String(m?.value ?? '').trim();
+      if (!value) continue;
+      const label = String(m?.label ?? value).trim() || value;
+      materialLabel.set(value, label);
+      if (m?.enabled !== false) enabledMaterials.push({ value, label });
+    }
+
+    return {
+      categoryLabel,
+      materialLabel,
+      categories: enabledCategories.length
+        ? enabledCategories
+        : [
+            { value: 'colares', label: 'Colares' },
+            { value: 'brincos', label: 'Brincos' },
+            { value: 'pulseiras', label: 'Pulseiras' },
+            { value: 'aneis', label: 'Anéis' },
+            { value: 'conjuntos', label: 'Conjuntos' },
+          ],
+      materials: enabledMaterials.length
+        ? enabledMaterials
+        : [
+            { value: 'aco_inox', label: 'Aço Inox' },
+            { value: 'prata', label: 'Prata' },
+            { value: 'dourado', label: 'Dourado' },
+            { value: 'rose_gold', label: 'Rose Gold' },
+            { value: 'perolas', label: 'Pérolas' },
+            { value: 'cristais', label: 'Cristais' },
+          ],
+      colors: colors.map((c) => String(c ?? '').trim()).filter(Boolean),
+      sizes: sizes.map((s) => String(s ?? '').trim()).filter(Boolean),
+    };
+  }, [productOptionsRes]);
+
+  const categorySelectOptions = useMemo(() => {
+    const opts = Array.isArray(productOptions?.categories) ? productOptions.categories : [];
+    const current = String(form?.category ?? '').trim();
+    if (!current) return opts;
+    if (opts.some((o) => String(o?.value) === current)) return opts;
+    const label = productOptions?.categoryLabel?.get(current) ?? `${current} (inativa)`;
+    return [{ value: current, label }, ...opts];
+  }, [form?.category, productOptions]);
+
+  const materialSelectOptions = useMemo(() => {
+    const opts = Array.isArray(productOptions?.materials) ? productOptions.materials : [];
+    const current = String(form?.material ?? '').trim();
+    if (!current || current === '__none__') return opts;
+    if (opts.some((o) => String(o?.value) === current)) return opts;
+    const label = productOptions?.materialLabel?.get(current) ?? `${current} (inativo)`;
+    return [{ value: current, label }, ...opts];
+  }, [form?.material, productOptions]);
+
+  const purchaseAdjustmentByProductId = useMemo(() => {
+    const map = new Map();
+    for (const l of adminLogs ?? []) {
+      if (l?.entity_type !== 'Purchase') continue;
+      if (l?.action !== 'return' && l?.action !== 'writeoff') continue;
+      const items = Array.isArray(l?.meta?.items) ? l.meta.items : [];
+      for (const it of items) {
+        const productId = it?.product_id ? String(it.product_id) : '';
+        if (!productId) continue;
+        const qty = Number(it?.quantity ?? 0) || 0;
+        const existing = map.get(productId) ?? { returned: 0, writeoff: 0 };
+        if (l.action === 'return') existing.returned += qty;
+        else existing.writeoff += qty;
+        map.set(productId, existing);
+      }
+    }
+    return map;
+  }, [adminLogs]);
 
   const { data: purchases = [] } = useQuery({
     queryKey: ['admin-purchases'],
@@ -118,22 +222,27 @@ export default function AdminProducts() {
     onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível remover o produto.')),
   });
 
-  const openCreate = () => { setEditing(null); setForm(emptyProduct); setNameChoice(''); setImageInput(''); setVideoInput(''); setJsonText(''); setDialogOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(emptyProduct); setNameChoice(''); setImageInput(''); setVideoInput(''); setColorInput(''); setSizeInput(''); setJsonText(''); setDialogOpen(true); };
   const openEdit = (p) => {
     setEditing(p);
     setForm({
       ...emptyProduct,
       ...p,
+      material: p.material ?? '__none__',
       price: p.price || '',
       acquisition_cost: p.acquisition_cost ?? '',
       original_price: p.original_price || '',
       stock: p.stock || 0,
+      colors: p.colors ?? [],
+      sizes: p.sizes ?? [],
       images: p.images ?? [],
       videos: p.videos ?? [],
     });
     setNameChoice(String(p?.name ?? ''));
     setImageInput('');
     setVideoInput('');
+    setColorInput('');
+    setSizeInput('');
     setJsonText('');
     setDialogOpen(true);
   };
@@ -182,6 +291,7 @@ export default function AdminProducts() {
           const images = pick('images', pick('image_urls', pick('imageUrls', undefined)));
           const videos = pick('videos', pick('video_urls', pick('videoUrls', undefined)));
           const colors = pick('colors', undefined);
+          const sizes = pick('sizes', undefined);
 
           const name = String(pick('name', '') ?? '').trim();
           if (!name) {
@@ -193,6 +303,7 @@ export default function AdminProducts() {
           const rawPrice = pick('price', pick('unit_price', ''));
           const rawOriginalPrice = pick('original_price', pick('originalPrice', ''));
           const rawStock = pick('stock', 0);
+          const rawMaterial = pick('material', emptyProduct.material);
 
           const data = {
             ...emptyProduct,
@@ -202,8 +313,9 @@ export default function AdminProducts() {
             acquisition_cost: pick('acquisition_cost', pick('acquisitionCost', undefined)),
             original_price: rawOriginalPrice ? parseFloat(rawOriginalPrice) : undefined,
             category: String(pick('category', emptyProduct.category) ?? emptyProduct.category),
-            material: String(pick('material', emptyProduct.material) ?? emptyProduct.material),
+            material: rawMaterial === null || rawMaterial === undefined ? null : String(rawMaterial),
             colors: Array.isArray(colors) ? colors : emptyProduct.colors,
+            sizes: Array.isArray(sizes) ? sizes : emptyProduct.sizes,
             images: Array.isArray(images) ? normalizeImages(images) : emptyProduct.images,
             videos: Array.isArray(videos) ? normalizeVideos(videos) : emptyProduct.videos,
             stock: parseInt(rawStock) || 0,
@@ -244,10 +356,16 @@ export default function AdminProducts() {
   };
 
   const handleSubmit = () => {
+    const cleanList = (arr) =>
+      Array.from(new Set((Array.isArray(arr) ? arr : []).map((v) => String(v ?? '').trim()).filter(Boolean)));
+
     const data = {
       ...form,
       images: normalizeImages(form.images),
       videos: normalizeVideos(form.videos),
+      colors: cleanList(form.colors),
+      sizes: cleanList(form.sizes),
+      material: form.material === '__none__' || form.material === '' ? null : form.material,
       price: parseFloat(form.price) || 0,
       acquisition_cost:
         form.acquisition_cost === '' || form.acquisition_cost === null || form.acquisition_cost === undefined
@@ -299,6 +417,10 @@ export default function AdminProducts() {
 
   const canLoadMore = !isLoading && Array.isArray(products) && products.length === limit && limit < 500;
   const filtered = products.filter(p => p.name?.toLowerCase().includes(search.toLowerCase()));
+  const toggleValue = (list, value) => {
+    const current = Array.isArray(list) ? list : [];
+    return current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+  };
 
   return (
     <div>
@@ -353,19 +475,38 @@ export default function AdminProducts() {
 	                    </div>
 	                  </div>
                 </td>
-                <td className="p-3 font-body text-xs capitalize">{p.category}</td>
+                <td className="p-3 font-body text-xs">{productOptions.categoryLabel.get(String(p.category ?? '')) ?? p.category}</td>
                 <td className="p-3 font-body text-sm">{p.price?.toFixed(2)} €</td>
                 <td className="p-3 font-body text-sm">{p.stock || 0}</td>
                 <td className="p-3">
-                  <Badge
-                    className={cn(
-                      'rounded-none font-body text-[10px] font-semibold',
-                      productStatusBadgeClassName[p.status] ??
-                        'border-transparent bg-muted text-muted-foreground shadow-none',
-                    )}
-                  >
-                    {getProductStatusLabel(p.status)}
-                  </Badge>
+                  {(() => {
+                    const adj = purchaseAdjustmentByProductId.get(String(p.id)) ?? null;
+                    const hasReturned = Number(adj?.returned ?? 0) > 0;
+                    const hasWriteoff = Number(adj?.writeoff ?? 0) > 0;
+                    return (
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <Badge
+                          className={cn(
+                            'rounded-none font-body text-[10px] font-semibold',
+                            productStatusBadgeClassName[p.status] ??
+                              'border-transparent bg-muted text-muted-foreground shadow-none',
+                          )}
+                        >
+                          {getProductStatusLabel(p.status)}
+                        </Badge>
+                        {hasReturned ? (
+                          <Badge className="rounded-none font-body text-[10px] bg-primary/10 text-primary">
+                            Devolvido
+                          </Badge>
+                        ) : null}
+                        {hasWriteoff ? (
+                          <Badge className="rounded-none font-body text-[10px] bg-destructive/10 text-destructive">
+                            Removido
+                          </Badge>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="p-3 text-right">
 	                  <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
@@ -477,27 +618,122 @@ export default function AdminProducts() {
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                   <SelectTrigger className="rounded-none mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="colares">Colares</SelectItem>
-                    <SelectItem value="brincos">Brincos</SelectItem>
-                    <SelectItem value="pulseiras">Pulseiras</SelectItem>
-                    <SelectItem value="aneis">Anéis</SelectItem>
-                    <SelectItem value="conjuntos">Conjuntos</SelectItem>
+                    {(categorySelectOptions ?? []).map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="font-body text-xs">Material</Label>
-                <Select value={form.material} onValueChange={(v) => setForm({ ...form, material: v })}>
+                <Select value={form.material ?? ''} onValueChange={(v) => setForm({ ...form, material: v })}>
                   <SelectTrigger className="rounded-none mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="aco_inox">Aço Inox</SelectItem>
-                    <SelectItem value="prata">Prata</SelectItem>
-                    <SelectItem value="dourado">Dourado</SelectItem>
-                    <SelectItem value="rose_gold">Rose Gold</SelectItem>
-                    <SelectItem value="perolas">Pérolas</SelectItem>
-                    <SelectItem value="cristais">Cristais</SelectItem>
+                    <SelectItem value="__none__">Sem material</SelectItem>
+                    {(materialSelectOptions ?? []).map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="font-body text-xs">Cores</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {(productOptions.colors ?? []).map((c) => {
+                    const selected = (form.colors ?? []).includes(c);
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, colors: toggleValue(p.colors, c) }))}
+                        className="focus:outline-none"
+                      >
+                        <Badge
+                          className={cn(
+                            'rounded-none font-body text-[10px]',
+                            selected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground',
+                          )}
+                        >
+                          {c}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    value={colorInput}
+                    onChange={(e) => setColorInput(e.target.value)}
+                    placeholder="Adicionar cor (manual)"
+                    className="rounded-none"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-none"
+                    onClick={() => {
+                      const v = String(colorInput ?? '').trim();
+                      if (!v) return;
+                      setForm((p) => ({ ...p, colors: Array.from(new Set([...(p.colors ?? []), v])) }));
+                      setColorInput('');
+                    }}
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label className="font-body text-xs">Tamanhos</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {(productOptions.sizes ?? []).map((s) => {
+                    const selected = (form.sizes ?? []).includes(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, sizes: toggleValue(p.sizes, s) }))}
+                        className="focus:outline-none"
+                      >
+                        <Badge
+                          className={cn(
+                            'rounded-none font-body text-[10px]',
+                            selected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground',
+                          )}
+                        >
+                          {s}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    value={sizeInput}
+                    onChange={(e) => setSizeInput(e.target.value)}
+                    placeholder="Adicionar tamanho (manual)"
+                    className="rounded-none"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-none"
+                    onClick={() => {
+                      const v = String(sizeInput ?? '').trim();
+                      if (!v) return;
+                      setForm((p) => ({ ...p, sizes: Array.from(new Set([...(p.sizes ?? []), v])) }));
+                      setSizeInput('');
+                    }}
+                  >
+                    +
+                  </Button>
+                </div>
               </div>
             </div>
             <div>

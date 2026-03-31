@@ -82,6 +82,7 @@ export function friendlyTitle(log) {
     if (action === 'create') return 'Compra registada';
     if (action === 'update') return 'Compra atualizada';
     if (action === 'return') return 'Devolução ao fornecedor registada';
+    if (action === 'writeoff') return 'Remoção de stock (compra) registada';
   }
 
   if (type === 'NewsletterCampaign') {

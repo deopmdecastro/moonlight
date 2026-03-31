@@ -114,6 +114,7 @@ model Product {
   category      ProductCategory
   material      ProductMaterial?
   colors        String[]      @default([])
+  sizes         String[]      @default([])
   images        String[]      @default([])
   videos        String[]      @default([])
   stock         Int           @default(0)

@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { BookOpen, FileText, HelpCircle, Image, Instagram, LayoutTemplate, MessageSquare, Megaphone } from 'lucide-react';
+import { BookOpen, Boxes, FileText, HelpCircle, Image, Instagram, LayoutTemplate, MessageSquare, Megaphone } from 'lucide-react';
 
 const tabs = [
   { to: 'landing', label: 'Landing', icon: LayoutTemplate },
+  { to: 'catalogo', label: 'Catálogo', icon: Boxes },
   { to: 'blog', label: 'Blog', icon: BookOpen },
   { to: 'blog-comentarios', label: 'Comentários', icon: MessageSquare },
   { to: 'sobre', label: 'Sobre Nós', icon: FileText },

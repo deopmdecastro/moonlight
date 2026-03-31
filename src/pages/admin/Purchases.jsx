@@ -11,9 +11,10 @@ import SearchableSelect from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
-import { Plus, Pencil, CheckCircle, Code, RotateCcw } from 'lucide-react';
+import { Plus, Pencil, CheckCircle, Code, RotateCcw, Trash2 } from 'lucide-react';
 import { getPrimaryImage } from '@/lib/images';
 import ImageUpload from '@/components/uploads/ImageUpload';
+import LoadMoreControls from '@/components/ui/load-more-controls';
 
 function safeJson(value) {
   if (value === null || value === undefined) return null;
@@ -62,11 +63,17 @@ export default function AdminPurchases() {
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [returnLines, setReturnLines] = useState([]);
+  const [writeoffOpen, setWriteoffOpen] = useState(false);
+  const [writeoffReason, setWriteoffReason] = useState('');
+  const [writeoffLines, setWriteoffLines] = useState([]);
+  const [limit, setLimit] = useState(50);
 
-  const { data: purchases = [] } = useQuery({
-    queryKey: ['admin-purchases'],
-    queryFn: () => base44.entities.Purchase.list('-purchased_at', 200),
+  const { data: purchases = [], isLoading: isLoadingPurchases } = useQuery({
+    queryKey: ['admin-purchases', limit],
+    queryFn: () => base44.entities.Purchase.list('-purchased_at', limit),
   });
+
+  const canLoadMore = !isLoadingPurchases && Array.isArray(purchases) && purchases.length === limit && limit < 500;
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ['admin-suppliers'],
@@ -625,6 +632,21 @@ export default function AdminPurchases() {
     onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível registar a devolução.')),
   });
 
+  const writeoffMutation = useMutation({
+    mutationFn: ({ id, payload }) => base44.entities.Purchase.writeOff(id, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-purchases'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      await queryClient.invalidateQueries({ queryKey: ['products-catalog'] });
+      toast.success('Remoção registada');
+      setWriteoffOpen(false);
+      setWriteoffReason('');
+      setWriteoffLines([]);
+    },
+    onError: (err) => toast.error(getErrorMessage(err, 'Não foi possível registar a remoção.')),
+  });
+
   const openReturn = () => {
     if (!editing || !Array.isArray(editing.items) || editing.items.length === 0) return;
     setReturnReason('');
@@ -640,6 +662,21 @@ export default function AdminPurchases() {
     setReturnOpen(true);
   };
 
+  const openWriteoff = () => {
+    if (!editing || !Array.isArray(editing.items) || editing.items.length === 0) return;
+    setWriteoffReason('');
+    setWriteoffLines(
+      editing.items.map((it) => ({
+        purchase_item_id: it.id,
+        product_id: it.product_id ?? null,
+        product_name: it.product_name ?? 'Produto',
+        max_quantity: Number(it.quantity ?? 0) || 0,
+        quantity: 0,
+      })),
+    );
+    setWriteoffOpen(true);
+  };
+
   const submitReturn = () => {
     if (!editing) return;
     const items = (returnLines ?? [])
@@ -652,6 +689,20 @@ export default function AdminPurchases() {
     if (items.length === 0) return toast.error('Selecione pelo menos 1 item para devolver.');
     const reason = String(returnReason ?? '').trim() || null;
     returnMutation.mutate({ id: editing.id, payload: { reason, items } });
+  };
+
+  const submitWriteoff = () => {
+    if (!editing) return;
+    const items = (writeoffLines ?? [])
+      .map((l) => ({
+        purchase_item_id: l.purchase_item_id,
+        quantity: Number(l.quantity ?? 0) || 0,
+      }))
+      .filter((l) => l.purchase_item_id && l.quantity > 0);
+
+    if (items.length === 0) return toast.error('Selecione pelo menos 1 item para remover.');
+    const reason = String(writeoffReason ?? '').trim() || null;
+    writeoffMutation.mutate({ id: editing.id, payload: { reason, items } });
   };
 
   return (
@@ -704,6 +755,14 @@ export default function AdminPurchases() {
         </table>
         {purchases.length === 0 && <p className="text-center py-8 font-body text-sm text-muted-foreground">Sem compras</p>}
       </div>
+
+      <LoadMoreControls
+        leftText={`A mostrar ${Math.min(limit, Array.isArray(purchases) ? purchases.length : 0)} compras.`}
+        onLess={() => setLimit(50)}
+        lessDisabled={isLoadingPurchases || limit <= 50}
+        onMore={() => setLimit((p) => Math.min(500, p + 50))}
+        moreDisabled={!canLoadMore}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -935,6 +994,10 @@ export default function AdminPurchases() {
                   <RotateCcw className="w-4 h-4" />
                   Devolver ao fornecedor
                 </Button>
+                <Button type="button" variant="outline" className="w-full rounded-none font-body text-sm gap-2" onClick={openWriteoff}>
+                  <Trash2 className="w-4 h-4" />
+                  Remover do stock
+                </Button>
               </div>
             ) : null}
           </div>
@@ -1011,6 +1074,82 @@ export default function AdminPurchases() {
                     </Button>
                     <Button className="rounded-none font-body text-sm" onClick={submitReturn} disabled={returnMutation.isPending}>
                       {returnMutation.isPending ? 'A registar…' : 'Confirmar devolução'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog
+              open={writeoffOpen}
+              onOpenChange={(open) => {
+                setWriteoffOpen(open);
+                if (!open) {
+                  setWriteoffReason('');
+                  setWriteoffLines([]);
+                }
+              }}
+            >
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-xl">Remover do stock</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div className="font-body text-sm text-muted-foreground">
+                    Remove unidades do stock por outro motivo (perda, dano, ajuste interno, etc.). Fica histórico nos Logs e nos movimentos de stock.
+                  </div>
+
+                  <div className="space-y-3">
+                    {(writeoffLines ?? []).map((l) => (
+                      <div key={l.purchase_item_id} className="border border-border rounded-md p-3">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="min-w-0">
+                            <div className="font-body text-sm font-medium truncate" title={l.product_name}>
+                              {l.product_name}
+                            </div>
+                            <div className="font-body text-xs text-muted-foreground mt-1">
+                              Comprado: {l.max_quantity}
+                            </div>
+                          </div>
+                          <div className="w-full sm:w-[220px]">
+                            <Label className="font-body text-xs">Qtd. a remover</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={l.max_quantity}
+                              inputMode="numeric"
+                              value={l.quantity}
+                              onChange={(e) => {
+                                const next = Math.max(0, Math.min(Number(e.target.value ?? 0) || 0, l.max_quantity));
+                                setWriteoffLines((p) =>
+                                  (p ?? []).map((x) => (x.purchase_item_id === l.purchase_item_id ? { ...x, quantity: next } : x)),
+                                );
+                              }}
+                              className="rounded-none mt-1"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <Label className="font-body text-xs">Motivo (opcional)</Label>
+                    <Textarea
+                      value={writeoffReason}
+                      onChange={(e) => setWriteoffReason(e.target.value)}
+                      className="rounded-none mt-1 min-h-[120px]"
+                      placeholder="Ex.: produto danificado, perda, amostra, ajuste de inventário..."
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" className="rounded-none font-body text-sm" onClick={() => setWriteoffOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button className="rounded-none font-body text-sm" onClick={submitWriteoff} disabled={writeoffMutation.isPending}>
+                      {writeoffMutation.isPending ? 'A registar…' : 'Confirmar remoção'}
                     </Button>
                   </div>
                 </div>

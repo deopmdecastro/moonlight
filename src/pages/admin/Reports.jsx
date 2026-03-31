@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Download, Eye, Euro, Package, Search, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { base44 } from '@/api/base44Client';
 import zanaLogoPrimary from '@/img/zana_logo_primary.svg';
@@ -9,6 +10,30 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { downloadCsv, exportReportsPdf } from '@/lib/reportExport';
+
+function numberOrZero(value) {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function PurchaseAdjustmentsTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const row = payload?.[0]?.payload ?? {};
+  const devolvido = numberOrZero(row?.devolvido);
+  const removido = numberOrZero(row?.removido);
+  return (
+    <div className="rounded-md border border-border bg-card px-3 py-2 shadow-sm min-w-[220px]">
+      <div className="font-body text-xs text-muted-foreground">Produto</div>
+      <div className="font-body text-sm font-semibold">{String(label ?? '')}</div>
+      <div className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 font-body text-xs">
+        <span className="text-muted-foreground">Devolvido</span>
+        <span className="tabular-nums">{devolvido}</span>
+        <span className="text-muted-foreground">Removido</span>
+        <span className="tabular-nums">{removido}</span>
+      </div>
+    </div>
+  );
+}
 
 function moneyPt(value) {
   const n = Number(value ?? 0) || 0;
@@ -45,6 +70,11 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     queryFn: () => base44.entities.Purchase.list('-purchased_at', 200),
   });
 
+  const { data: logs = [] } = useQuery({
+    queryKey: ['admin-logs-for-reports'],
+    queryFn: () => base44.admin.logs.list(500),
+  });
+
   const { data: analytics } = useQuery({
     queryKey: ['admin-analytics-summary'],
     queryFn: () => base44.admin.analytics.summary(30),
@@ -57,14 +87,113 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     const stockUnits = inventory.reduce((sum, p) => sum + (p.stock ?? 0), 0);
     const lowStock = inventory.filter((p) => (p.stock ?? 0) <= 2).length;
     const purchasesTotal = purchases.reduce((sum, p) => sum + (p.total ?? 0), 0);
-    return { productsCount, stockUnits, lowStock, purchasesTotal };
-  }, [inventory, purchases]);
+
+    const adjustments = { return_units: 0, return_value: 0, writeoff_units: 0, writeoff_value: 0 };
+    for (const l of logs ?? []) {
+      if (l?.entity_type !== 'Purchase') continue;
+      if (l?.action !== 'return' && l?.action !== 'writeoff') continue;
+      const items = Array.isArray(l?.meta?.items) ? l.meta.items : [];
+      for (const it of items) {
+        const qty = numberOrZero(it?.quantity);
+        const unitCost = numberOrZero(it?.unit_cost);
+        if (l.action === 'return') {
+          adjustments.return_units += qty;
+          adjustments.return_value += qty * unitCost;
+        } else {
+          adjustments.writeoff_units += qty;
+          adjustments.writeoff_value += qty * unitCost;
+        }
+      }
+    }
+
+    return { productsCount, stockUnits, lowStock, purchasesTotal, ...adjustments };
+  }, [inventory, purchases, logs]);
+
+  const purchaseAdjustments = useMemo(() => {
+    const byKey = new Map();
+    const events = [];
+
+    for (const l of logs ?? []) {
+      if (l?.entity_type !== 'Purchase') continue;
+      if (l?.action !== 'return' && l?.action !== 'writeoff') continue;
+
+      const meta = l?.meta && typeof l.meta === 'object' ? l.meta : {};
+      const items = Array.isArray(meta?.items) ? meta.items : [];
+      const supplierName = meta?.supplier_name ? String(meta.supplier_name) : '';
+      const reason = meta?.reason ? String(meta.reason) : '';
+      const actorEmail = l?.actor?.email ? String(l.actor.email) : '';
+
+      for (const it of items) {
+        const productId = it?.product_id ? String(it.product_id) : '';
+        const productName = it?.product_name ? String(it.product_name) : 'Produto';
+        const key = productId || productName;
+        const qty = numberOrZero(it?.quantity);
+        const unitCost = numberOrZero(it?.unit_cost);
+
+        const existing = byKey.get(key) ?? {
+          key,
+          product_id: productId || null,
+          product_name: productName,
+          devolvido: 0,
+          removido: 0,
+          devolvido_value: 0,
+          removido_value: 0,
+        };
+
+        if (l.action === 'return') {
+          existing.devolvido += qty;
+          existing.devolvido_value += qty * unitCost;
+        } else {
+          existing.removido += qty;
+          existing.removido_value += qty * unitCost;
+        }
+
+        byKey.set(key, existing);
+
+        events.push({
+          id: `${l.id}:${key}:${l.action}`,
+          created_date: l.created_date,
+          action: l.action,
+          product_id: productId || null,
+          product_name: productName,
+          quantity: qty,
+          unit_cost: unitCost,
+          total_cost: qty * unitCost,
+          supplier_name: supplierName || null,
+          reason: reason || null,
+          actor_email: actorEmail || null,
+        });
+      }
+    }
+
+    const chartData = Array.from(byKey.values())
+      .sort((a, b) => (b.devolvido + b.removido) - (a.devolvido + a.removido))
+      .slice(0, 10)
+      .map((p) => ({
+        key: p.key,
+        name: p.product_name,
+        devolvido: p.devolvido,
+        removido: p.removido,
+      }));
+
+    const topProducts = Array.from(byKey.values())
+      .sort((a, b) => (b.devolvido + b.removido) - (a.devolvido + a.removido))
+      .slice(0, 12);
+
+    const latestEvents = events
+      .sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime())
+      .slice(0, 20);
+
+    return { chartData, topProducts, latestEvents };
+  }, [logs]);
 
   const cards = [
     { title: 'Produtos', value: stats.productsCount, icon: Package, color: 'text-primary' },
     { title: 'Unidades em Stock', value: stats.stockUnits, icon: TrendingUp, color: 'text-green-700' },
     { title: 'Baixo Stock (≤2)', value: stats.lowStock, icon: AlertTriangle, color: 'text-destructive' },
     { title: 'Total em Compras', value: `${stats.purchasesTotal.toFixed(2)} €`, icon: Euro, color: 'text-accent' },
+    { title: 'Devolvidos ao Fornecedor', value: stats.return_units, icon: Package, color: 'text-primary' },
+    { title: 'Removidos do Stock', value: stats.writeoff_units, icon: AlertTriangle, color: 'text-destructive' },
   ];
 
   const exportPdf = async () => {
@@ -96,6 +225,10 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     rows.push(['Unidades em Stock', stats.stockUnits]);
     rows.push(['Baixo Stock (<=2)', stats.lowStock]);
     rows.push(['Total em Compras (€)', moneyPt(stats.purchasesTotal)]);
+    rows.push(['Unidades devolvidas ao fornecedor', stats.return_units]);
+    rows.push(['Valor devolvido (€)', moneyPt(stats.return_value)]);
+    rows.push(['Unidades removidas do stock', stats.writeoff_units]);
+    rows.push(['Valor removido (€)', moneyPt(stats.writeoff_value)]);
 
     const topViewed = analytics?.top_viewed_products ?? [];
     rows.push([]);
@@ -120,6 +253,20 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     rows.push(['Maiores encomendas']);
     rows.push(['Email', 'Status', 'Total (€)']);
     for (const o of largestOrders) rows.push([o.customer_email ?? '', o.status ?? '', moneyPt(o.total ?? 0)]);
+
+    const adjustments = purchaseAdjustments?.topProducts ?? [];
+    rows.push([]);
+    rows.push(['Devoluções / Remoções (Compras)']);
+    rows.push(['Produto', 'Devolvido (un.)', 'Removido (un.)', 'Valor devolvido (€)', 'Valor removido (€)']);
+    for (const p of adjustments) {
+      rows.push([
+        p.product_name ?? '',
+        p.devolvido ?? 0,
+        p.removido ?? 0,
+        moneyPt(p.devolvido_value ?? 0),
+        moneyPt(p.removido_value ?? 0),
+      ]);
+    }
 
     downloadCsv(`relatorios_${date}.csv`, rows);
     toast.success('Excel (CSV) exportado');
@@ -153,6 +300,104 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
             </Card>
           ))}
         </div>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <CardTitle className="font-heading text-xl">Devoluções / Remoções (Compras)</CardTitle>
+              <div className="text-right min-w-0">
+                <div className="font-body text-xs text-muted-foreground">Unidades</div>
+                <div className="font-body text-sm tabular-nums text-muted-foreground">
+                  Devolvido: {stats.return_units} · Removido: {stats.writeoff_units}
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {(purchaseAdjustments?.chartData ?? []).length === 0 ? (
+              <p className="font-body text-sm text-muted-foreground">Sem devoluções/remover stock registados.</p>
+            ) : (
+              <div className="space-y-6">
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={purchaseAdjustments.chartData} margin={{ top: 18, right: 16, bottom: 10, left: 0 }} barCategoryGap={14}>
+                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        tickLine={false}
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        interval={0}
+                        height={52}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        tickLine={false}
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        width={30}
+                      />
+                      <Tooltip cursor={{ fill: 'hsl(var(--secondary) / 0.35)' }} content={<PurchaseAdjustmentsTooltip />} />
+                      <Bar dataKey="devolvido" stackId="a" radius={[8, 8, 0, 0]} fill="hsl(var(--chart-4))" maxBarSize={52}>
+                        <LabelList dataKey="devolvido" position="top" className="font-body text-[10px] fill-foreground" />
+                        {(purchaseAdjustments.chartData ?? []).map((entry) => (
+                          <Cell key={`d:${entry.key}`} fill="hsl(var(--chart-4))" />
+                        ))}
+                      </Bar>
+                      <Bar dataKey="removido" stackId="a" radius={[8, 8, 0, 0]} fill="hsl(var(--destructive))" maxBarSize={52}>
+                        {(purchaseAdjustments.chartData ?? []).map((entry) => (
+                          <Cell key={`r:${entry.key}`} fill="hsl(var(--destructive))" />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="rounded-lg border border-border bg-secondary/10 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h3 className="font-heading text-lg">Últimas ações</h3>
+                    <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">
+                      {(purchaseAdjustments?.latestEvents ?? []).length}
+                    </Badge>
+                  </div>
+                  {(purchaseAdjustments?.latestEvents ?? []).length === 0 ? (
+                    <p className="font-body text-sm text-muted-foreground">Sem dados</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(purchaseAdjustments.latestEvents ?? []).map((e) => {
+                        const when = e.created_date ? new Date(e.created_date) : null;
+                        const dateLabel = when && !Number.isNaN(when.getTime()) ? when.toLocaleString('pt-PT') : '-';
+                        const isReturn = e.action === 'return';
+                        const badgeCls = isReturn ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive';
+                        const badgeLabel = isReturn ? 'Devolvido' : 'Removido';
+                        return (
+                          <div key={e.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-start font-body text-sm">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge className={`${badgeCls} text-[10px]`}>{badgeLabel}</Badge>
+                                <span className="truncate font-medium">{e.product_name}</span>
+                                <span className="text-xs text-muted-foreground tabular-nums">x{e.quantity}</span>
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                                <span>{dateLabel}</span>
+                                {e.supplier_name ? <span>Fornecedor: {e.supplier_name}</span> : null}
+                                {e.actor_email ? <span>Por: {e.actor_email}</span> : null}
+                                {e.reason ? <span className="truncate max-w-[520px]" title={e.reason}>Motivo: {e.reason}</span> : null}
+                              </div>
+                            </div>
+                            <div className="text-right tabular-nums text-muted-foreground shrink-0">
+                              {numberOrZero(e.total_cost).toFixed(2)} €
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="mt-6">
           <CardHeader>

@@ -85,6 +85,7 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
 			const FAQAdmin = lazy(() => import('@/pages/admin/FAQAdmin'));
       const BrandingAdmin = lazy(() => import('@/pages/admin/BrandingAdmin'));
       const MarketingAdmin = lazy(() => import('@/pages/admin/MarketingAdmin'));
+      const ProductOptionsAdmin = lazy(() => import('@/pages/admin/ProductOptionsAdmin'));
 
 const FAQPage = lazy(() => import('@/pages/FAQ'));
 
@@ -164,6 +165,7 @@ const AuthenticatedApp = () => {
 		        <Route path="/admin/conteudo" element={<ContentLayout />}>
 		          <Route index element={<Navigate to="landing" replace />} />
 		          <Route path="landing" element={<LandingAdmin />} />
+              <Route path="catalogo" element={<ProductOptionsAdmin />} />
 		          <Route path="blog" element={<BlogAdmin />} />
 		          <Route path="blog-comentarios" element={<BlogCommentsAdmin />} />
 		          <Route path="sobre" element={<AboutAdmin />} />
