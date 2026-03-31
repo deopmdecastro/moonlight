@@ -244,6 +244,16 @@ export const base44 = {
       return res?.orders ?? [];
     },
   },
+  user: {
+    addresses: {
+      list: async () => authedJsonRequest('/api/users/me/addresses').then((r) => r?.addresses ?? []),
+      create: async (data) => authedJsonRequest('/api/users/me/addresses', { method: 'POST', body: data }).then((r) => r?.address ?? null),
+      update: async (id, patch) =>
+        authedJsonRequest(`/api/users/me/addresses/${encodeURIComponent(String(id ?? ''))}`, { method: 'PATCH', body: patch }).then((r) => r?.address ?? null),
+      delete: async (id) =>
+        authedJsonRequest(`/api/users/me/addresses/${encodeURIComponent(String(id ?? ''))}`, { method: 'DELETE' }),
+    },
+  },
   entities: {
     Product: {
       list: async (order = '-created_date', limit = 100) => {

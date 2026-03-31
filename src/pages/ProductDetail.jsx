@@ -291,9 +291,39 @@ export default function ProductDetail() {
               </p>
             )}
 
+            {(product.colors?.length > 0 || product.sizes?.length > 0) && (
+              <div className="mb-6 space-y-3">
+                {product.colors?.length > 0 ? (
+                  <div>
+                    <p className="font-body text-sm text-muted-foreground mb-2">Cores disponíveis</p>
+                    <div className="flex flex-wrap gap-2">
+                      {product.colors.map((c) => (
+                        <Badge key={c} className="rounded-none font-body text-[10px] bg-secondary text-foreground">
+                          {c}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {product.sizes?.length > 0 ? (
+                  <div>
+                    <p className="font-body text-sm text-muted-foreground mb-2">Tamanhos</p>
+                    <div className="flex flex-wrap gap-2">
+                      {product.sizes.map((s) => (
+                        <Badge key={s} className="rounded-none font-body text-[10px] bg-secondary text-foreground">
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
             {product.colors?.length > 0 && (
               <div className="mb-6">
-                <p className="font-body text-sm text-muted-foreground mb-2">Cor</p>
+                <p className="font-body text-sm text-muted-foreground mb-2">Escolher cor</p>
                 <div className="flex gap-2 flex-wrap">
                   {product.colors.map((color) => (
                     <button

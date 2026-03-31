@@ -3456,6 +3456,14 @@ app.post('/api/auth/register', async (req, res) => {
       },
     })
 
+    await writeAuditLog({
+      actorId: created.id,
+      action: 'welcome',
+      entityType: 'User',
+      entityId: created.id,
+      meta: { source: 'register', email: created.email },
+    })
+
     // Welcome email (best-effort).
     void (async () => {
       try {
@@ -3529,6 +3537,171 @@ app.get('/api/users/me', async (req, res) => {
   const user = await requireUser(req, res)
   if (!user) return
   res.json({ user: pickPublicUser(user) })
+})
+
+function userAddressToApi(a) {
+  if (!a) return null
+  return {
+    id: a.id,
+    user_id: a.userId,
+    label: a.label ?? null,
+    line1: a.line1,
+    line2: a.line2 ?? null,
+    city: a.city,
+    postal_code: a.postalCode ?? null,
+    country: a.country ?? null,
+    is_default: Boolean(a.isDefault),
+    created_date: a.createdAt,
+    updated_date: a.updatedAt,
+  }
+}
+
+const userAddressCreateSchema = z
+  .object({
+    label: optionalNullableTrimmedString({ min: 1, max: 80 }),
+    line1: z.string().min(1).max(200),
+    line2: optionalNullableTrimmedString({ min: 1, max: 200 }),
+    city: z.string().min(1).max(120),
+    postal_code: optionalNullableTrimmedString({ min: 1, max: 30 }),
+    country: optionalNullableTrimmedString({ min: 1, max: 80 }),
+    is_default: z.boolean().optional(),
+  })
+  .passthrough()
+
+const userAddressPatchSchema = z
+  .object({
+    label: optionalNullableTrimmedString({ min: 1, max: 80 }),
+    line1: optionalNullableTrimmedString({ min: 1, max: 200 }),
+    line2: optionalNullableTrimmedString({ min: 1, max: 200 }),
+    city: optionalNullableTrimmedString({ min: 1, max: 120 }),
+    postal_code: optionalNullableTrimmedString({ min: 1, max: 30 }),
+    country: optionalNullableTrimmedString({ min: 1, max: 80 }),
+    is_default: z.boolean().optional(),
+  })
+  .passthrough()
+
+app.get('/api/users/me/addresses', async (req, res) => {
+  const user = await requireUser(req, res)
+  if (!user) return
+
+  const existing = await prisma.userAddress.findMany({
+    where: { userId: user.id },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+  })
+
+  // Bootstrap an address from the legacy single-address fields, once.
+  if (!existing.length && (user.addressLine1 || user.city || user.postalCode)) {
+    try {
+      const created = await prisma.userAddress.create({
+        data: {
+          userId: user.id,
+          label: 'Principal',
+          line1: user.addressLine1 ?? '',
+          line2: user.addressLine2 ?? null,
+          city: user.city ?? '',
+          postalCode: user.postalCode ?? null,
+          country: user.country ?? 'Portugal',
+          isDefault: true,
+        },
+      })
+      return res.json({ addresses: [userAddressToApi(created)] })
+    } catch (err) {
+      console.error('user address bootstrap failed', err)
+    }
+  }
+
+  res.json({ addresses: existing.map(userAddressToApi).filter(Boolean) })
+})
+
+app.post('/api/users/me/addresses', async (req, res) => {
+  const user = await requireUser(req, res)
+  if (!user) return
+
+  const parsed = userAddressCreateSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const data = parsed.data
+  const isDefault = data.is_default === true
+
+  const created = await prisma.$transaction(async (tx) => {
+    const count = await tx.userAddress.count({ where: { userId: user.id } })
+    const makeDefault = isDefault || count === 0
+
+    if (makeDefault) {
+      await tx.userAddress.updateMany({ where: { userId: user.id }, data: { isDefault: false } })
+    }
+
+    return tx.userAddress.create({
+      data: {
+        userId: user.id,
+        label: data.label ?? null,
+        line1: String(data.line1 ?? '').trim(),
+        line2: data.line2 ?? null,
+        city: String(data.city ?? '').trim(),
+        postalCode: data.postal_code ?? null,
+        country: (data.country ?? null) || 'Portugal',
+        isDefault: makeDefault,
+      },
+    })
+  })
+
+  res.status(201).json({ address: userAddressToApi(created) })
+})
+
+app.patch('/api/users/me/addresses/:id', async (req, res) => {
+  const user = await requireUser(req, res)
+  if (!user) return
+
+  const parsed = userAddressPatchSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const address = await prisma.userAddress.findUnique({ where: { id: req.params.id } })
+  if (!address || address.userId !== user.id) return res.status(404).json({ error: 'not_found' })
+
+  const patch = parsed.data
+  const makeDefault = patch.is_default === true
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (makeDefault) {
+      await tx.userAddress.updateMany({ where: { userId: user.id }, data: { isDefault: false } })
+    }
+
+    const data = {
+      label: patch.label === undefined ? undefined : patch.label,
+      line1: patch.line1 === undefined ? undefined : patch.line1,
+      line2: patch.line2 === undefined ? undefined : patch.line2,
+      city: patch.city === undefined ? undefined : patch.city,
+      postalCode: patch.postal_code === undefined ? undefined : patch.postal_code,
+      country: patch.country === undefined ? undefined : (patch.country ?? undefined),
+      isDefault: makeDefault ? true : undefined,
+    }
+
+    return tx.userAddress.update({ where: { id: address.id }, data })
+  })
+
+  res.json({ address: userAddressToApi(updated) })
+})
+
+app.delete('/api/users/me/addresses/:id', async (req, res) => {
+  const user = await requireUser(req, res)
+  if (!user) return
+
+  const address = await prisma.userAddress.findUnique({ where: { id: req.params.id } })
+  if (!address || address.userId !== user.id) return res.status(404).json({ error: 'not_found' })
+
+  await prisma.$transaction(async (tx) => {
+    await tx.userAddress.delete({ where: { id: address.id } })
+
+    if (address.isDefault) {
+      const next = await tx.userAddress.findFirst({
+        where: { userId: user.id },
+        orderBy: [{ createdAt: 'desc' }],
+      })
+      if (next) await tx.userAddress.update({ where: { id: next.id }, data: { isDefault: true } })
+    }
+  })
+
+  res.json({ ok: true })
 })
 
 app.patch('/api/users/me', async (req, res) => {
@@ -4426,7 +4599,7 @@ app.get('/api/notifications', async (req, res) => {
 	    ? await prisma.auditLog.findMany({ 
 	        where: { 
 	          entityType: 'Order', 
-	          action: 'update', 
+	          action: { in: ['create', 'update'] }, 
 	          meta: { path: ['customer_email'], equals: userEmail }, 
 	        }, 
 	        orderBy: { createdAt: 'desc' }, 
@@ -4464,6 +4637,16 @@ app.get('/api/notifications', async (req, res) => {
       take: 30,
     })
 
+    const welcomeLogs = await prisma.auditLog.findMany({
+      where: {
+        entityType: 'User',
+        entityId: user.id,
+        action: 'welcome',
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    })
+
     const orderStatusLabelPt = (value) => {
       const status = String(value ?? '').trim()
       const map = {
@@ -4489,6 +4672,14 @@ app.get('/api/notifications', async (req, res) => {
     }
 
 	  const items = [ 
+    ...welcomeLogs.map((l) => ({
+      id: `welcome:${l.id}`,
+      type: 'welcome',
+      title: 'Bem-vindo(a) à ZANA',
+      text: 'Obrigado por criar conta. Pode gerir endereços e acompanhar encomendas em Minha Conta.',
+      link: '/conta',
+      created_date: l.createdAt,
+    })),
     ...appointmentReminderLogs.map((l) => {
       const serviceName = typeof l.meta?.service_name === 'string' ? l.meta.service_name : null
       const staffName = typeof l.meta?.staff_name === 'string' ? l.meta.staff_name : null
@@ -4613,9 +4804,29 @@ app.get('/api/notifications', async (req, res) => {
 	      created_date: r.createdAt,
 	    })),
 	    ...orderStatusLogs.map((l) => {
-	      const status = typeof l.meta?.status === 'string' ? l.meta.status : null
-	      const prev = typeof l.meta?.previous_status === 'string' ? l.meta.previous_status : null
-	      const orderId = l.entityId ?? null
+	      const meta = l.meta && typeof l.meta === 'object' ? l.meta : {}
+	      const status = typeof meta?.status === 'string' ? meta.status : null
+	      const prev = typeof meta?.previous_status === 'string' ? meta.previous_status : null
+	      const orderId = typeof meta?.order_id === 'string' ? meta.order_id : l.entityId ?? null
+	      const totalRaw = meta?.total
+	      const totalNumber = totalRaw === null || totalRaw === undefined ? null : Number(String(totalRaw).replace(',', '.'))
+	      const totalLabel = Number.isFinite(totalNumber) ? `${totalNumber.toFixed(2)} €` : null
+
+	      if (l.action === 'create') {
+	        const textParts = ['Compra registada com sucesso.']
+	        if (status) textParts.push(`Estado: ${orderStatusLabelPt(status)}`)
+	        if (totalLabel) textParts.push(`Total: ${totalLabel}`)
+
+	        return {
+	          id: `order:${l.id}`,
+	          type: 'order_created',
+	          title: 'Compra confirmada',
+	          text: orderId ? `Encomenda ${orderId}: ${textParts.join(' • ')}` : textParts.join(' • '),
+	          link: '/conta',
+	          created_date: l.createdAt,
+	        }
+	      }
+
 	      const title = status === 'delivered' ? 'Encomenda entregue — avalie e ganhe pontos' : 'Estado da encomenda atualizado'
 	      const inner = status
 	        ? prev
@@ -4831,7 +5042,18 @@ app.post('/api/orders', async (req, res) => {
     return order
   })
 
-  await writeAuditLog({ action: 'create', entityType: 'Order', entityId: created.id, meta: { source: 'checkout' } })
+  await writeAuditLog({
+    action: 'create',
+    entityType: 'Order',
+    entityId: created.id,
+    meta: {
+      source: 'checkout',
+      order_id: created.id,
+      customer_email: created.customerEmail ?? null,
+      status: created.status ?? null,
+      total: created.total ?? null,
+    },
+  })
 
   if (user && !user.isDeleted && pointsUsed > 0) {
     await writeAuditLog({

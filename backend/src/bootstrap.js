@@ -43,6 +43,37 @@ const ddl = [
   `CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User" ("email");`,
   `CREATE INDEX IF NOT EXISTS "User_createdAt_idx" ON "User" ("createdAt");`,
 
+  `
+  CREATE TABLE IF NOT EXISTS "UserAddress" (
+    "id" TEXT PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "label" TEXT,
+    "line1" TEXT NOT NULL,
+    "line2" TEXT,
+    "city" TEXT NOT NULL,
+    "postalCode" TEXT,
+    "country" TEXT NOT NULL DEFAULT 'Portugal',
+    "isDefault" BOOLEAN NOT NULL DEFAULT FALSE,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT "UserAddress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
+  );
+  `,
+  `CREATE INDEX IF NOT EXISTS "UserAddress_userId_idx" ON "UserAddress" ("userId");`,
+  `CREATE INDEX IF NOT EXISTS "UserAddress_isDefault_idx" ON "UserAddress" ("isDefault");`,
+  `CREATE INDEX IF NOT EXISTS "UserAddress_createdAt_idx" ON "UserAddress" ("createdAt");`,
+
+  // Backfill/upgrade older local DBs.
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "label" TEXT;`,
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "line1" TEXT;`,
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "line2" TEXT;`,
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "city" TEXT;`,
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "postalCode" TEXT;`,
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "country" TEXT NOT NULL DEFAULT 'Portugal';`,
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "isDefault" BOOLEAN NOT NULL DEFAULT FALSE;`,
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+  `ALTER TABLE IF EXISTS "UserAddress" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+
   // Backfill/upgrade existing local DBs created before these columns existed.
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE;`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;`,

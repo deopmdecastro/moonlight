@@ -104,6 +104,7 @@ export default function Checkout() {
     shipping_address: '',
     shipping_city: '',
     shipping_postal_code: '',
+    shipping_country: 'Portugal',
     shipping_method_id: 'standard',
     payment_method: 'mbway',
     notes: '',
@@ -111,18 +112,64 @@ export default function Checkout() {
 
   useEffect(() => {
     if (!user) return;
-    const userAddress = user.address || {};
-    const defaultShippingAddress = [userAddress.line1, userAddress.line2].filter(Boolean).join(', ');
     setForm((prev) => ({
       ...prev,
       customer_email: prev.customer_email || user.email || '',
       customer_name: prev.customer_name || user.full_name || '',
       customer_phone: prev.customer_phone || user.phone || '',
-      shipping_address: prev.shipping_address || defaultShippingAddress || '',
-      shipping_city: prev.shipping_city || userAddress.city || '',
-      shipping_postal_code: prev.shipping_postal_code || userAddress.postal_code || '',
     }));
   }, [user]);
+
+  const { data: addresses = [] } = useQuery({
+    queryKey: ['my-addresses'],
+    queryFn: () => base44.user.addresses.list(),
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+
+  const defaultAddress = useMemo(() => {
+    const list = Array.isArray(addresses) ? addresses : [];
+    return list.find((a) => a?.is_default) ?? list[0] ?? null;
+  }, [addresses]);
+
+  const [selectedAddressId, setSelectedAddressId] = useState('manual');
+
+  const selectedAddress = useMemo(() => {
+    if (!selectedAddressId || selectedAddressId === 'manual') return null;
+    return (addresses ?? []).find((a) => a?.id === selectedAddressId) ?? null;
+  }, [addresses, selectedAddressId]);
+
+  const formatAddress = (a) => {
+    if (!a) return '';
+    const parts = [a?.line1, a?.line2, a?.postal_code, a?.city, a?.country].filter(Boolean);
+    return parts.join(', ');
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const list = Array.isArray(addresses) ? addresses : [];
+    if (!list.length) {
+      setSelectedAddressId('manual');
+      return;
+    }
+    if (selectedAddressId && selectedAddressId !== 'manual' && list.some((a) => a?.id === selectedAddressId)) return;
+    setSelectedAddressId(defaultAddress?.id ?? 'manual');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, addresses, defaultAddress?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!selectedAddress || selectedAddressId === 'manual') return;
+
+    const line = [selectedAddress.line1, selectedAddress.line2].filter(Boolean).join(', ');
+    setForm((prev) => ({
+      ...prev,
+      shipping_address: line || prev.shipping_address || '',
+      shipping_city: selectedAddress.city ?? prev.shipping_city ?? '',
+      shipping_postal_code: selectedAddress.postal_code ?? prev.shipping_postal_code ?? '',
+      shipping_country: selectedAddress.country ?? prev.shipping_country ?? 'Portugal',
+    }));
+  }, [selectedAddress, selectedAddressId, user]);
 
   useEffect(() => {
     if (!paymentOptions?.length) return;
@@ -352,20 +399,108 @@ export default function Checkout() {
 	            <div className="bg-card p-6 rounded-lg border border-border">
 	              <h2 className="font-heading text-xl mb-4">Morada de Envio</h2>
 	              <div className="space-y-4">
-                <div>
-                  <Label className="font-body text-xs">Morada *</Label>
-                  <Input value={form.shipping_address} onChange={(e) => handleChange('shipping_address', e.target.value)} className="rounded-none mt-1" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="font-body text-xs">Cidade *</Label>
-                    <Input value={form.shipping_city} onChange={(e) => handleChange('shipping_city', e.target.value)} className="rounded-none mt-1" />
+                {user ? (
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="font-body text-xs text-muted-foreground">Escolha um endereço guardado</div>
+                    <Link to="/conta#enderecos" className="font-body text-xs text-primary hover:underline">
+                      Gerir endereços
+                    </Link>
                   </div>
-                  <div>
-                    <Label className="font-body text-xs">Código Postal *</Label>
-                    <Input value={form.shipping_postal_code} onChange={(e) => handleChange('shipping_postal_code', e.target.value)} className="rounded-none mt-1" />
+                ) : null}
+
+                {user && (addresses ?? []).length > 0 ? (
+                  <RadioGroup value={selectedAddressId} onValueChange={setSelectedAddressId} className="space-y-2">
+                    {(addresses ?? []).map((a) => (
+                      <div
+                        key={a.id}
+                        className="flex items-start gap-3 p-3 border border-border rounded-sm hover:bg-secondary/30"
+                      >
+                        <RadioGroupItem value={a.id} id={`addr-${a.id}`} className="mt-1" />
+                        <Label htmlFor={`addr-${a.id}`} className="font-body text-sm cursor-pointer flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">{a.label || 'Endereço'}</span>
+                            {a.is_default ? (
+                              <span className="text-[10px] font-body tracking-widest uppercase bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                Padrão
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="font-body text-[11px] text-muted-foreground mt-1 break-words">{formatAddress(a)}</div>
+                        </Label>
+                      </div>
+                    ))}
+
+                    <div className="flex items-start gap-3 p-3 border border-border rounded-sm hover:bg-secondary/30">
+                      <RadioGroupItem value="manual" id="addr-manual" className="mt-1" />
+                      <Label htmlFor="addr-manual" className="font-body text-sm cursor-pointer flex-1">
+                        Outro endereço
+                        <div className="font-body text-[11px] text-muted-foreground mt-1">
+                          Introduzir morada diferente apenas para esta encomenda.
+                        </div>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                ) : user ? (
+                  <div className="rounded-sm border border-border bg-secondary/10 p-3">
+                    <div className="font-body text-sm font-medium">Sem endereços guardados</div>
+                    <div className="font-body text-[11px] text-muted-foreground mt-1">
+                      Preencha a morada abaixo ou adicione um endereço em{' '}
+                      <Link to="/conta#enderecos" className="text-primary hover:underline">
+                        Minha Conta
+                      </Link>
+                      .
+                    </div>
                   </div>
-                </div>
+                ) : null}
+
+                {!user || selectedAddressId === 'manual' || (addresses ?? []).length === 0 ? (
+                  <>
+                    <div>
+                      <Label className="font-body text-xs">Morada *</Label>
+                      <Input
+                        value={form.shipping_address}
+                        onChange={(e) => handleChange('shipping_address', e.target.value)}
+                        className="rounded-none mt-1"
+                        placeholder="Rua, número, andar..."
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="font-body text-xs">Cidade *</Label>
+                        <Input
+                          value={form.shipping_city}
+                          onChange={(e) => handleChange('shipping_city', e.target.value)}
+                          className="rounded-none mt-1"
+                          placeholder="Ex: Lisboa"
+                        />
+                      </div>
+                      <div>
+                        <Label className="font-body text-xs">Código Postal *</Label>
+                        <Input
+                          value={form.shipping_postal_code}
+                          onChange={(e) => handleChange('shipping_postal_code', e.target.value)}
+                          className="rounded-none mt-1"
+                          placeholder="Ex: 1000-000"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="font-body text-xs">País</Label>
+                      <Input
+                        value={form.shipping_country}
+                        onChange={(e) => handleChange('shipping_country', e.target.value)}
+                        className="rounded-none mt-1"
+                        placeholder="Portugal"
+                      />
+                    </div>
+                  </>
+                ) : selectedAddress ? (
+                  <div className="rounded-sm border border-border bg-secondary/10 p-3">
+                    <div className="font-body text-xs tracking-wider uppercase text-muted-foreground mb-1">Enviar para</div>
+                    <div className="font-body text-sm break-words">{formatAddress(selectedAddress)}</div>
+                  </div>
+                ) : null}
+
                 <div>
                   <Label className="font-body text-xs">Notas</Label>
                   <Textarea value={form.notes} onChange={(e) => handleChange('notes', e.target.value)} className="rounded-none mt-1" rows={3} />

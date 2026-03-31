@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -134,6 +135,118 @@ export default function Account() {
     order_updates_email: true,
   });
   const [initialForm, setInitialForm] = useState(null);
+
+  const { data: addresses = [] } = useQuery({
+    queryKey: ['my-addresses'],
+    queryFn: () => base44.user.addresses.list(),
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [addressForm, setAddressForm] = useState({
+    label: '',
+    line1: '',
+    line2: '',
+    city: '',
+    postal_code: '',
+    country: 'Portugal',
+    is_default: false,
+  });
+
+  const openNewAddress = () => {
+    setEditingAddress(null);
+    setAddressForm({
+      label: '',
+      line1: '',
+      line2: '',
+      city: '',
+      postal_code: '',
+      country: 'Portugal',
+      is_default: addresses.length === 0,
+    });
+    setAddressDialogOpen(true);
+  };
+
+  const openEditAddress = (addr) => {
+    setEditingAddress(addr);
+    setAddressForm({
+      label: addr?.label ?? '',
+      line1: addr?.line1 ?? '',
+      line2: addr?.line2 ?? '',
+      city: addr?.city ?? '',
+      postal_code: addr?.postal_code ?? '',
+      country: addr?.country ?? 'Portugal',
+      is_default: Boolean(addr?.is_default),
+    });
+    setAddressDialogOpen(true);
+  };
+
+  const createAddressMutation = useMutation({
+    mutationFn: (payload) => base44.user.addresses.create(payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['my-addresses'] });
+      toast.success('Endereço adicionado.');
+      setAddressDialogOpen(false);
+      setEditingAddress(null);
+    },
+    onError: () => toast.error('Não foi possível adicionar o endereço.'),
+  });
+
+  const updateAddressMutation = useMutation({
+    mutationFn: ({ id, patch }) => base44.user.addresses.update(id, patch),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['my-addresses'] });
+      toast.success('Endereço atualizado.');
+      setAddressDialogOpen(false);
+      setEditingAddress(null);
+    },
+    onError: () => toast.error('Não foi possível atualizar o endereço.'),
+  });
+
+  const deleteAddressMutation = useMutation({
+    mutationFn: (id) => base44.user.addresses.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['my-addresses'] });
+      toast.success('Endereço removido.');
+    },
+    onError: () => toast.error('Não foi possível remover o endereço.'),
+  });
+
+  const setDefaultMutation = useMutation({
+    mutationFn: (id) => base44.user.addresses.update(id, { is_default: true }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['my-addresses'] });
+      toast.success('Endereço padrão atualizado.');
+    },
+    onError: () => toast.error('Não foi possível definir como padrão.'),
+  });
+
+  const saveAddress = () => {
+    const payload = {
+      label: String(addressForm.label ?? '').trim() || null,
+      line1: String(addressForm.line1 ?? '').trim(),
+      line2: String(addressForm.line2 ?? '').trim() || null,
+      city: String(addressForm.city ?? '').trim(),
+      postal_code: String(addressForm.postal_code ?? '').trim() || null,
+      country: String(addressForm.country ?? '').trim() || null,
+      is_default: Boolean(addressForm.is_default),
+    };
+
+    if (!payload.line1 || !payload.city) {
+      toast.error('Preencha pelo menos Morada e Cidade.');
+      return;
+    }
+
+    if (editingAddress?.id) updateAddressMutation.mutate({ id: editingAddress.id, patch: payload });
+    else createAddressMutation.mutate(payload);
+  };
+
+  const formatAddress = (a) => {
+    const parts = [a?.line1, a?.line2, a?.postal_code, a?.city, a?.country].filter(Boolean);
+    return parts.join(', ');
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -371,6 +484,160 @@ export default function Account() {
           </div>
         </div>
       </div>
+
+      <div className="bg-card p-6 rounded-lg border border-border mb-10">
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+          <h2 id="enderecos" className="font-heading text-xl">Endereços</h2>
+          <Button className="rounded-none font-body text-sm" onClick={openNewAddress}>
+            Adicionar endereço
+          </Button>
+        </div>
+
+        {(addresses ?? []).length === 0 ? (
+          <p className="font-body text-sm text-muted-foreground">Ainda não tem endereços guardados.</p>
+        ) : (
+          <div className="space-y-3">
+            {(addresses ?? []).map((a) => (
+              <div key={a.id} className="border border-border rounded-md p-4 flex items-start justify-between gap-4 flex-wrap">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="font-body text-sm font-semibold truncate">{a.label || 'Endereço'}</div>
+                    {a.is_default ? (
+                      <Badge className="rounded-none font-body text-[10px] bg-primary/10 text-primary">Padrão</Badge>
+                    ) : null}
+                  </div>
+                  <div className="font-body text-xs text-muted-foreground mt-1">{formatAddress(a)}</div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {!a.is_default ? (
+                    <Button
+                      variant="outline"
+                      className="rounded-none font-body text-xs"
+                      onClick={() => setDefaultMutation.mutate(a.id)}
+                      disabled={setDefaultMutation.isPending}
+                    >
+                      Definir padrão
+                    </Button>
+                  ) : null}
+                  <Button variant="outline" className="rounded-none font-body text-xs" onClick={() => openEditAddress(a)}>
+                    Editar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="rounded-none font-body text-xs"
+                    onClick={() => {
+                      if (!window.confirm('Remover este endereço?')) return;
+                      deleteAddressMutation.mutate(a.id);
+                    }}
+                    disabled={deleteAddressMutation.isPending}
+                  >
+                    Remover
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Dialog
+        open={addressDialogOpen}
+        onOpenChange={(open) => {
+          setAddressDialogOpen(open);
+          if (!open) setEditingAddress(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl">{editingAddress ? 'Editar endereço' : 'Novo endereço'}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="font-body text-xs">Etiqueta (opcional)</Label>
+              <Input
+                value={addressForm.label}
+                onChange={(e) => setAddressForm((p) => ({ ...p, label: e.target.value }))}
+                className="rounded-none mt-1"
+                placeholder="Ex: Casa, Trabalho..."
+              />
+            </div>
+
+            <div>
+              <Label className="font-body text-xs">Morada *</Label>
+              <Input
+                value={addressForm.line1}
+                onChange={(e) => setAddressForm((p) => ({ ...p, line1: e.target.value }))}
+                className="rounded-none mt-1"
+                placeholder="Rua, número, andar..."
+              />
+            </div>
+
+            <div>
+              <Label className="font-body text-xs">Complemento</Label>
+              <Input
+                value={addressForm.line2}
+                onChange={(e) => setAddressForm((p) => ({ ...p, line2: e.target.value }))}
+                className="rounded-none mt-1"
+                placeholder="Ex: Bloco A, porta 3"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="font-body text-xs">Cidade *</Label>
+                <Input
+                  value={addressForm.city}
+                  onChange={(e) => setAddressForm((p) => ({ ...p, city: e.target.value }))}
+                  className="rounded-none mt-1"
+                  placeholder="Ex: Lisboa"
+                />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Código Postal</Label>
+                <Input
+                  value={addressForm.postal_code}
+                  onChange={(e) => setAddressForm((p) => ({ ...p, postal_code: e.target.value }))}
+                  className="rounded-none mt-1"
+                  placeholder="Ex: 1000-000"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="font-body text-xs">País</Label>
+              <Input
+                value={addressForm.country}
+                onChange={(e) => setAddressForm((p) => ({ ...p, country: e.target.value }))}
+                className="rounded-none mt-1"
+                placeholder="Portugal"
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-body text-sm font-medium">Endereço padrão</p>
+                <p className="font-body text-xs text-muted-foreground">Usado por defeito no checkout.</p>
+              </div>
+              <Switch checked={addressForm.is_default} onCheckedChange={(v) => setAddressForm((p) => ({ ...p, is_default: v }))} />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" className="rounded-none font-body text-sm" onClick={() => setAddressDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              className="rounded-none font-body text-sm"
+              onClick={saveAddress}
+              disabled={createAddressMutation.isPending || updateAddressMutation.isPending}
+            >
+              {(createAddressMutation.isPending || updateAddressMutation.isPending) ? 'A guardar...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="bg-card p-6 rounded-lg border border-border mb-10">
         <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
