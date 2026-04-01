@@ -37,6 +37,16 @@ const statusLabels = {
   cancelled: 'Cancelada',
 };
 
+function getPurchaseKindLabel(purchase) {
+  const items = Array.isArray(purchase?.items) ? purchase.items : [];
+  if (items.length === 0) return null;
+  const hasStockItems = items.some((it) => Boolean(it?.product_id));
+  const hasNonStockItems = items.some((it) => !it?.product_id);
+  if (hasNonStockItems && !hasStockItems) return 'Logística';
+  if (hasNonStockItems && hasStockItems) return 'Mista';
+  return null;
+}
+
 const emptyPurchase = {
   supplier_id: null,
   reference: '',
@@ -737,6 +747,14 @@ export default function AdminPurchases() {
                 <td className="p-3 font-body text-sm">
                   <div className="font-medium">{p.supplier?.name ?? '-'}</div>
                   {p.reference ? <div className="text-xs text-muted-foreground">{p.reference}</div> : null}
+                  {(() => {
+                    const kind = getPurchaseKindLabel(p);
+                    return kind ? (
+                      <div className="mt-2">
+                        <Badge className="bg-secondary text-foreground text-[10px]">{kind}</Badge>
+                      </div>
+                    ) : null;
+                  })()}
                 </td>
                 <td className="p-3">
                   <Badge className={`${statusColors[p.status] ?? 'bg-secondary text-foreground'} text-[10px]`}>

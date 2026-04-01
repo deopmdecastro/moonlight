@@ -132,25 +132,27 @@ export default function AdminCustomers() {
       </div>
 
       <div className="bg-card rounded-lg border border-border overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[780px]">
           <thead>
             <tr className="border-b border-border bg-secondary/30">
-              <th className="text-left p-3 font-body text-xs text-muted-foreground">Nome</th>
-              <th className="text-left p-3 font-body text-xs text-muted-foreground">Email</th>
-              <th className="text-left p-3 font-body text-xs text-muted-foreground">Telefone</th>
-              <th className="text-left p-3 font-body text-xs text-muted-foreground">Pontos</th>
-              <th className="text-left p-3 font-body text-xs text-muted-foreground">Data Registo</th>
-              <th className="text-right p-3 font-body text-xs text-muted-foreground">Ações</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground whitespace-nowrap">Nome</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground whitespace-nowrap">Email</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground whitespace-nowrap">Telefone</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground whitespace-nowrap">Pontos</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground whitespace-nowrap">Data Registo</th>
+              <th className="text-right p-3 font-body text-xs text-muted-foreground whitespace-nowrap">Ações</th>
             </tr>
           </thead>
           <tbody>
             {filteredUsers.map(user => (
               <tr key={user.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
-                <td className="p-3 font-body text-sm font-medium">{user.full_name || '-'}</td>
-                <td className="p-3 font-body text-sm text-muted-foreground">{user.email}</td>
-                <td className="p-3 font-body text-sm text-muted-foreground">{user.phone || '-'}</td>
-                <td className="p-3 font-body text-sm text-muted-foreground">{Number(user.points_balance ?? 0) || 0}</td>
-                <td className="p-3 font-body text-xs text-muted-foreground">{new Date(user.created_date).toLocaleDateString('pt-PT')}</td>
+                <td className="p-3 font-body text-sm font-medium whitespace-nowrap">{user.full_name || '-'}</td>
+                <td className="p-3 font-body text-sm text-muted-foreground whitespace-nowrap">{user.email}</td>
+                <td className="p-3 font-body text-sm text-muted-foreground whitespace-nowrap">{user.phone || '-'}</td>
+                <td className="p-3 font-body text-sm text-muted-foreground whitespace-nowrap">{Number(user.points_balance ?? 0) || 0}</td>
+                <td className="p-3 font-body text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(user.created_date).toLocaleDateString('pt-PT')}
+                </td>
                 <td className="p-3 text-right">
                   <Button variant="ghost" size="icon" onClick={() => openUser(user)} title="Ver / editar">
                     <Eye className="w-4 h-4" />

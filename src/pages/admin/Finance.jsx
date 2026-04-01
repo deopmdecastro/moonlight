@@ -25,6 +25,28 @@ function moneyPt(value) {
   return n.toFixed(2).replace('.', ',');
 }
 
+function getPurchaseLineTotals(purchase) {
+  const items = Array.isArray(purchase?.items) ? purchase.items : [];
+  let stock = 0;
+  let logistics = 0;
+
+  for (const it of items) {
+    const qty = Number(it?.quantity ?? 0) || 0;
+    const unit = Number(it?.unit_cost ?? 0) || 0;
+    const line = qty * unit;
+    if (!Number.isFinite(line) || line <= 0) continue;
+
+    if (it?.product_id) stock += line;
+    else logistics += line;
+  }
+
+  return {
+    stock: Number(stock.toFixed(2)),
+    logistics: Number(logistics.toFixed(2)),
+    total: Number((stock + logistics).toFixed(2)),
+  };
+}
+
 function monthKey(value) {
   const d = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(d.getTime())) return null;
@@ -108,7 +130,19 @@ export default function AdminFinance() {
       byCategory.set(category, row);
     }
 
-    const purchasesTotal = purchases.reduce((sum, p) => sum + (p.total ?? 0), 0);
+    let purchasesStockTotal = 0;
+    let purchasesLogisticsTotal = 0;
+
+    for (const p of purchases ?? []) {
+      if (String(p?.status ?? '') === 'cancelled') continue;
+      const totals = getPurchaseLineTotals(p);
+      purchasesStockTotal += totals.stock;
+      purchasesLogisticsTotal += totals.logistics;
+    }
+
+    purchasesStockTotal = Number(purchasesStockTotal.toFixed(2));
+    purchasesLogisticsTotal = Number(purchasesLogisticsTotal.toFixed(2));
+    const purchasesTotal = Number((purchasesStockTotal + purchasesLogisticsTotal).toFixed(2));
 
     const revenueByStatus = orders.reduce((acc, o) => {
       const status = String(o.status ?? 'pending');
@@ -129,6 +163,8 @@ export default function AdminFinance() {
       expected,
       marginPotential: expected - invested,
       purchasesTotal,
+      purchasesStockTotal,
+      purchasesLogisticsTotal,
       byCategory: Array.from(byCategory.values()).sort((a, b) => b.invested - a.invested),
       revenueDelivered,
       revenueOpen,
@@ -156,9 +192,10 @@ export default function AdminFinance() {
     }
 
     for (const p of purchases ?? []) {
+      if (String(p?.status ?? '') === 'cancelled') continue;
       const k = monthKey(p?.purchased_at ?? p?.purchased_date ?? p?.created_date ?? p?.created_at);
       if (!k || !byMonth.has(k)) continue;
-      byMonth.get(k).compras += Number(p?.total ?? 0) || 0;
+      byMonth.get(k).compras += getPurchaseLineTotals(p).total || 0;
     }
 
     const series = months.map((k) => {
@@ -186,9 +223,10 @@ export default function AdminFinance() {
       }
 
       for (const p of purchases ?? []) {
+        if (String(p?.status ?? '') === 'cancelled') continue;
         const d = new Date(p?.purchased_at ?? p?.purchased_date ?? p?.created_date ?? p?.created_at ?? 0);
         if (!Number.isFinite(d.getTime()) || d < start) continue;
-        compras += Number(p?.total ?? 0) || 0;
+        compras += getPurchaseLineTotals(p).total || 0;
       }
 
       return { receita, compras, resultado: receita - compras };
@@ -211,6 +249,7 @@ export default function AdminFinance() {
     { title: 'Valor Esperado (PVP)', value: `${stats.expected.toFixed(2)} €`, icon: TrendingUp, color: 'text-green-700' },
     { title: 'Margem Potencial', value: `${stats.marginPotential.toFixed(2)} €`, icon: Package, color: 'text-accent' },
     { title: 'Receita (Entregue)', value: `${stats.revenueDelivered.toFixed(2)} €`, icon: ShoppingCart, color: 'text-green-700' },
+    { title: 'Despesas (Logística)', value: `${stats.purchasesLogisticsTotal.toFixed(2)} €`, icon: Package, color: 'text-muted-foreground' },
   ];
 
   const exportPdf = async () => {
