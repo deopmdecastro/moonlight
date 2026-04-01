@@ -9,7 +9,7 @@ import zanaLogoPrimary from '@/img/zana_logo_primary.svg';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { downloadCsv, exportReportsPdf } from '@/lib/reportExport';
+import { downloadBlob, exportReportsExcel, exportReportsPdf } from '@/lib/reportExport';
 
 function numberOrZero(value) {
   const n = Number(value ?? 0);
@@ -33,11 +33,6 @@ function PurchaseAdjustmentsTooltip({ active, payload, label }) {
       </div>
     </div>
   );
-}
-
-function moneyPt(value) {
-  const n = Number(value ?? 0) || 0;
-  return n.toFixed(2).replace('.', ',');
 }
 
 const orderStatusLabels = {
@@ -197,79 +192,58 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
   ];
 
   const exportPdf = async () => {
+    const date = new Date().toISOString().slice(0, 10);
+    const outName = `relatorios_${date}.pdf`;
+    const popup = window.open('', '_blank');
+
     try {
-      const date = new Date().toISOString().slice(0, 10);
-      await exportReportsPdf({
-        filename: `relatorios_${date}.pdf`,
+      if (popup) popup.document.title = outName;
+
+      const blob = await exportReportsPdf({
+        filename: outName,
         title,
         logoUrl: zanaLogoPrimary,
         createdAt: new Date(),
         stats,
         analytics,
+        mode: 'blob',
       });
+
+      if (!(blob instanceof Blob)) throw new Error('pdf_blob_failed');
+
+      if (popup && !popup.closed) {
+        const blobUrl = URL.createObjectURL(blob);
+        popup.location.href = blobUrl;
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+      } else {
+        downloadBlob(outName, blob);
+      }
+
       toast.success('PDF exportado');
     } catch (err) {
       console.error(err);
+      if (popup && !popup.closed) popup.close();
       toast.error('Não foi possível exportar PDF');
     }
   };
 
-  const exportExcel = () => {
-    const date = new Date().toISOString().slice(0, 10);
-    const rows = [];
-
-    rows.push([title, new Date().toLocaleString('pt-PT')]);
-    rows.push([]);
-    rows.push(['Resumo']);
-    rows.push(['Produtos', stats.productsCount]);
-    rows.push(['Unidades em Stock', stats.stockUnits]);
-    rows.push(['Baixo Stock (<=2)', stats.lowStock]);
-    rows.push(['Total em Compras (€)', moneyPt(stats.purchasesTotal)]);
-    rows.push(['Unidades devolvidas ao fornecedor', stats.return_units]);
-    rows.push(['Valor devolvido (€)', moneyPt(stats.return_value)]);
-    rows.push(['Unidades removidas do stock', stats.writeoff_units]);
-    rows.push(['Valor removido (€)', moneyPt(stats.writeoff_value)]);
-
-    const topViewed = analytics?.top_viewed_products ?? [];
-    rows.push([]);
-    rows.push(['Produtos mais vistos']);
-    rows.push(['Produto', 'Views']);
-    for (const p of topViewed) rows.push([p.product_name ?? '', p.views ?? 0]);
-
-    const topSearches = analytics?.top_searches ?? [];
-    rows.push([]);
-    rows.push(['Mais pesquisas']);
-    rows.push(['Pesquisa', 'Count']);
-    for (const q of topSearches) rows.push([q.query ?? '', q.count ?? 0]);
-
-    const topSold = analytics?.top_sold_products ?? [];
-    rows.push([]);
-    rows.push(['Mais vendidos']);
-    rows.push(['Produto', 'Quantidade']);
-    for (const p of topSold) rows.push([p.product_name ?? '', p.quantity ?? 0]);
-
-    const largestOrders = analytics?.largest_orders ?? [];
-    rows.push([]);
-    rows.push(['Maiores encomendas']);
-    rows.push(['Email', 'Status', 'Total (€)']);
-    for (const o of largestOrders) rows.push([o.customer_email ?? '', o.status ?? '', moneyPt(o.total ?? 0)]);
-
-    const adjustments = purchaseAdjustments?.topProducts ?? [];
-    rows.push([]);
-    rows.push(['Devoluções / Remoções (Compras)']);
-    rows.push(['Produto', 'Devolvido (un.)', 'Removido (un.)', 'Valor devolvido (€)', 'Valor removido (€)']);
-    for (const p of adjustments) {
-      rows.push([
-        p.product_name ?? '',
-        p.devolvido ?? 0,
-        p.removido ?? 0,
-        moneyPt(p.devolvido_value ?? 0),
-        moneyPt(p.removido_value ?? 0),
-      ]);
+  const exportExcel = async () => {
+    try {
+      const date = new Date().toISOString().slice(0, 10);
+      await exportReportsExcel({
+        filename: `relatorios_${date}.xls`,
+        title,
+        logoUrl: zanaLogoPrimary,
+        createdAt: new Date(),
+        stats,
+        analytics,
+        purchaseAdjustments,
+      });
+      toast.success('Excel exportado');
+    } catch (err) {
+      console.error(err);
+      toast.error('Não foi possível exportar Excel');
     }
-
-    downloadCsv(`relatorios_${date}.csv`, rows);
-    toast.success('Excel (CSV) exportado');
   };
 
   return (

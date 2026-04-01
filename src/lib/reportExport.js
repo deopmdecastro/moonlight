@@ -1,4 +1,4 @@
-function downloadBlob(filename, blob) {
+export function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -42,6 +42,16 @@ async function svgUrlToPngDataUrl(svgUrl, { width = 120 } = {}) {
     return canvas.toDataURL('image/png');
   } finally {
     URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function safeSvgUrlToPngDataUrl(svgUrl, { width = 120 } = {}) {
+  if (!svgUrl) return null;
+  try {
+    return await svgUrlToPngDataUrl(svgUrl, { width });
+  } catch (err) {
+    console.warn('failed to convert svg to png', err);
+    return null;
   }
 }
 
@@ -181,6 +191,21 @@ function addTable(doc, { headers = [], rows = [], startY, columnWidths } = {}) {
   return y + 10;
 }
 
+function moneyPt(value) {
+  const n = Number(value ?? 0);
+  const safe = Number.isFinite(n) ? n : 0;
+  return safe.toFixed(2).replace('.', ',');
+}
+
+const orderStatusLabelsPt = {
+  pending: 'Pendente',
+  confirmed: 'Confirmada',
+  processing: 'Em preparação',
+  shipped: 'Enviada',
+  delivered: 'Entregue',
+  cancelled: 'Cancelada',
+};
+
 function csvEscape(value, delimiter) {
   if (value === null || value === undefined) return '';
   const str = String(value);
@@ -195,11 +220,297 @@ export function downloadCsv(filename, rows, { delimiter = ';', includeBom = true
   downloadBlob(filename, new Blob([csv], { type: 'text/csv;charset=utf-8' }));
 }
 
-export async function exportReportsPdf({ filename, title = 'Relatórios', logoUrl, createdAt, stats, analytics } = {}) {
+function parseHslTriplet(value) {
+  const str = String(value ?? '').trim();
+  if (!str) return null;
+  const parts = str.split(/\s+/).filter(Boolean);
+  if (parts.length < 3) return null;
+  const h = Number(parts[0]);
+  const s = Number(String(parts[1]).replace('%', ''));
+  const l = Number(String(parts[2]).replace('%', ''));
+  if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) return null;
+  return { h, s, l };
+}
+
+function hslToHex({ h, s, l } = {}) {
+  if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) return '#000000';
+  const hh = (((h % 360) + 360) % 360) / 360;
+  const ss = Math.max(0, Math.min(1, s / 100));
+  const ll = Math.max(0, Math.min(1, l / 100));
+
+  const hue2rgb = (p, q, t) => {
+    let tt = t;
+    if (tt < 0) tt += 1;
+    if (tt > 1) tt -= 1;
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+    if (tt < 1 / 2) return q;
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+    return p;
+  };
+
+  let r;
+  let g;
+  let b;
+
+  if (ss === 0) {
+    r = g = b = ll;
+  } else {
+    const q = ll < 0.5 ? ll * (1 + ss) : ll + ss - ll * ss;
+    const p = 2 * ll - q;
+    r = hue2rgb(p, q, hh + 1 / 3);
+    g = hue2rgb(p, q, hh);
+    b = hue2rgb(p, q, hh - 1 / 3);
+  }
+
+  const toHex = (v) => Math.round(v * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function getThemeColorHex(varName, fallbackTriplet) {
+  try {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    const parsed = parseHslTriplet(value || fallbackTriplet);
+    return hslToHex(parsed ?? parseHslTriplet(fallbackTriplet));
+  } catch {
+    return hslToHex(parseHslTriplet(fallbackTriplet));
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function ensureXlsFilename(filename, fallbackBase) {
+  const name = String(filename || '').trim();
+  if (name) return name.toLowerCase().endsWith('.xls') ? name : `${name}.xls`;
+  return `${fallbackBase}.xls`;
+}
+
+function buildExcelHtml({ sheetName = 'ZANA', title, createdAt, logoDataUrl, sections = [] } = {}) {
+  const primary = getThemeColorHex('--primary', '340 52% 31%');
+  const foreground = getThemeColorHex('--foreground', '222.2 84% 4.9%');
+  const muted = getThemeColorHex('--muted-foreground', '215.4 16.3% 46.9%');
+  const border = getThemeColorHex('--border', '214.3 31.8% 91.4%');
+  const background = getThemeColorHex('--background', '0 0% 100%');
+
+  const when = createdAt ? new Date(createdAt) : new Date();
+
+  const sectionHtml = (sections ?? [])
+    .map((s) => {
+      const rows = (s?.rows ?? [])
+        .map(
+          (r) =>
+            `<tr>${(r ?? [])
+              .map((c) => `<td class="cell">${escapeHtml(c)}</td>`)
+              .join('')}</tr>`,
+        )
+        .join('');
+
+      return `
+        <table class="table">
+          <tr>
+            <td class="section" colspan="${Math.max(1, (s?.columns ?? 2) | 0)}">${escapeHtml(s?.title ?? '')}</td>
+          </tr>
+          ${s?.headers?.length ? `<tr>${s.headers.map((h) => `<th class="th">${escapeHtml(h)}</th>`).join('')}</tr>` : ''}
+          ${rows}
+        </table>
+      `;
+    })
+    .join('\n');
+
+  return `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8" />
+        <!--[if gte mso 9]><xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>${escapeHtml(sheetName)}</x:Name>
+                <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml><![endif]-->
+        <style>
+          body { font-family: Calibri, Arial, sans-serif; color: ${foreground}; background: ${background}; }
+          .header { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+          .header td { padding: 8px 10px; vertical-align: middle; }
+          .brand { font-size: 18px; font-weight: 700; color: ${foreground}; }
+          .meta { font-size: 11px; color: ${muted}; text-align: right; }
+          .table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+          .section { background: ${primary}; color: #ffffff; font-weight: 700; padding: 8px 10px; border: 1px solid ${border}; }
+          .th { background: #f6f6f6; color: ${foreground}; font-weight: 700; padding: 7px 10px; border: 1px solid ${border}; text-align: left; }
+          .cell { padding: 6px 10px; border: 1px solid ${border}; }
+        </style>
+      </head>
+      <body>
+        <table class="header">
+          <tr>
+            <td style="width: 220px;">
+              ${logoDataUrl ? `<img src="${logoDataUrl}" style="height: 32px;" />` : ''}
+            </td>
+            <td>
+              <div class="brand">${escapeHtml(title ?? '')}</div>
+            </td>
+            <td class="meta">${escapeHtml(when.toLocaleString('pt-PT'))}</td>
+          </tr>
+        </table>
+        ${sectionHtml}
+      </body>
+    </html>
+  `.trim();
+}
+
+export async function exportReportsExcel({
+  filename,
+  title = 'Relatórios',
+  logoUrl,
+  createdAt,
+  stats,
+  analytics,
+  purchaseAdjustments,
+} = {}) {
+  const logoDataUrl = await safeSvgUrlToPngDataUrl(logoUrl, { width: 180 });
+  const safeTitle = title || 'Relatórios';
+  const file = ensureXlsFilename(filename, `relatorios_${new Date().toISOString().slice(0, 10)}`);
+
+  const topViewed = analytics?.top_viewed_products ?? [];
+  const topSearches = analytics?.top_searches ?? [];
+  const topSold = analytics?.top_sold_products ?? [];
+  const largestOrders = analytics?.largest_orders ?? [];
+
+  const adjustments = purchaseAdjustments?.topProducts ?? [];
+
+  const html = buildExcelHtml({
+    sheetName: 'Relatórios',
+    title: safeTitle,
+    createdAt,
+    logoDataUrl,
+    sections: [
+      {
+        title: 'Resumo',
+        columns: 2,
+        rows: [
+          ['Produtos', stats?.productsCount ?? 0],
+          ['Unidades em Stock', stats?.stockUnits ?? 0],
+          ['Baixo Stock (≤2)', stats?.lowStock ?? 0],
+          ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],
+          ['Unidades devolvidas ao fornecedor', stats?.return_units ?? 0],
+          ['Valor devolvido (€)', moneyPt(stats?.return_value ?? 0)],
+          ['Unidades removidas do stock', stats?.writeoff_units ?? 0],
+          ['Valor removido (€)', moneyPt(stats?.writeoff_value ?? 0)],
+        ],
+      },
+      {
+        title: 'Produtos mais vistos (30 dias)',
+        columns: 2,
+        headers: ['Produto', 'Views'],
+        rows: topViewed.slice(0, 200).map((p) => [p.product_name ?? '', p.views ?? 0]),
+      },
+      {
+        title: 'Mais pesquisas (30 dias)',
+        columns: 2,
+        headers: ['Pesquisa', 'Total'],
+        rows: topSearches.slice(0, 200).map((q) => [q.query ?? '', q.count ?? 0]),
+      },
+      {
+        title: 'Mais vendidos (30 dias)',
+        columns: 2,
+        headers: ['Produto', 'Quantidade'],
+        rows: topSold.slice(0, 200).map((p) => [p.product_name ?? '', p.quantity ?? 0]),
+      },
+      {
+        title: 'Maiores encomendas (30 dias)',
+        columns: 3,
+        headers: ['Email', 'Estado', 'Total (€)'],
+        rows: largestOrders.slice(0, 200).map((o) => [
+          o.customer_email ?? '',
+          orderStatusLabelsPt[String(o.status ?? '')] ?? String(o.status ?? ''),
+          moneyPt(o.total ?? 0),
+        ]),
+      },
+      {
+        title: 'Devoluções / Remoções (Compras)',
+        columns: 5,
+        headers: ['Produto', 'Devolvido (un.)', 'Removido (un.)', 'Valor devolvido (€)', 'Valor removido (€)'],
+        rows: adjustments.slice(0, 200).map((p) => [
+          p.product_name ?? '',
+          p.devolvido ?? 0,
+          p.removido ?? 0,
+          moneyPt(p.devolvido_value ?? 0),
+          moneyPt(p.removido_value ?? 0),
+        ]),
+      },
+    ],
+  });
+
+  downloadBlob(file, new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' }));
+}
+
+export async function exportFinanceExcel({ filename, title = 'Financeiro', logoUrl, createdAt, stats } = {}) {
+  const logoDataUrl = await safeSvgUrlToPngDataUrl(logoUrl, { width: 180 });
+  const safeTitle = title || 'Financeiro';
+  const file = ensureXlsFilename(filename, `financeiro_${new Date().toISOString().slice(0, 10)}`);
+
+  const html = buildExcelHtml({
+    sheetName: 'Financeiro',
+    title: safeTitle,
+    createdAt,
+    logoDataUrl,
+    sections: [
+      {
+        title: 'Resumo',
+        columns: 2,
+        rows: [
+          ['Investido em Stock (€)', moneyPt(stats?.invested ?? 0)],
+          ['Valor Esperado (PVP) (€)', moneyPt(stats?.expected ?? 0)],
+          ['Margem Potencial (€)', moneyPt(stats?.marginPotential ?? 0)],
+          ['Receita (Entregue) (€)', moneyPt(stats?.revenueDelivered ?? 0)],
+          ['Receita pendente (€)', moneyPt(stats?.revenueOpen ?? 0)],
+          ['Canceladas (€)', moneyPt(stats?.revenueCancelled ?? 0)],
+          ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],
+        ],
+      },
+      {
+        title: 'Investimento por categoria',
+        columns: 6,
+        headers: ['Categoria', 'Produtos', 'Unidades', 'Investido (€)', 'Valor Esperado (€)', 'Margem (€)'],
+        rows: (stats?.byCategory ?? []).map((r) => [
+          r.category ?? '',
+          r.products ?? 0,
+          r.units ?? 0,
+          moneyPt(r.invested ?? 0),
+          moneyPt(r.expected ?? 0),
+          moneyPt((r.expected ?? 0) - (r.invested ?? 0)),
+        ]),
+      },
+    ],
+  });
+
+  downloadBlob(file, new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' }));
+}
+
+export async function exportReportsPdf({
+  filename,
+  title = 'Relatórios',
+  logoUrl,
+  createdAt,
+  stats,
+  analytics,
+  mode = 'download',
+} = {}) {
   const jsPDF = await loadJsPdf();
   const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
 
-  const logoDataUrl = logoUrl ? await svgUrlToPngDataUrl(logoUrl, { width: 120 }) : null;
+  const logoDataUrl = await safeSvgUrlToPngDataUrl(logoUrl, { width: 120 });
   let y = addHeader(doc, { title, logoDataUrl, createdAt });
 
   y = addSectionTitle(doc, 'Resumo', { startY: y });
@@ -236,19 +547,39 @@ export async function exportReportsPdf({ filename, title = 'Relatórios', logoUr
   y = addSectionTitle(doc, 'Maiores encomendas (30 dias)', { startY: y });
   addTable(doc, {
     headers: ['Email', 'Status', 'Total (€)'],
-    rows: largestOrders.slice(0, 30).map((o) => [o.customer_email ?? '', o.status ?? '', moneyPt(o.total ?? 0)]),
+    rows: largestOrders
+      .slice(0, 30)
+      .map((o) => [o.customer_email ?? '', orderStatusLabelsPt[String(o.status ?? '')] ?? (o.status ?? ''), moneyPt(o.total ?? 0)]),
     startY: y,
     columnWidths: [260, 110, 110],
   });
 
-  doc.save(filename ?? 'relatorios.pdf');
+  const outName = filename ?? 'relatorios.pdf';
+  if (mode === 'blob') return doc.output('blob');
+  if (mode === 'open') {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) downloadBlob(outName, blob);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
+
+  doc.save(outName);
 }
 
-export async function exportFinancePdf({ filename, title = 'Financeiro', logoUrl, createdAt, stats } = {}) {
+export async function exportFinancePdf({
+  filename,
+  title = 'Financeiro',
+  logoUrl,
+  createdAt,
+  stats,
+  mode = 'download',
+} = {}) {
   const jsPDF = await loadJsPdf();
   const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
 
-  const logoDataUrl = logoUrl ? await svgUrlToPngDataUrl(logoUrl, { width: 120 }) : null;
+  const logoDataUrl = await safeSvgUrlToPngDataUrl(logoUrl, { width: 120 });
   let y = addHeader(doc, { title, logoDataUrl, createdAt });
 
   y = addSectionTitle(doc, 'Resumo', { startY: y });
@@ -280,7 +611,18 @@ export async function exportFinancePdf({ filename, title = 'Financeiro', logoUrl
     columnWidths: [150, 70, 110, 110, 110],
   });
 
-  doc.save(filename ?? 'financeiro.pdf');
+  const outName = filename ?? 'financeiro.pdf';
+  if (mode === 'blob') return doc.output('blob');
+  if (mode === 'open') {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) downloadBlob(outName, blob);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
+
+  doc.save(outName);
 }
 
 export async function exportElementToPdf(element, filename, { title } = {}) {

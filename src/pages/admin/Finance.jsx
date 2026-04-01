@@ -18,7 +18,7 @@ import { base44 } from '@/api/base44Client';
 import zanaLogoPrimary from '@/img/zana_logo_primary.svg';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { downloadCsv, exportFinancePdf } from '@/lib/reportExport';
+import { downloadBlob, exportFinanceExcel, exportFinancePdf } from '@/lib/reportExport';
 
 function moneyPt(value) {
   const n = Number(value ?? 0) || 0;
@@ -214,53 +214,55 @@ export default function AdminFinance() {
   ];
 
   const exportPdf = async () => {
+    const date = new Date().toISOString().slice(0, 10);
+    const outName = `financeiro_${date}.pdf`;
+    const popup = window.open('', '_blank');
+
+    try {
+      if (popup) popup.document.title = outName;
+
+      const blob = await exportFinancePdf({
+        filename: outName,
+        title,
+        logoUrl: zanaLogoPrimary,
+        createdAt: new Date(),
+        stats,
+        mode: 'blob',
+      });
+
+      if (!(blob instanceof Blob)) throw new Error('pdf_blob_failed');
+
+      if (popup && !popup.closed) {
+        const blobUrl = URL.createObjectURL(blob);
+        popup.location.href = blobUrl;
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+      } else {
+        downloadBlob(outName, blob);
+      }
+
+      toast.success('PDF exportado');
+    } catch (err) {
+      console.error(err);
+      if (popup && !popup.closed) popup.close();
+      toast.error('Não foi possível exportar PDF');
+    }
+  };
+
+  const exportExcel = async () => {
     try {
       const date = new Date().toISOString().slice(0, 10);
-      await exportFinancePdf({
-        filename: `financeiro_${date}.pdf`,
+      await exportFinanceExcel({
+        filename: `financeiro_${date}.xls`,
         title,
         logoUrl: zanaLogoPrimary,
         createdAt: new Date(),
         stats,
       });
-      toast.success('PDF exportado');
+      toast.success('Excel exportado');
     } catch (err) {
       console.error(err);
-      toast.error('Não foi possível exportar PDF');
+      toast.error('Não foi possível exportar Excel');
     }
-  };
-
-  const exportExcel = () => {
-    const date = new Date().toISOString().slice(0, 10);
-    const rows = [];
-
-    rows.push([title, new Date().toLocaleString('pt-PT')]);
-    rows.push([]);
-    rows.push(['Resumo']);
-    rows.push(['Investido em Stock (€)', moneyPt(stats.invested)]);
-    rows.push(['Valor Esperado (PVP) (€)', moneyPt(stats.expected)]);
-    rows.push(['Margem Potencial (€)', moneyPt(stats.marginPotential)]);
-    rows.push(['Receita (Entregue) (€)', moneyPt(stats.revenueDelivered)]);
-    rows.push(['Receita pendente (€)', moneyPt(stats.revenueOpen)]);
-    rows.push(['Canceladas (€)', moneyPt(stats.revenueCancelled)]);
-    rows.push(['Total em Compras (€)', moneyPt(stats.purchasesTotal)]);
-
-    rows.push([]);
-    rows.push(['Investimento por categoria']);
-    rows.push(['Categoria', 'Produtos', 'Unidades', 'Investido (€)', 'Valor Esperado (€)', 'Margem (€)']);
-    for (const r of stats.byCategory) {
-      rows.push([
-        r.category,
-        r.products,
-        r.units,
-        moneyPt(r.invested),
-        moneyPt(r.expected),
-        moneyPt(r.expected - r.invested),
-      ]);
-    }
-
-    downloadCsv(`financeiro_${date}.csv`, rows);
-    toast.success('Excel (CSV) exportado');
   };
 
   return (
