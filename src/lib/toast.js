@@ -7,6 +7,7 @@ export function getErrorMessage(err, fallback = 'Ocorreu um erro.') {
   const codeFromMessage = message && message.includes(':') ? message.split(':')[0].trim() : '';
   const code = fromApi || codeFromMessage || '';
   const detail = codeFromMessage ? message.slice(message.indexOf(':') + 1).trim() : message;
+  const errorId = normalize(err?.data?.error_id);
 
   const defaultNetwork = 'Sem ligação ao servidor. Confirme se o backend está a correr em http://localhost:3001';
 
@@ -27,6 +28,10 @@ export function getErrorMessage(err, fallback = 'Ocorreu um erro.') {
 
   if (code === 'internal_error' && /prisma|Invalid `prisma\.|Unknown argument|does not exist|column/i.test(detail)) {
     return 'Backend/BD desatualizados (Prisma). Reinicie o backend e rode prisma generate/migrações.';
+  }
+
+  if (code === 'internal_error' || message === 'internal_error') {
+    return errorId ? `Erro interno. Tente novamente. (ID: ${errorId})` : 'Erro interno. Tente novamente.';
   }
 
   return detail || fallback;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -23,10 +23,15 @@ export default function BlogAdmin() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyPost);
 
-  const { data: posts = [] } = useQuery({
+  const { data: posts = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-blog'],
     queryFn: () => base44.entities.BlogPost.list('-created_date', 100),
   });
+
+  useEffect(() => {
+    if (!isError) return;
+    toast.error(getErrorMessage(error, 'NÃ£o foi possÃ­vel carregar os artigos.'));
+  }, [error, isError]);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.BlogPost.create(data),
@@ -64,10 +69,13 @@ export default function BlogAdmin() {
   const openEdit = (p) => { setEditing(p); setForm(p); setDialogOpen(true); };
 
   const handleSubmit = () => {
+    if (createMutation.isPending || updateMutation.isPending) return;
     if (!form.title) { toast.error('Título é obrigatório'); return; }
     if (editing) updateMutation.mutate({ id: editing.id, data: form });
     else createMutation.mutate(form);
   };
+
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div>
@@ -77,6 +85,21 @@ export default function BlogAdmin() {
       </div>
 
       <div className="space-y-3">
+        {isLoading ? (
+          <div className="bg-card p-6 rounded-lg border border-border text-center font-body text-sm text-muted-foreground">
+            A carregar...
+          </div>
+        ) : null}
+
+        {isError ? (
+          <div className="bg-card p-6 rounded-lg border border-border text-center">
+            <p className="font-body text-sm text-muted-foreground">NÃ£o foi possÃ­vel carregar os artigos.</p>
+            <Button variant="outline" className="rounded-none font-body text-sm mt-3" onClick={() => refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
+        ) : null}
+
         {posts.map(post => (
           <div key={post.id} className="bg-card p-4 rounded-lg border border-border flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -105,6 +128,7 @@ export default function BlogAdmin() {
                 size="icon"
                 onClick={() => {
                   if (!window.confirm('Tem certeza que deseja remover?')) return;
+                  if (deleteMutation.isPending) return;
                   deleteMutation.mutate(post.id);
                 }}
                 title="Remover"
@@ -114,7 +138,9 @@ export default function BlogAdmin() {
             </div>
           </div>
         ))}
-        {posts.length === 0 && <p className="text-center py-8 font-body text-sm text-muted-foreground">Sem artigos</p>}
+        {!isLoading && !isError && posts.length === 0 && (
+          <p className="text-center py-8 font-body text-sm text-muted-foreground">Sem artigos</p>
+        )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -170,8 +196,8 @@ export default function BlogAdmin() {
                 </Select>
               </div>
             </div>
-            <Button onClick={handleSubmit} className="w-full rounded-none font-body text-sm tracking-wider">
-              {editing ? 'Guardar' : 'Criar Artigo'}
+            <Button onClick={handleSubmit} className="w-full rounded-none font-body text-sm tracking-wider" disabled={isSubmitting}>
+              {isSubmitting ? 'A guardar...' : editing ? 'Guardar' : 'Criar Artigo'}
             </Button>
           </div>
         </DialogContent>

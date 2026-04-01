@@ -1479,8 +1479,9 @@ async function writeAuditLog({ actorId, action, entityType, entityId, meta } = {
 }
 
 function sendInternalError(res, err, error = 'internal_error') {
-  console.error(err)
-  const payload = { error }
+  const errorId = crypto.randomUUID()
+  console.error(`[${errorId}]`, err)
+  const payload = { error, error_id: errorId }
   if (!isProduction) {
     payload.detail = err?.message ? String(err.message) : String(err)
     if (err?.code) payload.code = String(err.code)
@@ -3115,6 +3116,20 @@ function toPublicBlogCommentReply(r, comment) {
     author_name: r.authorType === 'admin' ? 'Zana' : comment.authorName,
     message: r.message,
     created_date: r.createdAt,
+  }
+}
+
+function toApiBlogPost(p) {
+  return {
+    id: p.id,
+    title: p.title,
+    content: p.content,
+    excerpt: p.excerpt ?? null,
+    image_url: p.imageUrl ?? null,
+    category: p.category ?? null,
+    status: p.status ?? 'draft',
+    created_date: p.createdAt,
+    updated_date: p.updatedAt,
   }
 }
 
