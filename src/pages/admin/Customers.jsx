@@ -24,6 +24,19 @@ export default function AdminCustomers() {
   const [form, setForm] = useState(null);
   const [pointsForm, setPointsForm] = useState({ delta: '', balance: '', reason: '' });
 
+  const orderStatusLabelPt = (status) => {
+    const value = String(status ?? '').trim();
+    const map = {
+      pending: 'Pendente',
+      confirmed: 'Confirmada',
+      processing: 'Em preparação',
+      shipped: 'Enviada',
+      delivered: 'Entregue',
+      cancelled: 'Cancelada',
+    };
+    return map[value] ?? value;
+  };
+
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['admin-users', limit],
     queryFn: () => base44.entities.User.list('-created_date', limit),
@@ -171,21 +184,24 @@ export default function AdminCustomers() {
           setPointsForm({ delta: '', balance: '', reason: '' });
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-xl">Cliente</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="w-[calc(100vw-32px)] sm:w-full max-w-3xl h-[85vh] overflow-hidden rounded-2xl p-0">
+          {selected && form ? (
+            <Tabs defaultValue="perfil" className="flex flex-col h-full">
+              <div className="px-6 pt-6 pb-4">
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-xl">Cliente</DialogTitle>
+                </DialogHeader>
 
-          {selected && form && (
-            <Tabs defaultValue="perfil">
-              <TabsList className="grid grid-cols-4 w-full">
-                <TabsTrigger value="perfil">Perfil</TabsTrigger>
-                <TabsTrigger value="pontos">Pontos</TabsTrigger>
-                <TabsTrigger value="encomendas">Encomendas</TabsTrigger>
-                <TabsTrigger value="favoritos">Favoritos</TabsTrigger>
-              </TabsList>
+                <TabsList className="grid grid-cols-4 w-full mt-4">
+                  <TabsTrigger value="perfil">Perfil</TabsTrigger>
+                  <TabsTrigger value="pontos">Pontos</TabsTrigger>
+                  <TabsTrigger value="encomendas">Encomendas</TabsTrigger>
+                  <TabsTrigger value="favoritos">Favoritos</TabsTrigger>
+                </TabsList>
+              </div>
 
-              <TabsContent value="perfil" className="pt-4 space-y-4">
+              <div className="flex-1 overflow-y-auto px-6 pb-6">
+                <TabsContent value="perfil" className="pt-0 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="font-body text-xs">Email</Label>
@@ -286,7 +302,7 @@ export default function AdminCustomers() {
                 </Button>
               </TabsContent>
 
-              <TabsContent value="pontos" className="pt-4 space-y-4">
+              <TabsContent value="pontos" className="pt-0 space-y-4">
                 <div className="bg-secondary/20 border border-border rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
                   <div>
                     <div className="font-body text-xs text-muted-foreground">Saldo atual</div>
@@ -382,7 +398,7 @@ export default function AdminCustomers() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="encomendas" className="pt-4 space-y-3">
+              <TabsContent value="encomendas" className="pt-0 space-y-3">
                 {userOrdersQuery.isLoading ? (
                   <p className="font-body text-sm text-muted-foreground">A carregar...</p>
                 ) : (userOrdersQuery.data ?? []).length === 0 ? (
@@ -401,7 +417,7 @@ export default function AdminCustomers() {
 	                            </p>
 	                          </div>
                           <div className="flex items-center gap-2">
-                            <Badge className="bg-secondary text-foreground text-[10px]">{o.status}</Badge>
+                            <Badge className="bg-secondary text-foreground text-[10px]">{orderStatusLabelPt(o.status)}</Badge>
                             <span className="font-body text-sm font-semibold">{o.total?.toFixed?.(2) ?? o.total} €</span>
                           </div>
                         </div>
@@ -420,7 +436,7 @@ export default function AdminCustomers() {
                 )}
               </TabsContent>
 
-              <TabsContent value="favoritos" className="pt-4 space-y-3">
+              <TabsContent value="favoritos" className="pt-0 space-y-3">
                 {userWishlistQuery.isLoading ? (
                   <p className="font-body text-sm text-muted-foreground">A carregar...</p>
                 ) : (userWishlistQuery.data ?? []).length === 0 ? (
@@ -461,7 +477,10 @@ export default function AdminCustomers() {
                   </div>
                 )}
               </TabsContent>
+              </div>
             </Tabs>
+          ) : (
+            <div className="h-full flex items-center justify-center font-body text-sm text-muted-foreground">A carregar...</div>
           )}
         </DialogContent>
       </Dialog>
