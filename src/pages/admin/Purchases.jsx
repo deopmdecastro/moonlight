@@ -38,16 +38,21 @@ const statusLabels = {
 };
 
 function derivePurchaseType(purchase) {
+  const explicit = String(purchase?.kind ?? '').trim();
+  if (explicit === 'products' || explicit === 'logistics' || explicit === 'mixed') return explicit;
   const items = Array.isArray(purchase?.items) ? purchase.items : [];
   if (items.length === 0) return 'products';
   const hasStockItems = items.some((it) => Boolean(it?.product_id));
   const hasNonStockItems = items.some((it) => !it?.product_id);
-if (hasNonStockItems && !hasStockItems) return 'consumiveis';
+  if (hasNonStockItems && !hasStockItems) return 'logistics';
   if (hasNonStockItems && hasStockItems) return 'mixed';
   return 'products';
 }
 
 function getPurchaseKindLabel(purchase) {
+  const explicit = String(purchase?.kind ?? '').trim();
+  if (explicit === 'logistics') return 'Consumíveis';
+  if (explicit === 'mixed') return 'Mista';
   const items = Array.isArray(purchase?.items) ? purchase.items : [];
   if (items.length === 0) return null;
   const hasStockItems = items.some((it) => Boolean(it?.product_id));
@@ -126,9 +131,37 @@ export default function AdminPurchases() {
     queryFn: () => base44.entities.Product.list('-created_date', 500),
   });
 
+  const { data: purchasesHistory = [] } = useQuery({
+    queryKey: ['admin-purchases-consumiveis'],
+    queryFn: () => base44.entities.Purchase.list('-purchased_at', 100),
+    select: (data) => {
+      const consumiveis = [];
+      data?.forEach((p) => {
+        if (derivePurchaseType(p) !== 'logistics') return;
+        p.items?.forEach((it) => {
+          if (!it.product_id && it.product_name) {
+            const existing = consumiveis.find((c) => c.name === it.product_name);
+            if (!existing) {
+              consumiveis.push({
+                id: `consumivel-${it.product_name.toLowerCase().replace(/\s+/g, '-')}`,
+                name: it.product_name,
+              });
+            }
+          }
+        });
+      });
+      return consumiveis;
+    },
+  });
+
   const productOptions = useMemo(() => {
     return [...products].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
   }, [products]);
+
+  const consumablesByName = useMemo(() => {
+    const list = Array.isArray(purchasesHistory) ? purchasesHistory : [];
+    return list.slice().sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? '')));
+  }, [purchasesHistory]);
 
   const supplierSelectOptions = useMemo(() => {
     return (Array.isArray(suppliers) ? suppliers : [])
@@ -145,6 +178,14 @@ export default function AdminPurchases() {
     const opts = (Array.isArray(productOptions) ? productOptions : []).map((p) => ({ value: p.id, label: p.name }));
     return [{ value: 'none', label: '-' }, ...opts];
   }, [productOptions]);
+
+  const consumablePickerOptions = useMemo(() => {
+    const opts = (Array.isArray(consumablesByName) ? consumablesByName : [])
+      .map((c) => String(c?.name ?? '').trim())
+      .filter(Boolean)
+      .map((name) => ({ value: name, label: name }));
+    return [{ value: 'none', label: '-' }, ...opts];
+  }, [consumablesByName]);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Purchase.create(data),
@@ -655,6 +696,7 @@ export default function AdminPurchases() {
       status: form.status,
       purchased_at: form.purchased_at,
       notes: form.notes?.trim() || null,
+      kind: purchaseType,
       items,
     };
 
@@ -856,9 +898,17 @@ export default function AdminPurchases() {
 	                    <SelectItem value="mixed">Mista</SelectItem>
 	                  </SelectContent>
 	                </Select>
-	                <p className="font-body text-[11px] text-muted-foreground mt-1">
-	                  Logística não atualiza stock; entra no financeiro como despesa.
-	                </p>
+                  {purchaseType === 'logistics' ? (
+                    <div className="mt-1">
+                      <div className="text-xs text-muted-foreground bg-secondary/30 border border-border rounded-none px-3 py-2">
+                        Item de consumíveis (não comercializado)
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="font-body text-[11px] text-muted-foreground mt-1">
+                      Logística não atualiza stock; entra no financeiro como despesa.
+                    </p>
+                  )}
 	              </div>
 	              <div>
 	                <Label className="font-body text-xs">Fornecedor</Label>
@@ -945,10 +995,46 @@ export default function AdminPurchases() {
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3">
                     {purchaseType === 'logistics' ? (
                       <div className="md:col-span-4">
-                        <Label className="font-body text-xs">Produto</Label>
-                        <div className="mt-1 text-xs text-muted-foreground bg-secondary/30 border border-border rounded-none px-3 py-2">
-                          Item de consumíveis (não comercializado)
-                        </div>
+                        <Label className="font-body text-xs">Consumível</Label>
+                        {consumablesByName.length > 10 ? (
+                          <SearchableSelect
+                            value={it.product_name || 'none'}
+                            onChange={(v) => {
+                              const name = v === 'none' ? '' : v;
+                              updateItem(idx, {
+                                product_name: name,
+                              });
+                            }}
+                            options={consumablePickerOptions}
+                            placeholder="Selecionar consumível"
+                            searchPlaceholder="Pesquisar consumível..."
+                            className="mt-1"
+                            disabled={isLocked}
+                          />
+                        ) : (
+                          <Select
+                            value={it.product_name || 'none'}
+                            onValueChange={(v) => {
+                              const name = v === 'none' ? '' : v;
+                              updateItem(idx, {
+                                product_name: name,
+                              });
+                            }}
+                            disabled={isLocked}
+                          >
+                            <SelectTrigger className="rounded-none mt-1">
+                              <SelectValue placeholder="-" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">-</SelectItem>
+                              {consumablesByName.map((c) => (
+                                <SelectItem key={c.id} value={c.name}>
+                                  {c.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     ) : (
                       <div className="md:col-span-4">
