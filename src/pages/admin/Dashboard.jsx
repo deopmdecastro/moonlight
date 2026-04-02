@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Euro, Package, ShoppingCart, TrendingUp } from 'lucide-react';
@@ -88,7 +88,7 @@ export default function Dashboard() {
   const latestProducts = products.slice(0, 5);
 
   const stats = [
-    { title: 'Receita Total', value: `${totalRevenue.toFixed(2)} €`, icon: Euro, color: 'text-green-600' },
+    { title: 'Receita Total', value: `${totalRevenue.toFixed(2)} â‚¬`, icon: Euro, color: 'text-green-600' },
     { title: 'Encomendas', value: orders.length, icon: ShoppingCart, color: 'text-primary' },
     { title: 'Pendentes', value: pendingOrders, icon: TrendingUp, color: 'text-accent' },
     { title: 'Produtos Ativos', value: activeProducts, icon: Package, color: 'text-blue-600' },
@@ -116,55 +116,56 @@ export default function Dashboard() {
         <CardHeader>
           <CardTitle className="font-heading text-xl">Encomendas por Estado</CardTitle>
         </CardHeader>
-        <CardContent>
-          {orders.length === 0 ? (
-            <div className="h-64 flex items-center justify-center">
-              <p className="font-body text-sm text-muted-foreground">Ainda não existem encomendas para mostrar.</p>
-            </div>
-          ) : (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={statusData}
-                  margin={{ top: 18, right: 10, bottom: isSmallChart ? 44 : 10, left: 0 }}
-                  barCategoryGap={isSmallChart ? 10 : 18}
-                >
-                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="key"
-                    tickLine={false}
-                    axisLine={{ stroke: 'hsl(var(--border))' }}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isSmallChart ? 11 : 12 }}
-                    interval={0}
-                    height={isSmallChart ? 64 : 46}
-                    angle={isSmallChart ? -25 : 0}
-                    textAnchor={isSmallChart ? 'end' : 'middle'}
-                    tickMargin={isSmallChart ? 12 : 8}
-                    tickFormatter={(statusKey) => {
-                      const k = String(statusKey ?? '');
-                      if (isSmallChart) return STATUS_LABEL_SHORT[k] ?? STATUS_META[k]?.label ?? k;
-                      return STATUS_META[k]?.label ?? k;
-                    }}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tickLine={false}
-                    axisLine={{ stroke: 'hsl(var(--border))' }}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isSmallChart ? 11 : 12 }}
-                    width={isSmallChart ? 24 : 28}
-                  />
-                  <Tooltip cursor={{ fill: 'hsl(var(--secondary) / 0.35)' }} content={<OrdersByStatusTooltip />} />
-                  <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={isSmallChart ? 40 : 56}>
+        <CardContent>          <div className="h-72 relative">
+            {orders.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <p className="font-body text-sm text-muted-foreground">Sem dados para mostrar.</p>
+              </div>
+            ) : null}
+
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={statusData}
+                margin={{ top: 18, right: 10, bottom: isSmallChart ? 62 : 10, left: 0 }}
+                barCategoryGap={isSmallChart ? 12 : 18}
+              >
+                <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="key"
+                  tickLine={false}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isSmallChart ? 10 : 12 }}
+                  interval={0}
+                  height={isSmallChart ? 82 : 46}
+                  angle={isSmallChart ? -45 : 0}
+                  textAnchor={isSmallChart ? 'end' : 'middle'}
+                  tickMargin={isSmallChart ? 16 : 8}
+                  tickFormatter={(statusKey) => {
+                    const k = String(statusKey ?? '');
+                    if (isSmallChart) return STATUS_LABEL_SHORT[k] ?? STATUS_META[k]?.label ?? k;
+                    return STATUS_META[k]?.label ?? k;
+                  }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tickLine={false}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isSmallChart ? 10 : 12 }}
+                  width={isSmallChart ? 26 : 28}
+                  domain={[0, (dataMax) => Math.max(1, Number(dataMax) || 0)]}
+                />
+                <Tooltip cursor={{ fill: 'hsl(var(--secondary) / 0.35)' }} content={<OrdersByStatusTooltip />} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={isSmallChart ? 40 : 56}>
+                  {statusData.some((d) => (Number(d.value) || 0) > 0) ? (
                     <LabelList dataKey="value" position="top" className="font-body text-xs fill-foreground" />
-                    {statusData.map((entry) => (
-                      <Cell key={entry.key} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
+                  ) : null}
+                  {statusData.map((entry) => (
+                    <Cell key={entry.key} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div></CardContent>
       </Card>
 
       <Card className="mt-6">
@@ -194,7 +195,7 @@ export default function Dashboard() {
                         <p className="font-body text-xs text-muted-foreground">{order.items?.length || 0} itens</p>
                       </div>
                     </div>
-                    <p className="font-body text-sm font-semibold">{order.total?.toFixed(2)} €</p>
+                    <p className="font-body text-sm font-semibold">{order.total?.toFixed(2)} â‚¬</p>
                   </div>
                 );
               })}
@@ -235,3 +236,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

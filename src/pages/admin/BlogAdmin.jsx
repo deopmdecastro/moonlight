@@ -30,7 +30,7 @@ export default function BlogAdmin() {
 
   useEffect(() => {
     if (!isError) return;
-    toast.error(getErrorMessage(error, 'NÃ£o foi possÃ­vel carregar os artigos.'));
+    toast.error(getErrorMessage(error, 'Não foi possível carregar os artigos.'));
   }, [error, isError]);
 
   const createMutation = useMutation({
@@ -93,7 +93,7 @@ export default function BlogAdmin() {
 
         {isError ? (
           <div className="bg-card p-6 rounded-lg border border-border text-center">
-            <p className="font-body text-sm text-muted-foreground">NÃ£o foi possÃ­vel carregar os artigos.</p>
+            <p className="font-body text-sm text-muted-foreground">Não foi possível carregar os artigos.</p>
             <Button variant="outline" className="rounded-none font-body text-sm mt-3" onClick={() => refetch()}>
               Tentar novamente
             </Button>
