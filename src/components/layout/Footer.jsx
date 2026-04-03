@@ -9,9 +9,9 @@ export default function Footer() {
   const { branding } = useBranding();
   const logoSrc = String(branding?.logo_url ?? '').trim() || zanaLogo;
   const email = String(branding?.contact_email ?? '').trim() || 'info@zanaacessorios.com';
-  const instagramHandleRaw = String(branding?.instagram_handle ?? '').trim() || '@zana.acessorios_';
-  const instagramHandle = instagramHandleRaw.startsWith('@') ? instagramHandleRaw : `@${instagramHandleRaw}`;
-  const instagramUrl = `https://instagram.com/${instagramHandle.replace(/^@/, '')}`;
+  const instagramHandleRaw = String(branding?.instagram_handle ?? '').trim();
+  const instagramHandle = instagramHandleRaw ? (instagramHandleRaw.startsWith('@') ? instagramHandleRaw : `@${instagramHandleRaw}`) : '';
+  const instagramUrl = instagramHandle ? `https://instagram.com/${instagramHandle.replace(/^@/, '')}` : '';
   const address = String(branding?.contact_address ?? '').trim() || 'Portugal';
   const year = new Date().getFullYear();
   const rightsTemplate = String(branding?.footer_rights_text ?? '').trim();
@@ -79,9 +79,16 @@ export default function Footer() {
               <a href={`mailto:${email}`} className="flex items-center gap-2 text-sm opacity-70 hover:opacity-100">
                 <Mail className="w-4 h-4" /> {email}
               </a>
-              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm opacity-70 hover:opacity-100">
-                <Instagram className="w-4 h-4" /> {instagramHandle}
-              </a>
+              {instagramHandle ? (
+                <a
+                  href={instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm opacity-70 hover:opacity-100"
+                >
+                  <Instagram className="w-4 h-4" /> {instagramHandle}
+                </a>
+              ) : null}
               <div className="flex items-center gap-2 text-sm opacity-70">
                 <MapPin className="w-4 h-4" /> {address}
               </div>

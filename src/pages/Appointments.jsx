@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Clock, Mail, MessageSquareText, Phone, UserRound } from 'lucide-react';
+import { Calendar, Clock, Image as ImageIcon, Mail, MessageSquareText, Phone, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { pt } from 'date-fns/locale';
 
@@ -50,10 +50,11 @@ export default function Appointments() {
 
   const [form, setForm] = useState({
     service_id: '',
-    staff_id: '',
+    staff_id: '__auto__',
     date: '',
     time: '',
     observations: '',
+    image_url: '',
     guest_name: '',
     guest_email: '',
     guest_phone: '',
@@ -110,7 +111,7 @@ export default function Appointments() {
   useEffect(() => {
     const pre = location?.state?.preselectService;
     if (!pre) return;
-    setForm((p) => (p.service_id ? p : { ...p, service_id: String(pre), staff_id: '' }));
+    setForm((p) => (p.service_id ? p : { ...p, service_id: String(pre), staff_id: '__auto__' }));
   }, [location?.state?.preselectService]);
 
   const selectedService = useMemo(() => services.find((s) => String(s.id) === String(form.service_id)) ?? null, [services, form.service_id]);
@@ -252,7 +253,7 @@ export default function Appointments() {
                 </Label>
                 <Select
                   value={form.service_id}
-                  onValueChange={(v) => setForm((p) => ({ ...p, service_id: v, staff_id: '' }))}
+                  onValueChange={(v) => setForm((p) => ({ ...p, service_id: v, staff_id: '__auto__' }))}
                 >
                   <SelectTrigger className="rounded-none mt-1 font-body text-sm">
                     <SelectValue placeholder={services.length ? 'Selecione...' : 'Sem serviços disponíveis'} />
@@ -279,7 +280,7 @@ export default function Appointments() {
                       selected={selectedDateObj ?? undefined}
                       onSelect={(d) => {
                         const next = d ? toYMD(d) : '';
-                        setForm((p) => ({ ...p, date: next, time: '', staff_id: '' }));
+                        setForm((p) => ({ ...p, date: next, time: '', staff_id: '__auto__' }));
                       }}
                       month={visibleMonth}
                       onMonthChange={setVisibleMonth}
@@ -306,7 +307,7 @@ export default function Appointments() {
                   </Label>
                   <Select
                     value={form.time}
-                    onValueChange={(v) => setForm((p) => ({ ...p, time: v, staff_id: '' }))}
+                    onValueChange={(v) => setForm((p) => ({ ...p, time: v, staff_id: '__auto__' }))}
                     disabled={!form.service_id || !form.date || isLoadingTimes}
                   >
                     <SelectTrigger className="rounded-none mt-1 font-body text-sm">
@@ -360,6 +361,7 @@ export default function Appointments() {
                     />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__auto__">Automático</SelectItem>
                     {staff.map((s) => (
                       <SelectItem key={s.id} value={String(s.id)}>
                         {s.name}
@@ -372,6 +374,19 @@ export default function Appointments() {
                     ? `Disponíveis para ${new Date(startAtInput).toLocaleString('pt-PT')} (${durationMinutes} min).`
                     : 'Selecione serviço, data e hora para ver apenas os atendentes disponíveis.'}
                 </p>
+              </div>
+
+              <div>
+                <Label className="font-body text-xs flex items-center gap-2">
+                  <ImageIcon className="w-3.5 h-3.5" /> Link de imagem (opcional)
+                </Label>
+                <Input
+                  value={form.image_url}
+                  onChange={(e) => setForm((p) => ({ ...p, image_url: e.target.value }))}
+                  className="rounded-none mt-1"
+                  placeholder="https://..."
+                />
+                <p className="font-body text-xs text-muted-foreground mt-2">Ex.: referência do estilo/arte para a marcação.</p>
               </div>
 
               <div>
@@ -391,7 +406,6 @@ export default function Appointments() {
                   createMutation.isPending ||
                   !guestReady ||
                   !form.service_id ||
-                  !form.staff_id ||
                   !form.date ||
                   !form.time
                 }
@@ -399,9 +413,10 @@ export default function Appointments() {
                   const start_at = `${form.date}T${form.time}:00`;
                   const base = {
                     service_id: form.service_id,
-                    staff_id: form.staff_id,
+                    staff_id: form.staff_id === '__auto__' ? null : form.staff_id,
                     start_at,
                     observations: form.observations?.trim() || null,
+                    image_url: form.image_url?.trim() || null,
                   };
                   if (!user) {
                     createMutation.mutate({

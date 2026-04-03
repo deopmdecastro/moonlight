@@ -83,7 +83,6 @@ export default function AppointmentsAdmin() {
 
   const services = servicesRes?.services ?? [];
   const staff = staffRes?.staff ?? [];
-  const activeStaff = useMemo(() => staff.filter((s) => s.is_active !== false), [staff]);
   const appointments = apptRes?.appointments ?? [];
   const [selectedServiceId, setSelectedServiceId] = useState('');
 
@@ -172,7 +171,6 @@ export default function AppointmentsAdmin() {
     image_url: '',
     duration_minutes: '30',
     price: '',
-    staff_id: '',
     is_active: true,
   });
 
@@ -247,6 +245,7 @@ export default function AppointmentsAdmin() {
     status: 'pending',
     duration_minutes: '',
     observations: '',
+    image_url: '',
   });
 
   const openEdit = (a) => {
@@ -259,6 +258,7 @@ export default function AppointmentsAdmin() {
       status: a.status ?? 'pending',
       duration_minutes: a.duration_minutes ? String(a.duration_minutes) : '',
       observations: a.observations ?? '',
+      image_url: a.image_url ?? '',
     });
     setEditOpen(true);
   };
@@ -433,21 +433,7 @@ export default function AppointmentsAdmin() {
                   className="rounded-none mt-1"
                 />
               </div>
-              <div className="md:col-span-2">
-                <Label className="font-body text-xs">Atendente Principal (opcional)</Label>
-                <Select value={serviceForm.staff_id} onValueChange={(v) => setServiceForm((p) => ({ ...p, staff_id: v }))}>
-                  <SelectTrigger className="rounded-none mt-1">
-                    <SelectValue placeholder={activeStaff.length ? "Selecione um atendente..." : "Sem atendentes ativos - vá à aba Atendentes"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staff.filter((s) => s.is_active !== false).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="md:col-span-2" />
             </div>
 
             <Button 
@@ -461,8 +447,8 @@ export default function AppointmentsAdmin() {
                   price: serviceForm.price.trim() ? Number(serviceForm.price) : null, 
                   is_active: true, 
                 }); 
-                setServiceForm((p) => ({ ...p, name: '', image_url: '', staff_id: '' })); 
-              }} 
+                 setServiceForm((p) => ({ ...p, name: '', image_url: '', duration_minutes: '30', price: '' })); 
+               }} 
             > 
               <Plus className="w-4 h-4 mr-2" /> Adicionar serviço 
             </Button> 
@@ -966,6 +952,16 @@ export default function AppointmentsAdmin() {
                         className="rounded-none mt-1 min-h-[90px]"
                       />
                     </div>
+
+                    <div>
+                      <Label className="font-body text-xs">Link de imagem (opcional)</Label>
+                      <Input
+                        value={editForm.image_url}
+                        onChange={(e) => setEditForm((p) => ({ ...p, image_url: e.target.value }))}
+                        className="rounded-none mt-1"
+                        placeholder="https://..."
+                      />
+                    </div>
                   </div>
                 ) : null}
 
@@ -985,6 +981,7 @@ export default function AppointmentsAdmin() {
                         staff_id: editForm.staff_id || undefined,
                         duration_minutes: editForm.duration_minutes ? Number(editForm.duration_minutes) || undefined : undefined,
                         observations: String(editForm.observations ?? '').trim() ? String(editForm.observations).trim() : null,
+                        image_url: String(editForm.image_url ?? '').trim() ? String(editForm.image_url).trim() : null,
                       };
                       updateAppointmentMutation.mutate({ id: editing.id, patch }, { onSuccess: () => setEditOpen(false) });
                     }}

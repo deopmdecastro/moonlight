@@ -1123,9 +1123,10 @@ const appointmentStaffPayloadSchema = z
 const appointmentCreateSchema = z
   .object({
     service_id: z.string().min(1),
-    staff_id: z.string().min(1),
+    staff_id: z.string().optional().nullable(),
     start_at: z.string().min(1).max(200),
     observations: z.string().max(5000).optional().nullable(),
+    image_url: z.string().max(10_000).optional().nullable(),
     guest_name: z.string().max(200).optional().nullable(),
     guest_email: z.string().max(320).optional().nullable(),
     guest_phone: z.string().max(30).optional().nullable(),
@@ -1139,6 +1140,7 @@ const adminAppointmentPatchSchema = z
     staff_id: z.string().optional().nullable(),
     service_id: z.string().optional().nullable(),
     observations: z.string().max(5000).optional().nullable(),
+    image_url: z.string().max(10_000).optional().nullable(),
     duration_minutes: z.union([z.number(), z.string()]).optional().nullable(),
   })
   .passthrough()
@@ -3222,6 +3224,7 @@ function toApiAppointment(a) {
     duration_minutes: a.durationMinutes, 
     status: a.status, 
     observations: a.observations ?? null, 
+    image_url: a.imageUrl ?? null,
     reminder_sent_at: a.reminderSentAt ?? null,
     created_date: a.createdAt, 
     updated_date: a.updatedAt, 
@@ -3322,7 +3325,8 @@ function toApiSupplier(s) {
 }
 
 function toApiPurchase(p) {
-  const kind = derivePurchaseKindFromItems(p.items)
+  const kindRaw = p.kind === null || p.kind === undefined ? '' : String(p.kind)
+  const kind = ['products', 'logistics', 'mixed'].includes(kindRaw) ? kindRaw : derivePurchaseKindFromItems(p.items)
   return {
     id: p.id,
     supplier_id: p.supplierId ?? null,
@@ -5723,15 +5727,21 @@ app.post('/api/appointments', async (req, res) => {
   const service = await prisma.service.findUnique({ where: { id: parsed.data.service_id } })
   if (!service || !service.isActive) return res.status(404).json({ error: 'service_not_found' })
 
-  const staff = await prisma.staffMember.findUnique({ where: { id: parsed.data.staff_id } })
-  if (!staff || !staff.isActive) return res.status(404).json({ error: 'staff_not_found' })
-
   const linkCount = await prisma.staffService.count({ where: { serviceId: service.id } })
+  let allowedStaffIds = null
   if (linkCount > 0) {
-    const allowed = await prisma.staffService.findUnique({
-      where: { staffId_serviceId: { staffId: staff.id, serviceId: service.id } },
-    })
-    if (!allowed) return res.status(400).json({ error: 'staff_not_allowed_for_service' })
+    const links = await prisma.staffService.findMany({ where: { serviceId: service.id }, select: { staffId: true } })
+    allowedStaffIds = links.map((l) => l.staffId)
+  }
+
+  const requestedStaffId = parsed.data.staff_id ? String(parsed.data.staff_id).trim() : ''
+  let staff = null
+  if (requestedStaffId) {
+    staff = await prisma.staffMember.findUnique({ where: { id: requestedStaffId } })
+    if (!staff || !staff.isActive) return res.status(404).json({ error: 'staff_not_found' })
+    if (allowedStaffIds && !allowedStaffIds.includes(staff.id)) {
+      return res.status(400).json({ error: 'staff_not_allowed_for_service' })
+    }
   }
 
   const durationMinutes = Math.max(1, Math.min(Number(service.durationMinutes ?? 30) || 30, 24 * 60)) 
@@ -5755,19 +5765,39 @@ app.post('/api/appointments', async (req, res) => {
     return res.status(409).json({ error: 'outside_schedule' })
   }
 
-  if (staff.availability && !isAppointmentWithinStaffAvailability(staff.availability, startAt, endAt)) {
+  if (staff && staff.availability && !isAppointmentWithinStaffAvailability(staff.availability, startAt, endAt)) {
     return res.status(409).json({ error: 'staff_unavailable' })
   }
- 
-  const conflict = await prisma.appointment.findFirst({ 
-    where: { 
-      staffId: staff.id, 
-      status: { in: ['pending', 'confirmed'] }, 
+
+  const selectCandidates = async () => {
+    if (staff) return [staff]
+    const where = allowedStaffIds ? { isActive: true, id: { in: allowedStaffIds } } : { isActive: true }
+    const all = await prisma.staffMember.findMany({ where, orderBy: { name: 'asc' }, take: 500 })
+    return all
+  }
+
+  const candidates = await selectCandidates()
+  if (!candidates.length) return res.status(409).json({ error: 'no_staff_available' })
+
+  const withinAvailability = candidates.filter((s) => !s.availability || isAppointmentWithinStaffAvailability(s.availability, startAt, endAt))
+  if (!withinAvailability.length) return res.status(409).json({ error: 'no_staff_available' })
+
+  const ids = withinAvailability.map((s) => s.id)
+  const conflicts = await prisma.appointment.findMany({
+    where: {
+      staffId: { in: ids },
+      status: { in: ['pending', 'confirmed'] },
       startAt: { lt: endAt },
       endAt: { gt: startAt },
     },
+    select: { staffId: true },
+    take: 500,
   })
-  if (conflict) return res.status(409).json({ error: 'slot_unavailable' })
+  const busy = new Set(conflicts.map((c) => c.staffId))
+  if (staff && busy.has(staff.id)) return res.status(409).json({ error: 'slot_unavailable' })
+  const available = withinAvailability.filter((s) => !busy.has(s.id))
+  if (!available.length) return res.status(409).json({ error: 'no_staff_available' })
+  staff = staff ?? available[0]
 
   const created = await prisma.appointment.create({
     data: {
@@ -5782,6 +5812,7 @@ app.post('/api/appointments', async (req, res) => {
       durationMinutes,
       status: 'pending',
       observations: parsed.data.observations ?? null,
+      imageUrl: parsed.data.image_url ?? null,
     },
     include: { user: true, service: true, staff: true },
   })
@@ -6548,6 +6579,7 @@ app.patch('/api/admin/appointments/:id', async (req, res) => {
           ? null
           : undefined,
       observations: parsed.data.observations === undefined ? undefined : parsed.data.observations ?? null, 
+      imageUrl: parsed.data.image_url === undefined ? undefined : parsed.data.image_url ?? null,
     }, 
     include: { user: true, service: true, staff: true }, 
   }) 
@@ -8659,10 +8691,6 @@ app.post('/api/admin/purchases', async (req, res) => {
       const derivedKind = derivePurchaseKindFromItems(items)
       const finalKind = requestedKind && ['products', 'logistics', 'mixed'].includes(requestedKind) ? requestedKind : derivedKind
 
-      if (finalKind === 'products' && items.some((it) => !it.productId)) {
-        return res.status(400).json({ error: 'products_require_linked_items' })
-      }
-
       if (finalKind === 'logistics' && items.some((it) => it.productId)) {
         return res.status(400).json({ error: 'logistics_cannot_link_products' })
       }
@@ -8674,6 +8702,7 @@ app.post('/api/admin/purchases', async (req, res) => {
 		        supplierId: sanitized.supplierId,
 		        reference: parsed.data.reference ?? null,
 		        status,
+            kind: finalKind,
 		        purchasedAt,
 		        notes: parsed.data.notes ?? null,
 		        total: String(total),
@@ -8736,20 +8765,24 @@ app.patch('/api/admin/purchases/:id', async (req, res) => {
 	      ? await sanitizePurchaseInput({ supplierId: parsed.data.supplier_id ?? existing.supplierId, items: parsed.data.items })
 	      : null
 
+      const existingKindRaw = existing.kind === null || existing.kind === undefined ? '' : String(existing.kind)
+      const existingKind = ['products', 'logistics', 'mixed'].includes(existingKindRaw) ? existingKindRaw : ''
+      let derivedKind = null
+      let finalKind = null
+      let kindToPersist = null
+
       if (parsed.data.items) {
         const cleanForKind = (sanitized?.items ?? []).filter((it) => it.productName && it.quantity > 0)
         const requestedKindRaw = parsed.data.kind === null || parsed.data.kind === undefined ? '' : String(parsed.data.kind)
         const requestedKind = requestedKindRaw.trim()
-        const derivedKind = derivePurchaseKindFromItems(cleanForKind)
-        const finalKind = requestedKind && ['products', 'logistics', 'mixed'].includes(requestedKind) ? requestedKind : derivedKind
-
-        if (finalKind === 'products' && cleanForKind.some((it) => !it.productId)) {
-          return res.status(400).json({ error: 'products_require_linked_items' })
-        }
+        derivedKind = derivePurchaseKindFromItems(cleanForKind)
+        finalKind = requestedKind && ['products', 'logistics', 'mixed'].includes(requestedKind) ? requestedKind : derivedKind
 
         if (finalKind === 'logistics' && cleanForKind.some((it) => it.productId)) {
           return res.status(400).json({ error: 'logistics_cannot_link_products' })
         }
+
+        kindToPersist = parsed.data.kind !== undefined ? finalKind : (existingKind || derivedKind)
       }
 
 	    const updated = await prisma.$transaction(async (tx) => {
@@ -8786,6 +8819,7 @@ app.patch('/api/admin/purchases/:id', async (req, res) => {
 	          supplierId: parsed.data.supplier_id === undefined ? undefined : (sanitized?.supplierId ?? null),
 	          reference: parsed.data.reference === undefined ? undefined : parsed.data.reference,
 	          status: nextStatus,
+            kind: kindToPersist === null ? undefined : kindToPersist,
 	          purchasedAt: purchasedAt ?? undefined,
 	          notes: parsed.data.notes === undefined ? undefined : parsed.data.notes,
 	          total: String(total),

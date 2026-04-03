@@ -590,6 +590,7 @@ const ddl = [
     "supplierId" TEXT,
     "reference" TEXT,
     "status" "PurchaseStatus" NOT NULL DEFAULT 'draft',
+    "kind" TEXT,
     "purchasedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "notes" TEXT,
     "total" NUMERIC(12,2),
@@ -598,7 +599,9 @@ const ddl = [
     CONSTRAINT "Purchase_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "Supplier"("id") ON DELETE SET NULL
   );
   `,
+  `ALTER TABLE IF EXISTS "Purchase" ADD COLUMN IF NOT EXISTS "kind" TEXT;`,
   `CREATE INDEX IF NOT EXISTS "Purchase_createdAt_idx" ON "Purchase" ("createdAt");`,
+  `CREATE INDEX IF NOT EXISTS "Purchase_kind_idx" ON "Purchase" ("kind");`,
   `CREATE INDEX IF NOT EXISTS "Purchase_purchasedAt_idx" ON "Purchase" ("purchasedAt");`,
   `CREATE INDEX IF NOT EXISTS "Purchase_status_idx" ON "Purchase" ("status");`,
   `CREATE INDEX IF NOT EXISTS "Purchase_supplierId_idx" ON "Purchase" ("supplierId");`,

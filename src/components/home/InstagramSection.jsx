@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Instagram, Play } from 'lucide-react';
+
 import zIcon from '@/img/Z.svg';
 import { base44 } from '@/api/base44Client';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
 import EmptyState from '@/components/ui/empty-state';
-
-const instagramHandle = 'zana.acessorios_';
-const instagramUrl = `https://www.instagram.com/${instagramHandle}/`;
+import { useBranding } from '@/lib/useBranding';
 
 function parseInstagramUrl(url) {
   try {
@@ -24,6 +23,12 @@ function parseInstagramUrl(url) {
 }
 
 export default function InstagramSection() {
+  const { branding } = useBranding();
+  const handleRaw = String(branding?.instagram_handle ?? '').trim();
+  const handle = handleRaw ? handleRaw.replace(/^@/, '') : '';
+  const instagramHandle = handle ? `@${handle}` : '';
+  const instagramUrl = handle ? `https://www.instagram.com/${handle}/` : '';
+
   const { data: posts = [] } = useQuery({
     queryKey: ['instagram'],
     queryFn: () => base44.instagram.list(12),
@@ -47,24 +52,28 @@ export default function InstagramSection() {
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
           <div>
             <h2 className="font-heading text-3xl md:text-4xl text-foreground mb-2">Instagram</h2>
-            <p className="font-body text-sm text-muted-foreground">
-              Siga-nos em{' '}
-              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                @{instagramHandle}
-              </a>{' '}
-              para ver novidades, bastidores e inspirações.
-            </p>
+            {instagramUrl ? (
+              <p className="font-body text-sm text-muted-foreground">
+                Siga-nos em{' '}
+                <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  {instagramHandle}
+                </a>{' '}
+                para ver novidades, bastidores e inspirações.
+              </p>
+            ) : null}
           </div>
 
-          <a
-            href={instagramUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-sm font-body tracking-wider hover:bg-primary/90 transition-colors rounded-none w-full md:w-auto"
-          >
-            <Instagram className="w-4 h-4" />
-            Ver no Instagram
-          </a>
+          {instagramUrl ? (
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-sm font-body tracking-wider hover:bg-primary/90 transition-colors rounded-none w-full md:w-auto"
+            >
+              <Instagram className="w-4 h-4" />
+              Ver no Instagram
+            </a>
+          ) : null}
         </div>
 
         {cards.length === 0 ? (
@@ -73,35 +82,35 @@ export default function InstagramSection() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-	            {cards.map((card) => (
-	              <a
+            {cards.map((card) => (
+              <a
                 key={card.id}
                 href={card.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group block bg-card border border-border overflow-hidden hover:border-primary/40 transition-colors"
-	                aria-label="Abrir no Instagram"
-	              >
-	                <div className={`relative ${card.type === 'reel' ? 'aspect-[9/16]' : 'aspect-square'} bg-secondary/30`}>
-	                  {card.cover_url ? (
-	                    <ImageWithFallback
+                aria-label="Abrir no Instagram"
+              >
+                <div className={`relative ${card.type === 'reel' ? 'aspect-[9/16]' : 'aspect-square'} bg-secondary/30`}>
+                  {card.cover_url ? (
+                    <ImageWithFallback
                       src={card.cover_url}
                       alt=""
                       className="absolute inset-0 w-full h-full object-cover"
                       wrapperClassName="absolute inset-0"
                       iconClassName="w-16 h-16 opacity-[0.10] text-white/20"
                     />
-	                  ) : (
-	                    <ImageWithFallback
+                  ) : (
+                    <ImageWithFallback
                       src={zIcon}
                       alt=""
                       className="absolute inset-0 m-auto w-16 opacity-[0.10]"
                       wrapperClassName="absolute inset-0"
                       iconClassName="w-16 h-16 opacity-[0.10] text-white"
                     />
-	                  )}
-	                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-	                  {card.type === 'reel' && (
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                  {card.type === 'reel' && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-14 h-14 rounded-full bg-white/90 text-primary flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                         <Play className="w-6 h-6 translate-x-0.5" />
@@ -111,7 +120,7 @@ export default function InstagramSection() {
                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-white">
                       <Instagram className="w-4 h-4" />
-                      <span className="font-body text-xs">@{instagramHandle}</span>
+                      {instagramHandle ? <span className="font-body text-xs">{instagramHandle}</span> : null}
                     </div>
                     <span className="font-body text-xs text-white/90">Abrir</span>
                   </div>
@@ -120,9 +129,7 @@ export default function InstagramSection() {
                   <span className="font-body text-sm text-foreground/80 group-hover:text-primary transition-colors">
                     {card.type === 'reel' ? 'Reel' : 'Post'}
                   </span>
-                  {card.caption ? (
-                    <p className="font-body text-xs text-muted-foreground">{card.caption}</p>
-                  ) : null}
+                  {card.caption ? <p className="font-body text-xs text-muted-foreground">{card.caption}</p> : null}
                 </div>
               </a>
             ))}
@@ -132,3 +139,4 @@ export default function InstagramSection() {
     </section>
   );
 }
+

@@ -173,9 +173,6 @@ export default function AdminCashClosures() {
           <CardTitle className="font-heading text-xl">Histórico de fechos</CardTitle>
         </CardHeader>
         <CardContent>
-          {!isLoading && cashClosures.length === 0 ? (
-            <EmptyState icon={CreditCard} description="Sem fechos registados" className="py-10" />
-          ) : null}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -187,16 +184,24 @@ export default function AdminCashClosures() {
                 </tr>
               </thead>
               <tbody>
-                {cashClosures.map((closure) => (
-                  <tr key={closure.id} className="border-b border-border hover:bg-secondary/20">
-                    <td className="p-3 font-body text-sm">
-                      {formatDatePt(closure.started_at)} – {formatDatePt(closure.ended_at)}
+                {!isLoading && cashClosures.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-0">
+                      <EmptyState icon={CreditCard} description="Sem fechos registados" className="py-10" />
                     </td>
-                    <td className="p-3 font-body text-sm">{moneyPt(closure.opening_balance)} €</td>
-                    <td className="p-3 font-body text-sm">{moneyPt(closure.closing_balance)} €</td>
-                    <td className="p-3 font-body text-sm">{closure.total_sales != null ? `${moneyPt(closure.total_sales)} €` : '—'}</td>
                   </tr>
-                ))}
+                ) : (
+                  cashClosures.map((closure) => (
+                    <tr key={closure.id} className="border-b border-border hover:bg-secondary/20">
+                      <td className="p-3 font-body text-sm">
+                        {formatDatePt(closure.started_at)} – {formatDatePt(closure.ended_at)}
+                      </td>
+                      <td className="p-3 font-body text-sm">{moneyPt(closure.opening_balance)} €</td>
+                      <td className="p-3 font-body text-sm">{moneyPt(closure.closing_balance)} €</td>
+                      <td className="p-3 font-body text-sm">{closure.total_sales != null ? `${moneyPt(closure.total_sales)} €` : '—'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

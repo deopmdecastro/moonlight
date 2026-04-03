@@ -19,7 +19,7 @@ const defaults = {
   secondary_color: '#f1e7db',
   site_name: 'Zana',
   contact_email: 'info@zanaacessorios.com',
-  instagram_handle: '@zana.acessorios_',
+  instagram_handle: '',
   contact_address: 'Portugal',
   footer_rights_text: '',
 };

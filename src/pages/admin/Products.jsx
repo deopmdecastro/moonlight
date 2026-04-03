@@ -169,9 +169,12 @@ export default function AdminProducts() {
   const purchaseSuggestionByName = useMemo(() => {
     const map = new Map();
     for (const p of purchases ?? []) {
-      if (String(p?.kind ?? '') === 'logistics') continue;
+      const purchaseKind = String(p?.kind ?? '').trim();
+      if (purchaseKind === 'logistics') continue;
       const items = Array.isArray(p?.items) ? p.items : [];
       for (const it of items) {
+        const hasLinkedProduct = Boolean(it?.product_id ?? it?.productId);
+        if (purchaseKind === 'mixed' && !hasLinkedProduct) continue;
         const name = String(it?.product_name ?? it?.productName ?? '').trim();
         if (!name) continue;
 
@@ -205,8 +208,11 @@ export default function AdminProducts() {
   const purchasedProductNameOptions = useMemo(() => {
     const set = new Set();
     for (const p of purchases ?? []) {
-      if (String(p?.kind ?? '') === 'logistics') continue;
+      const purchaseKind = String(p?.kind ?? '').trim();
+      if (purchaseKind === 'logistics') continue;
       for (const it of p?.items ?? []) {
+        const hasLinkedProduct = Boolean(it?.product_id ?? it?.productId);
+        if (purchaseKind === 'mixed' && !hasLinkedProduct) continue;
         const name = String(it?.product_name ?? '').trim();
         if (name) set.add(name);
       }

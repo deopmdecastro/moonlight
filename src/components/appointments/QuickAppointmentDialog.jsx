@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, Mail, MessageSquareText, Phone, UserRound } from 'lucide-react';
+import { Calendar, Clock, Image as ImageIcon, Mail, MessageSquareText, Phone, UserRound } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { pt } from 'date-fns/locale';
@@ -26,10 +26,11 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
   const durationMinutes = Math.max(1, Number(service?.duration_minutes ?? 30) || 30);
 
   const [form, setForm] = useState({
-    staff_id: '',
+    staff_id: '__auto__',
     date: '',
     time: '',
     observations: '',
+    image_url: '',
     guest_name: '',
     guest_email: '',
     guest_phone: '',
@@ -109,9 +110,9 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
     if (!open) return;
     setForm((p) => {
       const current = String(p.staff_id ?? '');
-      const exists = current && staff.some((s) => String(s.id) === current);
-      if (exists) return p;
-      return { ...p, staff_id: staff[0]?.id ? String(staff[0].id) : '' };
+      if (current === '__auto__') return p;
+      const exists = staff.some((s) => String(s.id) === current);
+      return exists ? p : { ...p, staff_id: '__auto__' };
     });
   }, [open, staff]);
 
@@ -119,10 +120,11 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
     if (!open) return;
     setForm((p) => ({
       ...p,
-      staff_id: '',
+      staff_id: '__auto__',
       date: '',
       time: '',
       observations: '',
+      image_url: '',
       guest_name: '',
       guest_email: '',
       guest_phone: '',
@@ -136,7 +138,6 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
   const canSubmit = useMemo(() => {
     if (!guestReady) return false;
     if (!serviceId) return false;
-    if (!form.staff_id) return false;
     if (!form.date || !form.time) return false;
     return true;
   }, [form.date, form.staff_id, form.time, guestReady, serviceId]);
@@ -152,10 +153,11 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
       toast.success('Marcação enviada.');
       onOpenChange(false);
       setForm({
-        staff_id: '',
+        staff_id: '__auto__',
         date: '',
         time: '',
         observations: '',
+        image_url: '',
         guest_name: '',
         guest_email: '',
         guest_phone: '',
@@ -238,7 +240,7 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
                     selected={selectedDateObj ?? undefined}
                     onSelect={(d) => {
                       const next = d ? toYMD(d) : '';
-                      setForm((p) => ({ ...p, date: next, time: '', staff_id: '' }));
+                      setForm((p) => ({ ...p, date: next, time: '', staff_id: '__auto__' }));
                     }}
                     month={visibleMonth}
                     onMonthChange={setVisibleMonth}
@@ -264,7 +266,7 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
                 </Label>
                 <Select
                   value={form.time}
-                  onValueChange={(v) => setForm((p) => ({ ...p, time: v, staff_id: '' }))}
+                  onValueChange={(v) => setForm((p) => ({ ...p, time: v, staff_id: '__auto__' }))}
                   disabled={!form.date || isLoadingTimes}
                 >
                   <SelectTrigger className="rounded-none mt-1 font-body text-sm">
@@ -314,6 +316,7 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
                   />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__auto__">Automático</SelectItem>
                   {staff.map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
                       {s.name}
@@ -326,6 +329,19 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
                   ? `Disponíveis para ${new Date(startAtInput).toLocaleString('pt-PT')} (${durationMinutes} min).`
                   : 'Selecione a data e hora para ver apenas os atendentes disponíveis.'}
               </p>
+            </div>
+
+            <div>
+              <Label className="font-body text-xs flex items-center gap-2">
+                <ImageIcon className="w-3.5 h-3.5" /> Link de imagem (opcional)
+              </Label>
+              <Input
+                value={form.image_url}
+                onChange={(e) => setForm((p) => ({ ...p, image_url: e.target.value }))}
+                className="rounded-none mt-1"
+                placeholder="https://..."
+              />
+              <p className="font-body text-xs text-muted-foreground mt-2">Ex.: referência do estilo/arte para a marcação.</p>
             </div>
 
             <div>
@@ -356,9 +372,10 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
               const start_at = `${form.date}T${form.time}:00`;
               const base = {
                 service_id: serviceId,
-                staff_id: form.staff_id,
+                staff_id: form.staff_id === '__auto__' ? null : form.staff_id,
                 start_at,
                 observations: form.observations?.trim() || null,
+                image_url: form.image_url?.trim() || null,
               };
               if (!user) {
                 createMutation.mutate({

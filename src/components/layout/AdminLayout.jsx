@@ -75,14 +75,9 @@ const navSections = [
     items: [
       { to: '/admin/fornecedores', icon: Truck, label: 'Fornecedores' },
       {
-        to: '/admin/compras/todos',
+        to: '/admin/compras',
         icon: ShoppingBasket,
         label: 'Compras',
-        children: [
-          { to: '/admin/compras/produtos', label: 'Produtos' },
-          { to: '/admin/compras/consumiveis', label: 'Consumíveis' },
-          { to: '/admin/compras/todos', label: 'Todos' },
-        ],
       },
       { to: '/admin/inventario', icon: Boxes, label: 'Inventário' },
       { to: '/admin/relatorios', icon: BarChartBig, label: 'Relatórios' },

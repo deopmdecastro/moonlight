@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ import SearchableSelect from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
-import { Plus, Pencil, CheckCircle, Code, RotateCcw, Trash2, ShoppingBasket } from 'lucide-react';
+import { Plus, Pencil, CheckCircle, Code, RotateCcw, Trash2, ShoppingBasket, Package, Truck, List } from 'lucide-react';
 import { getPrimaryImage } from '@/lib/images';
 import ImageUpload from '@/components/uploads/ImageUpload';
 import LoadMoreControls from '@/components/ui/load-more-controls';
@@ -717,11 +717,6 @@ export default function AdminPurchases() {
       return;
     }
 
-    if (purchaseType === 'products' && items.some((it) => !it.product_id)) {
-      toast.error('Selecione um produto (stock) em todos os itens.');
-      return;
-    }
-
     if (purchaseType === 'logistics' && items.some((it) => it.product_id)) {
       toast.error('Consumíveis não podem estar vinculados a produtos.');
       return;
@@ -845,7 +840,9 @@ export default function AdminPurchases() {
             <div className="font-body text-sm text-muted-foreground mt-1">Produtos (stock)</div>
           ) : effectiveView === 'consumiveis' ? (
             <div className="font-body text-sm text-muted-foreground mt-1">Consumíveis</div>
-          ) : null}
+          ) : (
+            <div className="font-body text-sm text-muted-foreground mt-1">Vista geral</div>
+          )}
         </div>
 	        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
 	          <Button onClick={openCreate} className="rounded-none font-body text-sm gap-2 w-full sm:w-auto">
@@ -856,6 +853,30 @@ export default function AdminPurchases() {
 	          </Button>
 	        </div>
 	      </div>
+
+      <div className="bg-card border border-border rounded-lg p-2 mb-6">
+        <div className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto md:overflow-x-visible pb-1">
+          {[
+            { to: '/admin/compras/produtos', label: 'Produtos', icon: Package },
+            { to: '/admin/compras/consumiveis', label: 'Consumíveis', icon: Truck },
+            { to: '/admin/compras/todos', label: 'Todos', icon: List },
+          ].map((t) => (
+            <NavLink
+              key={t.to}
+              to={t.to}
+              className={({ isActive }) =>
+                `inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-body transition-colors whitespace-nowrap shrink-0 ${
+                  isActive ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-secondary'
+                }`
+              }
+              end
+            >
+              <t.icon className="w-4 h-4" />
+              {t.label}
+            </NavLink>
+          ))}
+        </div>
+      </div>
 
       <div className="bg-card rounded-lg border border-border overflow-x-auto">
         <table className="w-full">
@@ -1088,7 +1109,7 @@ export default function AdminPurchases() {
                       </div>
                     ) : (
                       <div className="md:col-span-4">
-                        <Label className="font-body text-xs">{purchaseType === 'products' ? 'Produto *' : 'Produto (opcional)'}</Label>
+                        <Label className="font-body text-xs">Produto (opcional)</Label>
                         {productOptions.length > 10 ? (
                           <SearchableSelect
                             value={it.product_id ?? 'none'}
@@ -1098,8 +1119,8 @@ export default function AdminPurchases() {
                               const nextImage = product ? getPrimaryImage(product.images) : '';
                               updateItem(idx, {
                                 product_id: productId,
-                                product_name: product ? product.name : purchaseType === 'products' ? '' : it.product_name,
-                                product_image: product ? nextImage ?? it.product_image : purchaseType === 'products' ? '' : it.product_image,
+                                product_name: product ? product.name : it.product_name,
+                                product_image: product ? nextImage ?? it.product_image : it.product_image,
                               });
                             }}
                             options={productPickerOptions}
@@ -1117,8 +1138,8 @@ export default function AdminPurchases() {
                               const nextImage = product ? getPrimaryImage(product.images) : '';
                               updateItem(idx, {
                                 product_id: productId,
-                                product_name: product ? product.name : purchaseType === 'products' ? '' : it.product_name,
-                                product_image: product ? nextImage ?? it.product_image : purchaseType === 'products' ? '' : it.product_image,
+                                product_name: product ? product.name : it.product_name,
+                                product_image: product ? nextImage ?? it.product_image : it.product_image,
                               });
                             }}
                             disabled={isLocked}
@@ -1145,8 +1166,13 @@ export default function AdminPurchases() {
                         value={it.product_name}
                         onChange={(e) => updateItem(idx, { product_name: e.target.value })}
                         className="rounded-none mt-1"
-                        disabled={isLocked || purchaseType === 'products'}
+                        disabled={isLocked || Boolean(it.product_id)}
                       />
+                      {purchaseType !== 'logistics' && !it.product_id ? (
+                        <p className="font-body text-[11px] text-muted-foreground mt-1">
+                          Se o produto ainda não existe no catálogo, escreva o nome e finalize a compra como stock.
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="md:col-span-4">

@@ -164,7 +164,6 @@ export default function AdminCoupons() {
           <CardTitle className="font-heading text-xl">Lista de cupons</CardTitle>
         </CardHeader>
         <CardContent>
-          {!isLoading && coupons.length === 0 ? <EmptyState icon={Tag} description="Sem cupons" className="py-10" /> : null}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -177,19 +176,27 @@ export default function AdminCoupons() {
                 </tr>
               </thead>
               <tbody>
-                {coupons.map((coupon) => (
-                  <tr key={coupon.id} className="border-b border-border hover:bg-secondary/20">
-                    <td className="p-3 font-body text-sm">{coupon.code}</td>
-                    <td className="p-3 font-body text-sm">
-                      {coupon.type === 'percent' ? `${coupon.value}%` : `${moneyPt(coupon.value)} €`}
+                {!isLoading && coupons.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-0">
+                      <EmptyState icon={Tag} description="Sem cupons" className="py-10" />
                     </td>
-                    <td className="p-3 font-body text-sm">
-                      {coupon.used_count}/{coupon.max_uses ?? '∞'}
-                    </td>
-                    <td className="p-3 font-body text-sm">{formatDatePt(coupon.expires_at)}</td>
-                    <td className="p-3 font-body text-sm">{coupon.is_active ? 'Sim' : 'Não'}</td>
                   </tr>
-                ))}
+                ) : (
+                  coupons.map((coupon) => (
+                    <tr key={coupon.id} className="border-b border-border hover:bg-secondary/20">
+                      <td className="p-3 font-body text-sm">{coupon.code}</td>
+                      <td className="p-3 font-body text-sm">
+                        {coupon.type === 'percent' ? `${coupon.value}%` : `${moneyPt(coupon.value)} €`}
+                      </td>
+                      <td className="p-3 font-body text-sm">
+                        {coupon.used_count}/{coupon.max_uses ?? '∞'}
+                      </td>
+                      <td className="p-3 font-body text-sm">{formatDatePt(coupon.expires_at)}</td>
+                      <td className="p-3 font-body text-sm">{coupon.is_active ? 'Sim' : 'Não'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

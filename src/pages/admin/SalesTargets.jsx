@@ -157,9 +157,6 @@ export default function AdminSalesTargets() {
           <CardTitle className="font-heading text-xl">Lista de metas</CardTitle>
         </CardHeader>
         <CardContent>
-          {!isLoading && salesTargets.length === 0 ? (
-            <EmptyState icon={TrendingUp} description="Sem metas" className="py-10" />
-          ) : null}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -172,15 +169,23 @@ export default function AdminSalesTargets() {
                 </tr>
               </thead>
               <tbody>
-                {salesTargets.map((target) => (
-                  <tr key={target.id} className="border-b border-border hover:bg-secondary/20">
-                    <td className="p-3 font-body text-sm">{target.name}</td>
-                    <td className="p-3 font-body text-sm">{moneyPt(target.goal_amount)} €</td>
-                    <td className="p-3 font-body text-sm">{moneyPt(target.achieved_amount ?? 0)} €</td>
-                    <td className="p-3 font-body text-sm">{target.progress != null ? `${target.progress.toFixed(2)}%` : '0.00%'}</td>
-                    <td className="p-3 font-body text-sm">{target.is_active ? 'Ativa' : 'Inativa'}</td>
+                {!isLoading && salesTargets.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-0">
+                      <EmptyState icon={TrendingUp} description="Sem metas" className="py-10" />
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  salesTargets.map((target) => (
+                    <tr key={target.id} className="border-b border-border hover:bg-secondary/20">
+                      <td className="p-3 font-body text-sm">{target.name}</td>
+                      <td className="p-3 font-body text-sm">{moneyPt(target.goal_amount)} €</td>
+                      <td className="p-3 font-body text-sm">{moneyPt(target.achieved_amount ?? 0)} €</td>
+                      <td className="p-3 font-body text-sm">{target.progress != null ? `${target.progress.toFixed(2)}%` : '0.00%'}</td>
+                      <td className="p-3 font-body text-sm">{target.is_active ? 'Ativa' : 'Inativa'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
