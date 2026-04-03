@@ -318,7 +318,7 @@ export default function AdminSuppliers() {
           }
         }}
       >
-	        <DialogContent className="max-w-lg">
+	        <DialogContent aria-describedby={undefined} className="max-w-lg">
 	          <DialogHeader>
 	            <DialogTitle className="font-heading text-xl">
 	              {viewing ? 'Detalhes do fornecedor' : editing ? 'Editar fornecedor' : 'Novo fornecedor'}
@@ -410,7 +410,7 @@ export default function AdminSuppliers() {
           if (!open) setJsonText('');
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent aria-describedby={undefined} className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Importar fornecedor (JSON)</DialogTitle>
           </DialogHeader>

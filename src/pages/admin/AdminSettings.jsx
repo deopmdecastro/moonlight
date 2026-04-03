@@ -81,7 +81,7 @@ export default function AdminSettings() {
 
     await toastApiPromise(purgeMutation.mutateAsync(payload), {
       loading: 'A limpar base de dados...',
-      success: 'Base de dados limpa com sucesso.',
+      success: 'Base de dados limpa com sucesso. Backup guardado no histórico.',
       error: (e) => getErrorMessage(e, 'Não foi possível limpar a base de dados.'),
     });
 

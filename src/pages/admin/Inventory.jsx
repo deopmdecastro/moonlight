@@ -120,7 +120,7 @@ export default function AdminInventory() {
       )}
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent aria-describedby={undefined} className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Ajustar stock</DialogTitle>
           </DialogHeader>

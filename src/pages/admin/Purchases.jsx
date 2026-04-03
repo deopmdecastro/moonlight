@@ -944,7 +944,7 @@ export default function AdminPurchases() {
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent aria-describedby={undefined} className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">{editing ? 'Editar' : 'Nova'} compra</DialogTitle>
 	          </DialogHeader>
@@ -1277,7 +1277,7 @@ export default function AdminPurchases() {
                 }
               }}
             >
-              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogContent aria-describedby={undefined} className="max-w-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-heading text-xl">Devolução ao fornecedor</DialogTitle>
                 </DialogHeader>
@@ -1353,7 +1353,7 @@ export default function AdminPurchases() {
                 }
               }}
             >
-              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogContent aria-describedby={undefined} className="max-w-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-heading text-xl">Remover do stock</DialogTitle>
                 </DialogHeader>
@@ -1428,7 +1428,7 @@ export default function AdminPurchases() {
 			          }
 			        }}
 			      >
-			        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+			        <DialogContent aria-describedby={undefined} className="max-w-3xl max-h-[85vh] overflow-y-auto">
 			          <DialogHeader>
 			            <DialogTitle className="font-heading text-xl">Completar compra (JSON)</DialogTitle>
 			          </DialogHeader>
@@ -1601,7 +1601,7 @@ export default function AdminPurchases() {
 	          if (!open) setJsonText('');
 	        }}
 	      >
-	        <DialogContent className="max-w-lg">
+	        <DialogContent aria-describedby={undefined} className="max-w-lg">
 	          <DialogHeader>
 	            <DialogTitle className="font-heading text-xl">Importar compra (JSON)</DialogTitle>
 	          </DialogHeader>
@@ -1640,7 +1640,7 @@ export default function AdminPurchases() {
 		      </Dialog>
 
 		      <Dialog open={supplierPromptOpen} onOpenChange={setSupplierPromptOpen}>
-		        <DialogContent className="max-w-md">
+		        <DialogContent aria-describedby={undefined} className="max-w-md">
 		          <DialogHeader>
 		            <DialogTitle className="font-heading text-xl">Fornecedor em falta</DialogTitle>
 		          </DialogHeader>

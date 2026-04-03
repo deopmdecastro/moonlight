@@ -224,7 +224,7 @@ export default function ReturnsAdmin() {
           if (!open) setSelected(null);
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent aria-describedby={undefined} className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Detalhes da devolução</DialogTitle>
           </DialogHeader>

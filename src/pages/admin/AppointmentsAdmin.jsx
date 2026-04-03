@@ -91,6 +91,11 @@ export default function AppointmentsAdmin() {
     [services, selectedServiceId],
   );
 
+  const [selectedServiceImageUrl, setSelectedServiceImageUrl] = useState('');
+  React.useEffect(() => {
+    setSelectedServiceImageUrl(selectedService?.image_url ?? '');
+  }, [selectedService?.id]);
+
   const { data: serviceStaffRes } = useQuery({
     enabled: !!selectedServiceId,
     queryKey: ['admin-appointment-service-staff', selectedServiceId],
@@ -402,13 +407,24 @@ export default function AppointmentsAdmin() {
                 /> 
               </div> 
               <div className="md:col-span-2"> 
-                <ImageUpload 
-                  value={serviceForm.image_url} 
-                  onChange={(v) => setServiceForm((p) => ({ ...p, image_url: v }))} 
-                  label="Imagem do serviço" 
-                  helper="Esta imagem será mostrada nos cards do site." 
-                  recommended="1200×675"
-                /> 
+                <Label className="font-body text-xs">Imagem do serviço</Label>
+                <Input
+                  value={serviceForm.image_url}
+                  onChange={(e) => setServiceForm((p) => ({ ...p, image_url: e.target.value }))}
+                  className="rounded-none mt-1"
+                  placeholder="Cole a URL da imagem (opcional)"
+                />
+                <div className="mt-3">
+                  <ImageUpload
+                    value={serviceForm.image_url}
+                    onChange={(v) => setServiceForm((p) => ({ ...p, image_url: v }))}
+                    variant="compact"
+                    label="Ou faça upload"
+                    recommended="1200×675"
+                    helper="Esta imagem será mostrada nos cards do site."
+                    buttonLabel="Upload"
+                  />
+                </div>
               </div> 
               <div> 
                 <Label className="font-body text-xs">Duração (min)</Label> 
@@ -512,13 +528,36 @@ export default function AppointmentsAdmin() {
                     <div className="font-body text-sm font-medium">{selectedService.name}</div>
                     <div className="font-heading text-base">Atendentes</div>
 
-                    <ImageUpload
-                      value={selectedService.image_url || ''}
-                      onChange={(v) => updateServiceMutation.mutate({ id: selectedService.id, patch: { image_url: v || null } })}
-                      label="Imagem do serviço"
-                      helper="Atualiza o card no site."
-                      recommended="1200×675"
-                    />
+                    <div>
+                      <Label className="font-body text-xs">Imagem do serviço</Label>
+                      <Input
+                        value={selectedServiceImageUrl}
+                        onChange={(e) => setSelectedServiceImageUrl(e.target.value)}
+                        onBlur={() => {
+                          const next = String(selectedServiceImageUrl ?? '').trim();
+                          const current = String(selectedService.image_url ?? '').trim();
+                          if (next !== current) {
+                            updateServiceMutation.mutate({ id: selectedService.id, patch: { image_url: next ? next : null } });
+                          }
+                        }}
+                        className="rounded-none mt-1"
+                        placeholder="Cole a URL da imagem (opcional)"
+                      />
+                      <div className="mt-3">
+                        <ImageUpload
+                          value={selectedServiceImageUrl}
+                          onChange={(v) => {
+                            setSelectedServiceImageUrl(v);
+                            updateServiceMutation.mutate({ id: selectedService.id, patch: { image_url: v?.trim() ? v : null } });
+                          }}
+                          variant="compact"
+                          label="Ou faça upload"
+                          recommended="1200×675"
+                          helper="Atualiza o card no site."
+                          buttonLabel="Upload"
+                        />
+                      </div>
+                    </div>
 
                     <p className="font-body text-xs text-muted-foreground">
                       Se nenhum atendente estiver selecionado, qualquer atendente ativo poderá ser escolhido pelo cliente.
@@ -854,7 +893,7 @@ export default function AppointmentsAdmin() {
             />
 
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
-              <DialogContent className="max-w-lg">
+              <DialogContent aria-describedby={undefined} className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle className="font-heading text-xl">Editar marcação</DialogTitle>
                 </DialogHeader>

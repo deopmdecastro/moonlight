@@ -217,7 +217,7 @@ export default function Support() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent aria-describedby={undefined} className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Novo pedido</DialogTitle>
           </DialogHeader>

@@ -571,7 +571,7 @@ export default function AdminProducts() {
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent aria-describedby={undefined} className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">{editing ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
           </DialogHeader>
@@ -909,7 +909,7 @@ export default function AdminProducts() {
           if (!open) setJsonText('');
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent aria-describedby={undefined} className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Importar produto (JSON)</DialogTitle>
           </DialogHeader>

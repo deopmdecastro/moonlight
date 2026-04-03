@@ -122,7 +122,7 @@ export default function Testimonials() {
           if (!v) setForm({ product_id: '', rating: 5, comment: '' });
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent aria-describedby={undefined} className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Avaliar</DialogTitle>
           </DialogHeader>

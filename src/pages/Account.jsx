@@ -556,7 +556,7 @@ export default function Account() {
           if (!open) setEditingAddress(null);
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent aria-describedby={undefined} className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">{editingAddress ? 'Editar endereço' : 'Novo endereço'}</DialogTitle>
           </DialogHeader>

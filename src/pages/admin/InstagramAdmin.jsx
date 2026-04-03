@@ -151,7 +151,7 @@ export default function InstagramAdmin() {
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent aria-describedby={undefined} className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">{editing ? 'Editar' : 'Adicionar'} link</DialogTitle>
           </DialogHeader>

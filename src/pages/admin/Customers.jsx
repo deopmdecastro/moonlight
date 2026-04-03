@@ -192,7 +192,7 @@ export default function AdminCustomers() {
           setPointsForm({ delta: '', balance: '', reason: '' });
         }}
       >
-        <DialogContent className="w-[calc(100vw-32px)] sm:w-full max-w-3xl h-[85vh] overflow-hidden rounded-2xl p-0">
+        <DialogContent aria-describedby={undefined} className="w-[calc(100vw-32px)] sm:w-full max-w-3xl h-[85vh] overflow-hidden rounded-2xl p-0">
           {selected && form ? (
             <Tabs defaultValue="perfil" className="flex flex-col h-full">
               <div className="px-6 pt-6 pb-4">

@@ -243,7 +243,7 @@ export default function FAQAdmin() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent aria-describedby={undefined} className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">{editing ? 'Editar' : 'Nova'} pergunta</DialogTitle>
           </DialogHeader>
@@ -283,7 +283,7 @@ export default function FAQAdmin() {
           }
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent aria-describedby={undefined} className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Responder pergunta</DialogTitle>
           </DialogHeader>

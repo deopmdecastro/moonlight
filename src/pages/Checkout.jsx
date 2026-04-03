@@ -766,7 +766,7 @@ export default function Checkout() {
       </form>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent aria-describedby={undefined} className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Confirmar Encomenda</DialogTitle>
           </DialogHeader>

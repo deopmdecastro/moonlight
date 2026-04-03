@@ -1561,6 +1561,20 @@ async function collectBackupData() {
   }
 }
 
+function summarizeBackupCounts(backup) {
+  const safeLen = (value) => (Array.isArray(value) ? value.length : 0)
+  return {
+    users: safeLen(backup?.users),
+    products: safeLen(backup?.products),
+    orders: safeLen(backup?.orders),
+    purchases: safeLen(backup?.purchases),
+    services: safeLen(backup?.services),
+    appointments: safeLen(backup?.appointments),
+    blogPosts: safeLen(backup?.blogPosts),
+    siteContent: safeLen(backup?.siteContent),
+  }
+}
+
 async function restoreBackupData(backup) {
   if (!backup || typeof backup !== 'object') {
     throw new Error('invalid_backup_payload')
@@ -6011,6 +6025,67 @@ app.post('/api/admin/backup/import', async (req, res) => {
   }
 })
 
+app.get('/api/admin/backup/history', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  try {
+    const limit = parseLimit(req.query.limit, 30)
+    const items = await prisma.backupHistory.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+    res.json({
+      backups: items.map((b) => ({
+        id: b.id,
+        type: b.type,
+        actor_id: b.actorId ?? null,
+        meta: b.meta ?? null,
+        created_at: b.createdAt,
+      })),
+    })
+  } catch (err) {
+    sendInternalError(res, err, 'backup_history_list_failed')
+  }
+})
+
+app.get('/api/admin/backup/history/:id/export', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  try {
+    const record = await prisma.backupHistory.findUnique({ where: { id: String(req.params.id) } })
+    if (!record) return res.status(404).json({ error: 'not_found' })
+    res.json(record.payload)
+  } catch (err) {
+    sendInternalError(res, err, 'backup_history_export_failed')
+  }
+})
+
+app.post('/api/admin/backup/history/:id/restore', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  try {
+    const record = await prisma.backupHistory.findUnique({ where: { id: String(req.params.id) } })
+    if (!record) return res.status(404).json({ error: 'not_found' })
+
+    await restoreBackupData(record.payload)
+
+    await writeAuditLog({
+      actorId: admin.id,
+      action: 'update',
+      entityType: 'BackupHistory',
+      entityId: record.id,
+      meta: { action: 'restore' },
+    })
+
+    res.json({ success: true })
+  } catch (err) {
+    sendInternalError(res, err, 'backup_history_restore_failed')
+  }
+})
+
 const adminCredentialsSchema = z
   .object({
     email: z.string().email().optional().nullable(),
@@ -6098,6 +6173,20 @@ app.post('/api/admin/settings/purge', async (req, res) => {
   const keepProducts = Boolean(parsed.data.keep_products)
 
   try {
+    const backup = await collectBackupData()
+    const backupHistory = await prisma.backupHistory.create({
+      data: {
+        type: 'purge',
+        actorId: admin.id,
+        meta: {
+          keep_customers: keepCustomers,
+          keep_products: keepProducts,
+          counts: summarizeBackupCounts(backup),
+        },
+        payload: backup,
+      },
+    })
+
     await prisma.$transaction(async (tx) => {
       await tx.auditLog.deleteMany({})
 
@@ -6154,10 +6243,10 @@ app.post('/api/admin/settings/purge', async (req, res) => {
       action: 'delete',
       entityType: 'DatabasePurge',
       entityId: null,
-      meta: { keep_customers: keepCustomers, keep_products: keepProducts },
+      meta: { keep_customers: keepCustomers, keep_products: keepProducts, backup_history_id: backupHistory.id },
     })
 
-    res.json({ success: true })
+    res.json({ success: true, backup_history_id: backupHistory.id })
   } catch (err) {
     sendInternalError(res, err, 'database_purge_failed')
   }

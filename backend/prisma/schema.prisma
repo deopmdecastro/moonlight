@@ -714,3 +714,16 @@ model AuditLog {
   @@index([entityType])
   @@index([actorId])
 }
+
+model BackupHistory {
+  id        String   @id @default(cuid())
+  type      String
+  actorId   String?
+  meta      Json?
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type])
+  @@index([actorId])
+}

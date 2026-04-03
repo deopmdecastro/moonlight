@@ -415,7 +415,7 @@ export default function AdminOrders() {
       />
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent aria-describedby={undefined} className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Detalhes da Encomenda</DialogTitle>
           </DialogHeader>
@@ -549,7 +549,7 @@ export default function AdminOrders() {
       </Dialog>
 
       <Dialog open={saleOpen} onOpenChange={(v) => setSaleOpen(v)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent aria-describedby={undefined} className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Nova venda</DialogTitle>
           </DialogHeader>

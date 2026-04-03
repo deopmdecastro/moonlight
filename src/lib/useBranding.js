@@ -129,6 +129,7 @@ function formatHslString({ h, s, l }) {
 
 function createDynamicManifest(branding) {
   if (typeof document === 'undefined') return;
+  if (typeof window === 'undefined') return;
 
   const manifestLink = getOrCreateLink('manifest', 'application/manifest+json');
   if (!manifestLink) return;
@@ -138,11 +139,28 @@ function createDynamicManifest(branding) {
     currentManifestObjectUrl = null;
   }
 
-  const iconUrl = String(branding.app_icon_url ?? '').trim() || String(branding.favicon_url ?? '').trim() || '/icons/icon_z.svg';
+  const rawIconUrl =
+    String(branding.app_icon_url ?? '').trim() ||
+    String(branding.favicon_url ?? '').trim() ||
+    '/icons/icon_z.svg';
+
+  const resolveManifestUrl = (value) => {
+    const url = String(value ?? '').trim();
+    if (!url) return '';
+    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) return url;
+    try {
+      return new URL(url, window.location.origin).toString();
+    } catch {
+      return '';
+    }
+  };
+
+  const iconUrl = resolveManifestUrl(rawIconUrl) || new URL('/icons/icon_z.svg', window.location.origin).toString();
+  const startUrl = new URL('/', window.location.origin).toString();
   const manifest = {
     name: String(branding.site_name ?? 'Zana Acessórios').trim() || 'Zana Acessórios',
     short_name: String(branding.site_name ?? 'Zana').trim() || 'Zana',
-    start_url: '/',
+    start_url: startUrl,
     display: 'standalone',
     background_color: String(branding.background_color ?? branding.theme_color ?? '#fbfaf8'),
     theme_color: String(branding.background_color ?? branding.theme_color ?? '#fbfaf8'),

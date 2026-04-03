@@ -154,7 +154,7 @@ export default function BlogCommentsAdmin() {
       />
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-xl">
+        <DialogContent aria-describedby={undefined} className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl">Detalhe</DialogTitle>
           </DialogHeader>

@@ -145,7 +145,7 @@ export default function BlogAdmin() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="w-[calc(100vw-24px)] sm:w-full max-w-4xl h-[85vh] overflow-hidden rounded-2xl p-0">
+        <DialogContent aria-describedby={undefined} className="w-[calc(100vw-24px)] sm:w-full max-w-4xl h-[85vh] overflow-hidden rounded-2xl p-0">
           <div className="flex flex-col h-full">
             <div className="px-6 pt-6 pb-4">
               <DialogHeader>

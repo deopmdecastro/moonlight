@@ -575,6 +575,15 @@ export const base44 = {
         backup: {
           export: async () => authedJsonRequest('/api/admin/backup/export'),
           import: async (data) => authedJsonRequest('/api/admin/backup/import', { method: 'POST', body: data }),
+          history: {
+            list: async ({ limit = 30 } = {}) => {
+              const params = new URLSearchParams();
+              if (limit) params.set('limit', String(limit));
+              return authedJsonRequest(`/api/admin/backup/history?${params.toString()}`);
+            },
+            export: async (id) => authedJsonRequest(`/api/admin/backup/history/${id}/export`),
+            restore: async (id) => authedJsonRequest(`/api/admin/backup/history/${id}/restore`, { method: 'POST', body: {} }),
+          },
         },
         settings: {
           updateCredentials: async (data) =>

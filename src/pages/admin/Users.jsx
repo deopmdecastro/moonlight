@@ -150,7 +150,7 @@ export default function AdminUsers() {
           setForm(null);
         }}
       >
-        <DialogContent className="w-[calc(100vw-32px)] sm:w-full max-w-2xl overflow-hidden rounded-2xl p-0">
+        <DialogContent aria-describedby={undefined} className="w-[calc(100vw-32px)] sm:w-full max-w-2xl overflow-hidden rounded-2xl p-0">
           {selected && form ? (
             <div className="p-6 space-y-4">
               <DialogHeader>
