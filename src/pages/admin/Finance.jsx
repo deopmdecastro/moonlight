@@ -123,26 +123,63 @@ export default function AdminFinance() {
 
 
   const stats = useMemo(() => {
-    const byCategory = new Map();
+    const inventoryById = new Map();
     let stockCurrentCost = 0;
     let expected = 0;
 
     for (const p of inventory) {
+      if (p?.id) inventoryById.set(String(p.id), p);
       const stock = Number(p.stock ?? 0) || 0;
       const price = Number(p.price ?? 0) || 0;
       const acq = Number(p.acquisition_cost ?? p.last_movement?.unit_cost ?? 0) || 0;
 
       stockCurrentCost += stock * acq;
       expected += stock * price;
-
-      const category = String(p.category ?? 'outros');
-      const row = byCategory.get(category) ?? { category, invested: 0, expected: 0, units: 0, products: 0 };
-      row.invested += stock * acq;
-      row.expected += stock * price;
-      row.units += stock;
-      row.products += 1;
-      byCategory.set(category, row);
     }
+
+    // "Investimento por categoria" não deve decrementar com vendas.
+    // Aqui usamos as COMPRAS de stock (histórico) agrupadas pela categoria do produto.
+    const byCategory = new Map();
+    for (const p of purchases ?? []) {
+      if (String(p?.status ?? '') === 'cancelled') continue;
+      const kind = String(p?.kind ?? '').trim();
+      if (kind === 'logistics') continue; // consumíveis/logística não entram no stock
+
+      const items = Array.isArray(p?.items) ? p.items : [];
+      for (const it of items) {
+        const qty = Number(it?.quantity ?? 0) || 0;
+        const unit = Number(it?.unit_cost ?? 0) || 0;
+        const line = qty * unit;
+        if (!Number.isFinite(line) || line <= 0) continue;
+
+        const productId = String(it?.product_id ?? '').trim() || null;
+        const product = productId ? inventoryById.get(productId) : null;
+        const category = String(product?.category ?? 'outros');
+        const price = Number(product?.price ?? 0) || 0;
+
+        const row =
+          byCategory.get(category) ??
+          { category, invested: 0, expected: 0, units: 0, products: 0, _productIds: new Set() };
+
+        row.invested += line;
+        row.expected += qty * price;
+        row.units += qty;
+        if (productId) row._productIds.add(productId);
+
+        byCategory.set(category, row);
+      }
+    }
+
+    const byCategoryRows = Array.from(byCategory.values())
+      .map((r) => ({
+        category: r.category,
+        invested: Number((Number(r.invested ?? 0) || 0).toFixed(2)),
+        expected: Number((Number(r.expected ?? 0) || 0).toFixed(2)),
+        units: Number(r.units ?? 0) || 0,
+        products: r._productIds?.size ?? 0,
+      }))
+      .filter((r) => (Number(r.units ?? 0) || 0) > 0)
+      .sort((a, b) => Number(b.invested ?? 0) - Number(a.invested ?? 0));
 
     let purchasesStockTotal = 0;
     let purchasesLogisticsTotal = 0;
@@ -189,7 +226,7 @@ export default function AdminFinance() {
       purchasesTotal,
       purchasesStockTotal,
       purchasesLogisticsTotal,
-      byCategory: Array.from(byCategory.values()).sort((a, b) => b.invested - a.invested),
+      byCategory: byCategoryRows,
       revenueDelivered,
       revenueOpen,
       revenueCancelled: revenueByStatus.cancelled ?? 0,
