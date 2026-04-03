@@ -125,9 +125,9 @@ export default function AdminCustomers() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+      <div className="mb-6">
         <h1 className="font-heading text-3xl">Clientes</h1>
-        <div className="relative w-72 max-w-full">
+        <div className="relative w-72 max-w-full mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Pesquisar por nome, email, telefone..."

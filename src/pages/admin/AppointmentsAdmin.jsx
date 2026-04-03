@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Check, CheckCheck, Pencil, Plus, X } from 'lucide-react';
+import { CalendarClock, Check, CheckCheck, Pencil, Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/toast';
 import LoadMoreControls from '@/components/ui/load-more-controls';
+import EmptyState from '@/components/ui/empty-state';
 
 const WEEKDAYS = [
   { value: 1, label: 'Seg' },
@@ -505,9 +506,7 @@ export default function AppointmentsAdmin() {
                     })}
                   </tbody>
                 </table>
-                {services.length === 0 ? (
-                  <p className="font-body text-sm text-muted-foreground py-4">Sem serviços</p>
-                ) : null}
+                {services.length === 0 ? <EmptyState icon={CalendarClock} description="Sem serviços" className="py-6" /> : null}
               </div>
 
               <div className="bg-secondary/10 border border-border rounded-lg p-4">
@@ -561,7 +560,7 @@ export default function AppointmentsAdmin() {
                           );
                         })}
                       {staff.filter((s) => s.is_active !== false).length === 0 ? (
-                        <p className="font-body text-sm text-muted-foreground">Sem atendentes ativos.</p>
+                        <EmptyState icon={CalendarClock} description="Sem atendentes ativos." className="py-6" />
                       ) : null}
                     </div>
 
@@ -736,7 +735,7 @@ export default function AppointmentsAdmin() {
                   ))}
                 </tbody>
               </table>
-              {staff.length === 0 ? <p className="font-body text-sm text-muted-foreground py-4">Sem atendentes</p> : null}
+              {staff.length === 0 ? <EmptyState icon={CalendarClock} description="Sem atendentes" className="py-6" /> : null}
             </div>
           </div>
         </TabsContent>
@@ -777,7 +776,7 @@ export default function AppointmentsAdmin() {
                   {upcoming.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="p-6 text-center font-body text-sm text-muted-foreground">
-                        Sem marcações
+                        <EmptyState icon={CalendarClock} description="Sem marcações" className="py-2" />
                       </td>
                     </tr>
                   ) : (

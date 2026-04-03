@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/lib/AuthContext';
+import EmptyState from '@/components/ui/empty-state';
 import Auth from './Auth';
 
 const READ_STORAGE_KEY = 'zana_notifications_read';
@@ -127,9 +128,7 @@ export default function Notifications() {
             </Button>
           </div>
         ) : sorted.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="font-body text-sm text-muted-foreground">Ainda não tem notificações.</p>
-          </div>
+          <EmptyState icon={Bell} description="Ainda não tem notificações." className="py-10" />
         ) : (
           <div className="divide-y divide-border">
             {sorted.map((n) => {

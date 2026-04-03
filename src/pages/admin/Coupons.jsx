@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Download } from 'lucide-react';
+import { Download, Tag } from 'lucide-react';
 
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { downloadCsv } from '@/lib/reportExport';
 import LoadMoreControls from '@/components/ui/load-more-controls';
+import EmptyState from '@/components/ui/empty-state';
 
 function formatDatePt(value) {
   if (!value) return 'Sem limite';
@@ -163,6 +164,7 @@ export default function AdminCoupons() {
           <CardTitle className="font-heading text-xl">Lista de cupons</CardTitle>
         </CardHeader>
         <CardContent>
+          {!isLoading && coupons.length === 0 ? <EmptyState icon={Tag} description="Sem cupons" className="py-10" /> : null}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>

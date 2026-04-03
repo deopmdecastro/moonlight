@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Download } from 'lucide-react';
+import { CreditCard, Download } from 'lucide-react';
 
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { downloadCsv } from '@/lib/reportExport';
 import LoadMoreControls from '@/components/ui/load-more-controls';
+import EmptyState from '@/components/ui/empty-state';
 
 function formatDatePt(value) {
   return value ? new Date(value).toLocaleDateString('pt-PT') : '—';
@@ -172,6 +173,9 @@ export default function AdminCashClosures() {
           <CardTitle className="font-heading text-xl">Histórico de fechos</CardTitle>
         </CardHeader>
         <CardContent>
+          {!isLoading && cashClosures.length === 0 ? (
+            <EmptyState icon={CreditCard} description="Sem fechos registados" className="py-10" />
+          ) : null}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>

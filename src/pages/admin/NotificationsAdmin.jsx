@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCheck, ExternalLink, ScrollText } from 'lucide-react';
+import { Bell, CheckCheck, ExternalLink, ScrollText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import LoadMoreControls from '@/components/ui/load-more-controls';
+import EmptyState from '@/components/ui/empty-state';
 import {
   addDays,
   ADMIN_NOTIFICATIONS_READ_STORAGE_KEY,
@@ -152,11 +153,11 @@ export default function NotificationsAdmin() {
             </Button>
           </div>
         ) : visible.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="font-body text-sm text-muted-foreground">
-              {filter === 'unread' ? 'Sem novas notificações.' : 'Ainda não tem notificações.'}
-            </p>
-          </div>
+          <EmptyState
+            icon={Bell}
+            description={filter === 'unread' ? 'Sem novas notificações.' : 'Ainda não tem notificações.'}
+            className="py-10"
+          />
         ) : (
           <div className="divide-y divide-border">
             {visible.map((l) => {

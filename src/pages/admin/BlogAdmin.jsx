@@ -8,10 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil } from 'lucide-react';
+import { FileText, Plus, Pencil } from 'lucide-react';
 import DeleteIcon from '@/components/ui/delete-icon';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
 import ImageUpload from '@/components/uploads/ImageUpload';
+import EmptyState from '@/components/ui/empty-state';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/toast';
 
@@ -139,7 +140,7 @@ export default function BlogAdmin() {
           </div>
         ))}
         {!isLoading && !isError && posts.length === 0 && (
-          <p className="text-center py-8 font-body text-sm text-muted-foreground">Sem artigos</p>
+          <EmptyState icon={FileText} description="Sem artigos" className="py-10" />
         )}
       </div>
 

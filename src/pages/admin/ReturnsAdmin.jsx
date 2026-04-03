@@ -13,6 +13,7 @@ import LoadMoreControls from '@/components/ui/load-more-controls';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { getErrorMessage } from '@/lib/toast';
+import EmptyState from '@/components/ui/empty-state';
 
 const statusLabel = {
   return_request: 'Pedido',
@@ -204,11 +205,9 @@ export default function ReturnsAdmin() {
             })}
           </tbody>
         </table>
-        {!isLoading && sorted.length === 0 && (
-          <div className="text-center py-10">
-            <p className="font-body text-sm text-muted-foreground">Sem pedidos de devolução.</p>
-          </div>
-        )}
+        {!isLoading && sorted.length === 0 ? (
+          <EmptyState icon={RotateCcw} description="Sem pedidos de devolução." className="py-8" />
+        ) : null}
       </div>
 
       <LoadMoreControls

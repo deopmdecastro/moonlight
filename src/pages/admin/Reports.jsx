@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { downloadBlob, exportReportsExcel, exportReportsPdf } from '@/lib/reportExport';
 import EmptyState from '@/components/ui/empty-state';
+import { useBranding } from '@/lib/useBranding';
 
 function numberOrZero(value) {
   const n = Number(value ?? 0);
@@ -67,6 +68,8 @@ const orderStatusBadgeClassName = {
 };
 
 export default function AdminReports({ title = 'Relatórios' } = {}) {
+  const { branding } = useBranding();
+  const reportLogoUrl = String(branding?.logo_primary_url ?? '').trim() || zanaLogoPrimary;
 
   const { data: inventory = [] } = useQuery({
     queryKey: ['admin-inventory'],
@@ -215,7 +218,7 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
       const blob = await exportReportsPdf({
         filename: outName,
         title,
-        logoUrl: zanaLogoPrimary,
+        logoUrl: reportLogoUrl,
         createdAt: new Date(),
         stats,
         analytics,
@@ -246,7 +249,7 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
       await exportReportsExcel({
         filename: `relatorios_${date}.xls`,
         title,
-        logoUrl: zanaLogoPrimary,
+        logoUrl: reportLogoUrl,
         createdAt: new Date(),
         stats,
         analytics,
