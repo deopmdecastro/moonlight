@@ -56,13 +56,14 @@ function getPurchaseKindLabel(purchase) {
   const explicit = String(purchase?.kind ?? '').trim();
   if (explicit === 'logistics') return 'Consumíveis';
   if (explicit === 'mixed') return 'Mista';
+  if (explicit === 'products') return 'Stock';
   const items = Array.isArray(purchase?.items) ? purchase.items : [];
   if (items.length === 0) return null;
   const hasStockItems = items.some((it) => Boolean(it?.product_id));
   const hasNonStockItems = items.some((it) => !it?.product_id);
   if (hasNonStockItems && !hasStockItems) return 'Consumíveis';
   if (hasNonStockItems && hasStockItems) return 'Mista';
-  return null;
+  return 'Stock';
 }
 
 function getPurchaseProductsSummary(purchase) {
