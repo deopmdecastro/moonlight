@@ -154,9 +154,7 @@ export default function ReturnsAdmin() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <h1 className="font-heading text-3xl flex items-center gap-2">
-          <RotateCcw className="w-6 h-6" /> Devoluções
-        </h1>
+        <h1 className="font-heading text-3xl">Devoluções</h1>
         <div className="font-body text-xs text-muted-foreground">
           {Array.isArray(sorted) ? sorted.length : 0} pedidos
         </div>
@@ -408,4 +406,3 @@ export default function ReturnsAdmin() {
     </div>
   );
 }
-

@@ -40,6 +40,18 @@ const statusSelectClasses = {
   cancelled: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
+const paymentMethodLabels = {
+  mbway: 'MB WAY',
+  transferencia: 'Transferência',
+  multibanco: 'Multibanco',
+  paypal: 'PayPal',
+};
+
+const orderSourceLabels = {
+  marketplace: 'Marketplace',
+  admin: 'Gerada',
+};
+
 const DEFAULT_SHIPPING_METHODS = [
   { id: 'standard', label: 'Standard', price: 4.99, free_over: 50, enabled: true, description: 'Entrega em 2–4 dias úteis.' },
   { id: 'express', label: 'Expresso', price: 7.99, free_over: null, enabled: false, description: 'Entrega em 1–2 dias úteis.' },
@@ -308,13 +320,15 @@ export default function AdminOrders() {
       </div>
 
       <div className="bg-card rounded-lg border border-border overflow-x-auto">
-        <table className="w-full min-w-[820px]">
+        <table className="w-full min-w-[980px]">
           <thead>
             <tr className="border-b border-border bg-secondary/30">
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Cliente</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Produto</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Data</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Total</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground">Pagamento</th>
+              <th className="text-left p-3 font-body text-xs text-muted-foreground">Origem</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Estado</th>
               <th className="text-right p-3 font-body text-xs text-muted-foreground">Ações</th>
             </tr>
@@ -350,6 +364,13 @@ export default function AdminOrders() {
                   {format(new Date(order.created_date), 'd MMM yyyy', { locale: pt })}
                 </td>
                 <td className="p-3 font-body text-sm font-medium whitespace-nowrap">{order.total?.toFixed(2)} €</td>
+                <td className="p-3 font-body text-xs text-muted-foreground whitespace-nowrap">
+                  {paymentMethodLabels[String(order.payment_method ?? '')] ??
+                    (order.payment_method ? String(order.payment_method) : '—')}
+                </td>
+                <td className="p-3 font-body text-xs text-muted-foreground whitespace-nowrap">
+                  {orderSourceLabels[String(order.source ?? '')] ?? (order.source ? String(order.source) : 'Marketplace')}
+                </td>
                 <td className="p-3">
                   <Select
                     value={order.status}

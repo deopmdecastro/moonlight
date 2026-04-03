@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,10 +49,7 @@ export default function LoyaltyAdmin() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Sparkles className="w-6 h-6 text-primary" />
-          <h1 className="font-heading text-3xl">Pontos</h1>
-        </div>
+        <h1 className="font-heading text-3xl">Pontos</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

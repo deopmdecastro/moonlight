@@ -1752,6 +1752,7 @@ function toApiOrder(o) {
     total: decimalToNumber(o.total) ?? 0,
     status: o.status,
     payment_method: o.paymentMethod ?? null,
+    source: o.source ?? 'marketplace',
     payment_proof_url: o.paymentProofUrl ?? null,
     notes: o.notes ?? null,
     created_date: o.createdAt,
@@ -5081,6 +5082,7 @@ app.post('/api/orders', async (req, res) => {
         pointsDiscount: String(pointsDiscount.toFixed(2)),
         status: data.status ?? 'pending',
         paymentMethod: data.payment_method ?? null,
+        source: 'marketplace',
         paymentProofUrl: data.payment_proof_url ?? null,
         notes: data.notes ?? null,
         items: {
@@ -6748,6 +6750,7 @@ app.post('/api/admin/orders', async (req, res) => {
       total: String(data.total),
       status,
       paymentMethod: data.payment_method ?? null,
+      source: 'admin',
       notes: data.notes ?? null,
       items: {
         create: data.items.map((it) => ({
@@ -9409,6 +9412,8 @@ app.get('/api/admin/analytics/summary', async (req, res) => {
         customerName: true,
         total: true,
         status: true,
+        paymentMethod: true,
+        source: true,
         createdAt: true,
         _count: { select: { items: true } },
       },
@@ -9455,6 +9460,8 @@ app.get('/api/admin/analytics/summary', async (req, res) => {
       customer_name: o.customerName,
       total: decimalToNumber(o.total) ?? 0,
       status: o.status,
+      payment_method: o.paymentMethod ?? null,
+      source: o.source ?? 'marketplace',
       created_date: o.createdAt,
       items: o._count?.items ?? 0,
     })),

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, CheckCheck, ExternalLink, ScrollText } from 'lucide-react';
+import { CheckCheck, ExternalLink, ScrollText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { base44 } from '@/api/base44Client';
@@ -103,14 +103,11 @@ export default function NotificationsAdmin() {
   return (
     <div>
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
-        <div className="flex items-center gap-3">
-          <Bell className="w-6 h-6 text-primary" />
-          <div>
-            <h1 className="font-heading text-3xl">Notificações</h1>
-            <p className="font-body text-sm text-muted-foreground mt-1">
-              {unreadCount > 0 ? `${unreadCount} por ler` : 'Sem novas notificações'}
-            </p>
-          </div>
+        <div>
+          <h1 className="font-heading text-3xl">Notificações</h1>
+          <p className="font-body text-sm text-muted-foreground mt-1">
+            {unreadCount > 0 ? `${unreadCount} por ler` : 'Sem novas notificações'}
+          </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -305,4 +302,3 @@ export default function NotificationsAdmin() {
     </div>
   );
 }
-

@@ -92,8 +92,9 @@ export default function AdminUsers() {
         </div>
       </div>
 
-      <div className="border border-border rounded-lg overflow-hidden bg-card">
-        <table className="w-full">
+      <div className="border border-border rounded-lg bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px]">
           <thead className="bg-secondary/30">
             <tr>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Nome</th>
@@ -125,7 +126,8 @@ export default function AdminUsers() {
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
         {isLoading && (Array.isArray(users) ? users.length : 0) === 0 ? (
           <EmptyState icon={Users} description="A carregar..." className="py-8" />
         ) : filteredUsers.length === 0 ? (

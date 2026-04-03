@@ -45,6 +45,18 @@ const orderStatusLabels = {
   cancelled: 'Cancelada',
 };
 
+const paymentMethodLabels = {
+  mbway: 'MB WAY',
+  transferencia: 'Transferência',
+  multibanco: 'Multibanco',
+  paypal: 'PayPal',
+};
+
+const orderSourceLabels = {
+  marketplace: 'Marketplace',
+  admin: 'Gerada',
+};
+
 const orderStatusBadgeClassName = {
   pending: 'bg-secondary text-secondary-foreground',
   confirmed: 'bg-accent/20 text-accent-foreground',
@@ -474,12 +486,17 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
                       const status = String(o.status ?? '');
                       const statusLabel = orderStatusLabels[status] ?? (status || '—');
                       const statusCls = orderStatusBadgeClassName[status] ?? 'bg-secondary text-secondary-foreground';
+                      const paymentLabel =
+                        paymentMethodLabels[String(o.payment_method ?? '')] ?? (o.payment_method ? String(o.payment_method) : '—');
+                      const sourceLabel = orderSourceLabels[String(o.source ?? '')] ?? (o.source ? String(o.source) : 'Marketplace');
                       return (
                         <div key={o.id} className="grid grid-cols-[1fr_auto] items-center gap-3 font-body text-sm">
                           <div className="min-w-0">
                             <div className="truncate">{o.customer_email}</div>
-                            <div className="mt-1">
+                            <div className="mt-1 flex items-center gap-2 flex-wrap">
                               <Badge className={`${statusCls} text-[10px]`}>{statusLabel}</Badge>
+                              <Badge className="bg-secondary text-foreground text-[10px]">{paymentLabel}</Badge>
+                              <Badge className="bg-secondary text-foreground text-[10px]">{sourceLabel}</Badge>
                             </div>
                           </div>
                           <div className="text-right tabular-nums text-muted-foreground shrink-0">

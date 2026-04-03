@@ -1,0 +1,3 @@
+-- Order origin: 'marketplace' (checkout) or 'admin' (manual sale).
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "source" TEXT NOT NULL DEFAULT 'marketplace';
+

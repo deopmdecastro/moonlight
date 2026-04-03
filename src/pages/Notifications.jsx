@@ -91,14 +91,11 @@ export default function Notifications() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
-        <div className="flex items-center gap-3">
-          <Bell className="w-6 h-6 text-primary" />
-          <div>
-            <h1 className="font-heading text-3xl md:text-4xl">Notificações</h1>
-            <p className="font-body text-sm text-muted-foreground mt-1">
-              {unreadCount > 0 ? `${unreadCount} por ler` : 'Sem novas notificações'}
-            </p>
-          </div>
+        <div>
+          <h1 className="font-heading text-3xl md:text-4xl">Notificações</h1>
+          <p className="font-body text-sm text-muted-foreground mt-1">
+            {unreadCount > 0 ? `${unreadCount} por ler` : 'Sem novas notificações'}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">

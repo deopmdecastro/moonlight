@@ -561,6 +561,18 @@ const orderStatusLabelsPt = {
   cancelled: 'Cancelada',
 };
 
+const paymentMethodLabelsPt = {
+  mbway: 'MB WAY',
+  transferencia: 'Transferência',
+  multibanco: 'Multibanco',
+  paypal: 'PayPal',
+};
+
+const orderSourceLabelsPt = {
+  marketplace: 'Marketplace',
+  admin: 'Gerada',
+};
+
 function csvEscape(value, delimiter) {
   if (value === null || value === undefined) return '';
   const str = String(value);
@@ -784,11 +796,13 @@ export async function exportReportsExcel({
       },
       {
         title: 'Maiores encomendas (30 dias)',
-        columns: 3,
-        headers: ['Email', 'Estado', 'Total (€)'],
+        columns: 5,
+        headers: ['Email', 'Estado', 'Pagamento', 'Origem', 'Total (€)'],
         rows: largestOrders.slice(0, 200).map((o) => [
           o.customer_email ?? '',
           orderStatusLabelsPt[String(o.status ?? '')] ?? String(o.status ?? ''),
+          paymentMethodLabelsPt[String(o.payment_method ?? '')] ?? (o.payment_method ? String(o.payment_method) : ''),
+          orderSourceLabelsPt[String(o.source ?? '')] ?? (o.source ? String(o.source) : 'Marketplace'),
           moneyPt(o.total ?? 0),
         ]),
       },
@@ -905,11 +919,15 @@ export async function exportReportsPdf({
         headers: [
           { label: 'Email Cliente', align: 'left' },
           { label: 'Status', align: 'center' },
+          { label: 'Pagamento', align: 'left' },
+          { label: 'Origem', align: 'left' },
           { label: 'Total (€)', align: 'right' },
         ],
         rows: largestOrders.slice(0, 30).map((o) => [
           o.customer_email ?? '',
           orderStatusLabelsPt[String(o.status ?? '')] ?? String(o.status ?? ''),
+          paymentMethodLabelsPt[String(o.payment_method ?? '')] ?? (o.payment_method ? String(o.payment_method) : '—'),
+          orderSourceLabelsPt[String(o.source ?? '')] ?? (o.source ? String(o.source) : 'Marketplace'),
           moneyPt(o.total ?? 0),
         ]),
       },

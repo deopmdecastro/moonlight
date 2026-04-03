@@ -93,9 +93,7 @@ export default function MarketingAdmin() {
     <div className="space-y-10">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-heading text-3xl flex items-center gap-2">
-            <Megaphone className="w-6 h-6" /> Marketing
-          </h1>
+          <h1 className="font-heading text-3xl">Marketing</h1>
           <p className="font-body text-sm text-muted-foreground mt-1">Emails (templates) e newsletter.</p>
         </div>
       </div>
