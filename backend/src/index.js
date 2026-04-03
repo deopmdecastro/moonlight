@@ -5483,6 +5483,27 @@ app.post('/api/orders', async (req, res) => {
       const { content } = await getEmailContent()
       if (content?.order?.enabled === false) return
 
+      const apiOrder = toApiOrder(created)
+      const status = String(apiOrder?.status ?? '')
+
+      // Aplica a mesma lógica de emails do admin:
+      // - `confirmed`/`delivered`: fatura é enviada pelo fluxo do admin (PDF em anexo).
+      // - demais estados: email de atualização de estado.
+      if (status === 'confirmed' || status === 'delivered') return
+
+      const statusLabel = orderStatusLabelPt(status)
+      const statusSubject = `${storeName} — Encomenda ${apiOrder.id} — ${statusLabel}`
+      const statusHtml = buildOrderStatusEmailHtml({ order: apiOrder })
+      const statusText = stripHtml(statusHtml)
+      await sendEmail({
+        fromName: content?.from_name ?? storeName,
+        to: apiOrder.customer_email,
+        subject: statusSubject,
+        text: statusText,
+        html: statusHtml,
+      })
+      return
+
       const customerName = created.customerName ?? created.customerEmail
       const items = Array.isArray(created.items) ? created.items : []
       const base = String(appBaseUrl ?? '').replace(/\/+$/, '')
