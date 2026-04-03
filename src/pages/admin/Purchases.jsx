@@ -203,7 +203,7 @@ export default function AdminPurchases() {
 
   const productPickerOptions = useMemo(() => {
     const opts = (Array.isArray(productOptions) ? productOptions : []).map((p) => ({ value: p.id, label: p.name }));
-    return [{ value: 'none', label: '-' }, ...opts];
+    return [{ value: 'none', label: 'Sem produto' }, ...opts];
   }, [productOptions]);
 
   const consumablePickerOptions = useMemo(() => {
@@ -211,7 +211,7 @@ export default function AdminPurchases() {
       .map((c) => String(c?.name ?? '').trim())
       .filter(Boolean)
       .map((name) => ({ value: name, label: name }));
-    return [{ value: 'none', label: '-' }, ...opts];
+    return [{ value: 'none', label: 'Selecionar consumível' }, ...opts];
   }, [consumablesByName]);
 
   const createMutation = useMutation({
@@ -1098,10 +1098,10 @@ export default function AdminPurchases() {
                             disabled={isLocked}
                           >
                             <SelectTrigger className="rounded-none mt-1">
-                              <SelectValue placeholder="-" />
+                              <SelectValue placeholder="Selecionar consumível" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="none">-</SelectItem>
+                              <SelectItem value="none">Selecionar consumível</SelectItem>
                               {consumablesByName.map((c) => (
                                 <SelectItem key={c.id} value={c.name}>
                                   {c.name}
@@ -1128,7 +1128,7 @@ export default function AdminPurchases() {
                               });
                             }}
                             options={productPickerOptions}
-                            placeholder="-"
+                            placeholder="Sem produto"
                             searchPlaceholder="Pesquisar produto..."
                             className="mt-1"
                             disabled={isLocked}
@@ -1149,10 +1149,10 @@ export default function AdminPurchases() {
                             disabled={isLocked}
                           >
                             <SelectTrigger className="rounded-none mt-1">
-                              <SelectValue placeholder="-" />
+                              <SelectValue placeholder="Sem produto" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="none">-</SelectItem>
+                              <SelectItem value="none">Sem produto</SelectItem>
                               {productOptions.map((p) => (
                                 <SelectItem key={p.id} value={p.id}>
                                   {p.name}
