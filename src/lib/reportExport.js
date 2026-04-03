@@ -1059,6 +1059,7 @@ export async function exportFinanceExcel({ filename, title = 'Financeiro', logoU
           ['Valor Esperado (PVP) (€)', moneyPt(stats?.expected ?? 0)],
           ['Margem Potencial (€)', moneyPt(stats?.marginPotential ?? 0)],
           ['Receita (Entregue) (€)', moneyPt(stats?.revenueDelivered ?? 0)],
+          ['Lucro (Entregue) (€)', moneyPt(stats?.grossProfitDelivered ?? 0)],
           ['Receita pendente (€)', moneyPt(stats?.revenueOpen ?? 0)],
           ['Canceladas (€)', moneyPt(stats?.revenueCancelled ?? 0)],
           ['Compras (Stock) (€)', moneyPt(stats?.purchasesStockTotal ?? 0)],
@@ -1174,6 +1175,7 @@ export async function exportFinancePdf({
     { label: 'Valor Esperado (PVP) (€)', value: moneyPt(stats?.expected ?? 0) },
     { label: 'Margem Potencial (€)', value: moneyPt(stats?.marginPotential ?? 0) },
     { label: 'Receita (Entregue) (€)', value: moneyPt(stats?.revenueDelivered ?? 0) },
+    { label: 'Lucro (Entregue) (€)', value: moneyPt(stats?.grossProfitDelivered ?? 0) },
     { label: 'Consumíveis (€)', value: moneyPt(stats?.purchasesLogisticsTotal ?? 0) },
   ];
 
@@ -1195,6 +1197,8 @@ export async function exportFinancePdf({
         rows: [
           ['Receita pendente (€)', moneyPt(stats?.revenueOpen ?? 0)],
           ['Canceladas (€)', moneyPt(stats?.revenueCancelled ?? 0)],
+          ['Lucro (Entregue) (€)', moneyPt(stats?.grossProfitDelivered ?? 0)],
+          ['Stock atual (custo) (€)', moneyPt(stats?.stockCurrentCost ?? 0)],
           ['Compras (Stock) (€)', moneyPt(stats?.purchasesStockTotal ?? 0)],
           ['Consumíveis (€)', moneyPt(stats?.purchasesLogisticsTotal ?? 0)],
           ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],

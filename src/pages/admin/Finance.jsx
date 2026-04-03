@@ -107,12 +107,14 @@ export default function AdminFinance() {
 
   const { data: purchases = [] } = useQuery({
     queryKey: ['admin-purchases'],
-    queryFn: () => base44.entities.Purchase.list('-purchased_at', 200),
+    // Financeiro precisa do histórico completo (não só os últimos 200),
+    // senão os totais variam e ficam incorretos.
+    queryFn: () => base44.entities.Purchase.list('-purchased_at', 5000),
   });
 
   const { data: orders = [] } = useQuery({
     queryKey: ['admin-orders'],
-    queryFn: () => base44.entities.Order.list('-created_date', 500),
+    queryFn: () => base44.entities.Order.list('-created_date', 5000),
   });
 
 
@@ -122,7 +124,7 @@ export default function AdminFinance() {
 
   const stats = useMemo(() => {
     const byCategory = new Map();
-    let invested = 0;
+    let stockCurrentCost = 0;
     let expected = 0;
 
     for (const p of inventory) {
@@ -130,7 +132,7 @@ export default function AdminFinance() {
       const price = Number(p.price ?? 0) || 0;
       const acq = Number(p.acquisition_cost ?? p.last_movement?.unit_cost ?? 0) || 0;
 
-      invested += stock * acq;
+      stockCurrentCost += stock * acq;
       expected += stock * price;
 
       const category = String(p.category ?? 'outros');
@@ -175,10 +177,15 @@ export default function AdminFinance() {
       (revenueByStatus.processing ?? 0) +
       (revenueByStatus.shipped ?? 0);
 
+    const grossProfitDelivered = revenueDelivered - purchasesStockTotal;
+
     return {
-      invested,
+      // "Investido em Stock" = total comprado para stock (não diminui com vendas).
+      invested: purchasesStockTotal,
+      // Stock atual ao custo (para comparação / auditoria).
+      stockCurrentCost: Number(stockCurrentCost.toFixed(2)),
       expected,
-      marginPotential: expected - invested,
+      marginPotential: expected - stockCurrentCost,
       purchasesTotal,
       purchasesStockTotal,
       purchasesLogisticsTotal,
@@ -186,6 +193,7 @@ export default function AdminFinance() {
       revenueDelivered,
       revenueOpen,
       revenueCancelled: revenueByStatus.cancelled ?? 0,
+      grossProfitDelivered: Number(grossProfitDelivered.toFixed(2)),
     };
   }, [inventory, purchases, orders]);
 
@@ -266,6 +274,12 @@ export default function AdminFinance() {
     { title: 'Valor Esperado (PVP)', value: `${stats.expected.toFixed(2)} €`, icon: TrendingUp, color: 'text-green-700' },
     { title: 'Margem Potencial', value: `${stats.marginPotential.toFixed(2)} €`, icon: Package, color: 'text-accent' },
     { title: 'Receita (Entregue)', value: `${stats.revenueDelivered.toFixed(2)} €`, icon: ShoppingCart, color: 'text-green-700' },
+    {
+      title: 'Lucro (Entregue)',
+      value: `${stats.grossProfitDelivered.toFixed(2)} €`,
+      icon: TrendingUp,
+      color: stats.grossProfitDelivered >= 0 ? 'text-green-700' : 'text-destructive',
+    },
     { title: 'Consumíveis', value: `${stats.purchasesLogisticsTotal.toFixed(2)} €`, icon: Package, color: 'text-muted-foreground' },
   ];
 
