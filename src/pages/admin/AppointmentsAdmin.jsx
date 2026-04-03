@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import ImageUpload from '@/components/uploads/ImageUpload';
+import ImageWithFallback from '@/components/ui/image-with-fallback';
 import { toast } from 'sonner';
 import {
   appointmentStatusBadgeClassName,
@@ -37,6 +38,11 @@ const WEEKDAYS = [
 
 export default function AppointmentsAdmin() {
   const queryClient = useQueryClient();
+
+  const isLocalPathLike = (value) => {
+    const raw = String(value ?? '').trim();
+    return /^[a-zA-Z]:\\/.test(raw) || raw.startsWith('file:') || raw.startsWith('\\\\');
+  };
 
   const { data: settingsRes } = useQuery({
     queryKey: ['admin-appointments-settings'],
@@ -92,8 +98,11 @@ export default function AppointmentsAdmin() {
   );
 
   const [selectedServiceImageUrl, setSelectedServiceImageUrl] = useState('');
+  const [selectedServiceImageUrlInput, setSelectedServiceImageUrlInput] = useState('');
+  const [isConvertingSelectedServiceImage, setIsConvertingSelectedServiceImage] = useState(false);
   React.useEffect(() => {
     setSelectedServiceImageUrl(selectedService?.image_url ?? '');
+    setSelectedServiceImageUrlInput('');
   }, [selectedService?.id]);
 
   const { data: serviceStaffRes } = useQuery({
@@ -178,6 +187,37 @@ export default function AppointmentsAdmin() {
     price: '',
     is_active: true,
   });
+  const [serviceImageUrlInput, setServiceImageUrlInput] = useState('');
+
+  const convertDataUrlToJpeg = async (dataUrl, quality = 0.86) => {
+    const src = String(dataUrl ?? '');
+    if (!src.startsWith('data:image/')) throw new Error('invalid_image');
+    const q = Math.max(0.4, Math.min(0.95, Number(quality) || 0.86));
+
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = src;
+    if (typeof img.decode === 'function') await img.decode();
+    else {
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('image_decode_failed'));
+      });
+    }
+
+    const width = img.naturalWidth || img.width || 1;
+    const height = img.naturalHeight || img.height || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas_context_failed');
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const jpeg = canvas.toDataURL('image/jpeg', q);
+    if (!jpeg || !jpeg.startsWith('data:image/jpeg')) throw new Error('jpeg_convert_failed');
+    return jpeg;
+  };
 
   const [staffForm, setStaffForm] = useState({
     name: '',
@@ -446,6 +486,7 @@ export default function AppointmentsAdmin() {
                       is_active: true,
                     });
                     setServiceForm((p) => ({ ...p, name: '', image_url: '', duration_minutes: '30', price: '' }));
+                    setServiceImageUrlInput('');
                   }}
                 >
                   <Plus className="w-4 h-4 mr-2" /> Adicionar serviço
@@ -454,20 +495,67 @@ export default function AppointmentsAdmin() {
 
               <div className="md:col-span-5">
                 <Label className="font-body text-xs">Imagem do serviço</Label>
-                <Input
-                  value={serviceForm.image_url}
-                  onChange={(e) => setServiceForm((p) => ({ ...p, image_url: e.target.value }))}
-                  className="rounded-none mt-1"
-                  placeholder="Cole a URL da imagem (opcional)"
-                />
+                <div className="flex gap-2 mt-1 flex-wrap">
+                  {serviceForm.image_url ? (
+                    <div className="relative w-16 h-16 rounded-none overflow-hidden border border-border bg-secondary/30">
+                      <ImageWithFallback
+                        src={serviceForm.image_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        iconClassName="w-6 h-6 text-muted-foreground/40"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setServiceForm((p) => ({ ...p, image_url: '' }))}
+                        className="absolute top-0 right-0 bg-destructive text-destructive-foreground w-4 h-4 text-[10px] flex items-center justify-center"
+                        title="Remover"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-none border border-border bg-secondary/10 flex items-center justify-center">
+                      <ImageWithFallback src="" alt="" iconClassName="w-6 h-6 text-muted-foreground/30" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    placeholder="Cole a URL da imagem (opcional)"
+                    value={serviceImageUrlInput}
+                    onChange={(e) => setServiceImageUrlInput(e.target.value)}
+                    className="rounded-none flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-none"
+                    onClick={() => {
+                      const value = String(serviceImageUrlInput ?? '').trim();
+                      if (!value) return;
+                      if (isLocalPathLike(value)) {
+                        toast.error('Caminho local não funciona no browser. Use "Upload" para enviar a imagem.');
+                        return;
+                      }
+                      setServiceForm((p) => ({ ...p, image_url: value }));
+                      setServiceImageUrlInput('');
+                    }}
+                  >
+                    +
+                  </Button>
+                </div>
                 <div className="mt-3">
                   <ImageUpload
-                    value={serviceForm.image_url}
+                    value={null}
                     onChange={(v) => setServiceForm((p) => ({ ...p, image_url: v }))}
                     variant="compact"
                     label="Ou faça upload"
                     recommended="1200×675"
                     helper="Esta imagem será mostrada nos cards do site."
+                    maxSide={1200}
+                    quality={0.82}
+                    format="jpeg"
                     buttonLabel="Upload"
                   />
                 </div>
@@ -535,22 +623,86 @@ export default function AppointmentsAdmin() {
 
                     <div>
                       <Label className="font-body text-xs">Imagem do serviço</Label>
-                      <Input
-                        value={selectedServiceImageUrl}
-                        onChange={(e) => setSelectedServiceImageUrl(e.target.value)}
-                        onBlur={() => {
-                          const next = String(selectedServiceImageUrl ?? '').trim();
-                          const current = String(selectedService.image_url ?? '').trim();
-                          if (next !== current) {
-                            updateServiceMutation.mutate({ id: selectedService.id, patch: { image_url: next ? next : null } });
-                          }
-                        }}
-                        className="rounded-none mt-1"
-                        placeholder="Cole a URL da imagem (opcional)"
-                      />
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        {selectedServiceImageUrl ? (
+                          <div className="relative w-16 h-16 rounded-none overflow-hidden border border-border bg-secondary/30">
+                            <ImageWithFallback
+                              src={selectedServiceImageUrl}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              iconClassName="w-6 h-6 text-muted-foreground/40"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedServiceImageUrl('');
+                                updateServiceMutation.mutate({ id: selectedService.id, patch: { image_url: null } });
+                              }}
+                              className="absolute top-0 right-0 bg-destructive text-destructive-foreground w-4 h-4 text-[10px] flex items-center justify-center"
+                              title="Remover"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-none border border-border bg-secondary/10 flex items-center justify-center">
+                            <ImageWithFallback src="" alt="" iconClassName="w-6 h-6 text-muted-foreground/30" />
+                          </div>
+                        )}
+                        {selectedServiceImageUrl?.startsWith('data:image/webp') ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-none h-9 px-3 text-sm"
+                            disabled={isConvertingSelectedServiceImage}
+                            onClick={async () => {
+                              try {
+                                setIsConvertingSelectedServiceImage(true);
+                                const jpeg = await convertDataUrlToJpeg(selectedServiceImageUrl, 0.86);
+                                setSelectedServiceImageUrl(jpeg);
+                                updateServiceMutation.mutate({ id: selectedService.id, patch: { image_url: jpeg } });
+                                toast.success('Imagem convertida para JPEG.');
+                              } catch {
+                                toast.error('Não foi possível converter a imagem.');
+                              } finally {
+                                setIsConvertingSelectedServiceImage(false);
+                              }
+                            }}
+                          >
+                            {isConvertingSelectedServiceImage ? 'A converter…' : 'Converter p/ JPEG'}
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          placeholder="Cole a URL da imagem (opcional)"
+                          value={selectedServiceImageUrlInput}
+                          onChange={(e) => setSelectedServiceImageUrlInput(e.target.value)}
+                          className="rounded-none flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-none"
+                          onClick={() => {
+                            const value = String(selectedServiceImageUrlInput ?? '').trim();
+                            if (!value) return;
+                            if (isLocalPathLike(value)) {
+                              toast.error('Caminho local não funciona no browser. Use "Upload" para enviar a imagem.');
+                              return;
+                            }
+                            setSelectedServiceImageUrl(value);
+                            setSelectedServiceImageUrlInput('');
+                            updateServiceMutation.mutate({ id: selectedService.id, patch: { image_url: value } });
+                          }}
+                        >
+                          +
+                        </Button>
+                      </div>
                       <div className="mt-3">
                         <ImageUpload
-                          value={selectedServiceImageUrl}
+                          value={null}
                           onChange={(v) => {
                             setSelectedServiceImageUrl(v);
                             updateServiceMutation.mutate({ id: selectedService.id, patch: { image_url: v?.trim() ? v : null } });
@@ -559,6 +711,9 @@ export default function AppointmentsAdmin() {
                           label="Ou faça upload"
                           recommended="1200×675"
                           helper="Atualiza o card no site."
+                          maxSide={1200}
+                          quality={0.82}
+                          format="jpeg"
                           buttonLabel="Upload"
                         />
                       </div>

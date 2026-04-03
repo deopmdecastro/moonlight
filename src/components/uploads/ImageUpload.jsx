@@ -1,13 +1,14 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { UploadCloud, X, Image as ImageIcon } from 'lucide-react';
+import { UploadCloud, X } from 'lucide-react';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
 import { Button } from '@/components/ui/button';
 import { toastApiPromise } from '@/lib/toast';
 import { base44 } from '@/api/base44Client';
 
+
 function isLikelyImageUrl(url) {
   const value = String(url ?? '');
-  return value.startsWith('data:image/') || /^https?:\/\//.test(value);
+  return value.startsWith('data:image/') || value.startsWith('blob:') || value.startsWith('/') || /^https?:\/\//.test(value);
 }
 
 export default function ImageUpload({
@@ -19,6 +20,9 @@ export default function ImageUpload({
   recommended = '1200x800',
   variant = 'card', // 'card' | 'compact'
   buttonLabel = 'Upload',
+  maxSide,
+  quality,
+  format,
 } = {}) {
   const inputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -27,7 +31,7 @@ export default function ImageUpload({
 
   const uploadFile = async (file) => {
     if (!file) return;
-    const res = await toastApiPromise(base44.integrations.Core.UploadFile({ file }), {
+    const res = await toastApiPromise(base44.integrations.Core.UploadFile({ file, maxSide, quality, format }), {
       loading: 'A enviar imagem...',
       success: 'Imagem carregada.',
       error: 'Não foi possível enviar a imagem.',
@@ -56,7 +60,7 @@ export default function ImageUpload({
       <div className="min-w-0">
         {label ? <div className="font-body text-xs text-muted-foreground">{label}</div> : null}
         <div className="mt-2 flex items-center gap-3 min-w-0">
-          <div className="w-12 h-12 rounded-md overflow-hidden bg-secondary/30 border border-border flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-none overflow-hidden bg-secondary/30 border border-border flex items-center justify-center shrink-0">
             {preview ? (
               <ImageWithFallback
                 src={preview}
@@ -65,7 +69,7 @@ export default function ImageUpload({
                 iconClassName="w-5 h-5 text-muted-foreground/50"
               />
             ) : (
-              <ImageIcon className="w-5 h-5 text-muted-foreground/50" />
+              <ImageWithFallback src="" alt="" iconClassName="w-5 h-5 text-muted-foreground/50" />
             )}
           </div>
 
@@ -107,7 +111,7 @@ export default function ImageUpload({
       </div>
 
       <div
-        className={`mt-2 border border-border bg-card rounded-md overflow-hidden ${
+        className={`mt-2 border border-border bg-card rounded-none overflow-hidden ${
           isDragging ? 'ring-2 ring-primary/30 border-primary/40' : ''
         }`}
         onDragEnter={(e) => {
@@ -119,7 +123,7 @@ export default function ImageUpload({
         onDrop={onDrop}
       >
         <div className="p-4 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-md overflow-hidden bg-secondary/30 border border-border flex items-center justify-center shrink-0">
+          <div className="w-16 h-16 rounded-none overflow-hidden bg-secondary/30 border border-border flex items-center justify-center shrink-0">
             {preview ? (
               <ImageWithFallback
                 src={preview}
@@ -128,7 +132,7 @@ export default function ImageUpload({
                 iconClassName="w-6 h-6 text-muted-foreground/50"
               />
             ) : (
-              <ImageIcon className="w-6 h-6 text-muted-foreground/50" />
+              <ImageWithFallback src="" alt="" iconClassName="w-6 h-6 text-muted-foreground/50" />
             )}
           </div>
           <div className="min-w-0 flex-1">

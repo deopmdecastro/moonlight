@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar as ThemeCalendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import ImageUpload from '@/components/uploads/ImageUpload';
 
 export default function QuickAppointmentDialog({ open, onOpenChange, service }) {
   const queryClient = useQueryClient();
@@ -341,6 +342,19 @@ export default function QuickAppointmentDialog({ open, onOpenChange, service }) 
                 className="rounded-none mt-1"
                 placeholder="https://..."
               />
+              <div className="mt-3">
+                <ImageUpload
+                  value={form.image_url}
+                  onChange={(v) => setForm((p) => ({ ...p, image_url: v }))}
+                  variant="compact"
+                  label="Ou faça upload"
+                  recommended="1200×675"
+                  maxSide={1200}
+                  quality={0.82}
+                  helper="Imagem de referência para a marcação."
+                  buttonLabel="Upload"
+                />
+              </div>
               <p className="font-body text-xs text-muted-foreground mt-2">Ex.: referência do estilo/arte para a marcação.</p>
             </div>
 

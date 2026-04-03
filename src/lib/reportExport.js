@@ -337,10 +337,13 @@ function createPdfHtmlReportElement({
   const summaryHtml = (summaryCards ?? [])
     .map((c) => {
       const valueColor = c?.valueColor ? `color:${escapeHtml(c.valueColor)};` : '';
+      const extraStyle = c?.valueStyle ? String(c.valueStyle) : '';
+      const valueStyle = `${valueColor}${extraStyle}`;
+      const valueHtml = c?.valueHtml != null ? String(c.valueHtml) : null;
       return `
         <div class="stat-card">
           <label>${escapeHtml(c?.label ?? '')}</label>
-          <div class="value" style="${valueColor}">${escapeHtml(c?.value ?? '')}</div>
+          <div class="value" style="${escapeHtml(valueStyle)}">${valueHtml != null ? valueHtml : escapeHtml(c?.value ?? '')}</div>
         </div>
       `;
     })
@@ -961,6 +964,7 @@ export async function exportReportsExcel({
   stats,
   analytics,
   purchaseAdjustments,
+  appointmentAnalytics,
 } = {}) {
   const logoDataUrl = await safeSvgUrlToPngDataUrl(logoUrl, { width: 180 });
   const safeTitle = title || 'Relatórios';
@@ -972,6 +976,7 @@ export async function exportReportsExcel({
   const largestOrders = analytics?.largest_orders ?? [];
 
   const adjustments = purchaseAdjustments?.topProducts ?? [];
+  const appt = appointmentAnalytics?.enabled ? appointmentAnalytics : null;
 
   const html = buildExcelHtml({
     sheetName: 'Relatórios',
@@ -987,6 +992,12 @@ export async function exportReportsExcel({
           ['Unidades em Stock', stats?.stockUnits ?? 0],
           ['Baixo Stock (≤2)', stats?.lowStock ?? 0],
           ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],
+          ...(appt
+            ? [
+                ['Marcações (30 dias)', appt.total ?? 0],
+                ['Marcações concluídas (30 dias)', appt.completed ?? 0],
+              ]
+            : []),
           ['Devoluções (clientes)', stats?.returns_completed ?? 0],
           ['Pendentes (devoluções)', stats?.returns_pending ?? 0],
           ['Reembolsos (clientes) (€)', moneyPt(stats?.returns_refund_total ?? 0)],
@@ -996,6 +1007,22 @@ export async function exportReportsExcel({
           ['Valor removido (€)', moneyPt(stats?.writeoff_value ?? 0)],
         ],
       },
+      ...(appt
+        ? [
+            {
+              title: 'Serviços com mais marcações (30 dias)',
+              columns: 3,
+              headers: ['Serviço', 'Total', 'Concluídas'],
+              rows: (appt.topServices ?? []).slice(0, 200).map((s) => [s.name ?? '', s.total ?? 0, s.completed ?? 0]),
+            },
+            {
+              title: 'Atendentes com mais marcações (30 dias)',
+              columns: 3,
+              headers: ['Atendente', 'Total', 'Concluídas'],
+              rows: (appt.topStaff ?? []).slice(0, 200).map((s) => [s.name ?? '', s.total ?? 0, s.completed ?? 0]),
+            },
+          ]
+        : []),
       {
         title: 'Produtos mais vistos (30 dias)',
         columns: 2,
@@ -1063,6 +1090,7 @@ export async function exportFinanceExcel({ filename, title = 'Financeiro', logoU
           ['Valor Esperado (PVP) (€)', moneyPt(stats?.expected ?? 0)],
           ['Margem Potencial (€)', moneyPt(stats?.marginPotential ?? 0)],
           ['Receita (Entregue) (€)', moneyPt(stats?.revenueDelivered ?? 0)],
+          ['Receita (Marcações concluídas) (€)', moneyPt(stats?.appointmentsRevenueCompleted ?? 0)],
           ['Lucro (Entregue) (€)', moneyPt(stats?.grossProfitDelivered ?? 0)],
           ['Receita pendente (€)', moneyPt(stats?.revenueOpen ?? 0)],
           ['Canceladas (€)', moneyPt(stats?.revenueCancelled ?? 0)],
@@ -1098,6 +1126,7 @@ export async function exportReportsPdf({
   createdAt,
   stats,
   analytics,
+  appointmentAnalytics,
   mode = 'download',
 } = {}) {
   const logoDataUrl = await safeSvgUrlToPngDataUrl(logoUrl, { width: 120 });
@@ -1107,6 +1136,12 @@ export async function exportReportsPdf({
     { label: 'Unidades em Stock', value: stats?.stockUnits ?? 0 },
     { label: 'Baixo Stock (≤2)', value: stats?.lowStock ?? 0, valueColor: '#d9534f' },
     { label: 'Total em Compras', value: `€ ${moneyPt(stats?.purchasesTotal ?? 0)}` },
+    ...(appointmentAnalytics?.enabled
+      ? [
+          { label: 'Marcações (30 dias)', value: appointmentAnalytics?.total ?? 0 },
+          { label: 'Concluídas (30 dias)', value: appointmentAnalytics?.completed ?? 0 },
+        ]
+      : []),
     { label: 'Devoluções (clientes)', value: stats?.returns_completed ?? 0 },
     { label: 'Pendentes (devoluções)', value: stats?.returns_pending ?? 0 },
     { label: 'Reembolsos (clientes)', value: `€ ${moneyPt(stats?.returns_refund_total ?? 0)}` },
@@ -1115,6 +1150,7 @@ export async function exportReportsPdf({
   const topViewed = analytics?.top_viewed_products ?? [];
   const topSearches = analytics?.top_searches ?? [];
   const largestOrders = analytics?.largest_orders ?? [];
+  const appt = appointmentAnalytics?.enabled ? appointmentAnalytics : null;
 
   const element = createPdfHtmlReportElement({
     reportTitle: String(title ?? 'Relatórios'),
@@ -1123,6 +1159,28 @@ export async function exportReportsPdf({
     sectionTitle: 'Resumo Operacional',
     summaryCards,
     sections: [
+      ...(appt
+        ? [
+            {
+              title: 'Serviços com mais marcações (30 dias)',
+              headers: [
+                { label: 'Serviço', align: 'left' },
+                { label: 'Total', align: 'right' },
+                { label: 'Concluídas', align: 'right' },
+              ],
+              rows: (appt.topServices ?? []).slice(0, 30).map((s) => [s.name ?? '', String(s.total ?? 0), String(s.completed ?? 0)]),
+            },
+            {
+              title: 'Atendentes com mais marcações (30 dias)',
+              headers: [
+                { label: 'Atendente', align: 'left' },
+                { label: 'Total', align: 'right' },
+                { label: 'Concluídas', align: 'right' },
+              ],
+              rows: (appt.topStaff ?? []).slice(0, 30).map((s) => [s.name ?? '', String(s.total ?? 0), String(s.completed ?? 0)]),
+            },
+          ]
+        : []),
       {
         title: 'Produtos mais vistos (30 dias)',
         headers: [
@@ -1183,6 +1241,7 @@ export async function exportFinancePdf({
     { label: 'Valor Esperado (PVP) (€)', value: moneyPt(stats?.expected ?? 0) },
     { label: 'Margem Potencial (€)', value: moneyPt(stats?.marginPotential ?? 0) },
     { label: 'Receita (Entregue) (€)', value: moneyPt(stats?.revenueDelivered ?? 0) },
+    { label: 'Marcações (concluídas) (€)', value: moneyPt(stats?.appointmentsRevenueCompleted ?? 0) },
     { label: 'Lucro (Entregue) (€)', value: moneyPt(stats?.grossProfitDelivered ?? 0) },
     { label: 'Consumíveis (€)', value: moneyPt(stats?.purchasesLogisticsTotal ?? 0) },
     { label: 'Despesas (€)', value: moneyPt(stats?.expensesTotal ?? 0) },
@@ -1206,6 +1265,7 @@ export async function exportFinancePdf({
         rows: [
           ['Receita pendente (€)', moneyPt(stats?.revenueOpen ?? 0)],
           ['Canceladas (€)', moneyPt(stats?.revenueCancelled ?? 0)],
+          ['Marcações (concluídas) (€)', moneyPt(stats?.appointmentsRevenueCompleted ?? 0)],
           ['Lucro (Entregue) (€)', moneyPt(stats?.grossProfitDelivered ?? 0)],
           ['Stock atual (custo) (€)', moneyPt(stats?.stockCurrentCost ?? 0)],
           ['Compras (Stock) (€)', moneyPt(stats?.purchasesStockTotal ?? 0)],
@@ -1263,6 +1323,15 @@ export async function exportOrderInvoicePdf({ filename, title = 'Fatura', logoUr
 
   const items = Array.isArray(order?.items) ? order.items : [];
 
+  const origin =
+    typeof window !== 'undefined' && window.location && typeof window.location.origin === 'string'
+      ? window.location.origin
+      : '';
+  const qrPayload = origin
+    ? `${origin}/admin/encomendas?ref=${encodeURIComponent(id)}`
+    : `ZANA|FATURA|${id}|${moneyPt(order?.total ?? 0)}|${new Date(when).toISOString()}`;
+  const qrUrl = `https://quickchart.io/qr?size=160&text=${encodeURIComponent(qrPayload)}`;
+
   const element = createPdfHtmlReportElement({
     reportTitle: String(title ?? 'Fatura'),
     createdAt: when,
@@ -1275,6 +1344,11 @@ export async function exportOrderInvoicePdf({ filename, title = 'Fatura', logoUr
       { label: 'Entrega', value: address || shipping || '—' },
       { label: 'Pagamento', value: payment ? paymentMethodLabelsPt[payment] ?? payment : '—' },
       { label: 'Total (€)', value: moneyPt(order?.total ?? 0) },
+      {
+        label: 'QR Code',
+        valueHtml: `<img src="${escapeHtml(qrUrl)}" alt="QR" style="width:92px;height:92px;display:block;object-fit:contain;margin:0 auto;border:1px solid #e6e7ea;" />`,
+        valueStyle: 'font-size:0;',
+      },
     ],
     sections: [
       {

@@ -1399,7 +1399,8 @@ const appointmentServicePayloadSchema = z
   .object({ 
     name: z.string().min(1).max(120), 
     description: z.string().max(2000).optional().nullable(), 
-    image_url: z.string().max(10_000).optional().nullable(),
+    // Pode ser URL http(s) ou data URL (base64) gerado pelo uploader do frontend.
+    image_url: z.string().max(1_000_000).optional().nullable(),
     duration_minutes: z.union([z.number(), z.string()]).optional(), 
     price: z.union([z.number(), z.string()]).optional().nullable(), 
     is_active: z.boolean().optional(), 
@@ -1431,7 +1432,8 @@ const appointmentCreateSchema = z
     staff_id: z.string().optional().nullable(),
     start_at: z.string().min(1).max(200),
     observations: z.string().max(5000).optional().nullable(),
-    image_url: z.string().max(10_000).optional().nullable(),
+    // Pode ser URL http(s) ou data URL (base64) inserido pelo cliente.
+    image_url: z.string().max(1_000_000).optional().nullable(),
     guest_name: z.string().max(200).optional().nullable(),
     guest_email: z.string().max(320).optional().nullable(),
     guest_phone: z.string().max(30).optional().nullable(),
@@ -1445,7 +1447,8 @@ const adminAppointmentPatchSchema = z
     staff_id: z.string().optional().nullable(),
     service_id: z.string().optional().nullable(),
     observations: z.string().max(5000).optional().nullable(),
-    image_url: z.string().max(10_000).optional().nullable(),
+    // Pode ser URL http(s) ou data URL (base64).
+    image_url: z.string().max(1_000_000).optional().nullable(),
     duration_minutes: z.union([z.number(), z.string()]).optional().nullable(),
   })
   .passthrough()
@@ -3512,11 +3515,15 @@ async function computeReviewRewardPoints(review) {
 }
 
 function toApiAppointmentService(s) {
+  const rawImageUrl = s.imageUrl ?? null
+  const imageUrl =
+    typeof rawImageUrl === 'string' && rawImageUrl.startsWith('data:image/') ? `/api/media/services/${s.id}/image` : rawImageUrl
+
   return {
     id: s.id,
     name: s.name,
     description: s.description ?? null,
-    image_url: s.imageUrl ?? null,
+    image_url: imageUrl,
     duration_minutes: s.durationMinutes ?? 30,
     price: s.price === null || s.price === undefined ? null : decimalToNumber(s.price),
     is_active: Boolean(s.isActive),
@@ -5703,6 +5710,39 @@ app.get('/api/appointments/services', async (req, res) => {
     take: 500,
   })
   res.json({ services: services.map(toApiAppointmentService) })
+})
+
+// Media (serve images stored as data URLs in the database)
+app.get('/api/media/services/:id/image', async (req, res) => {
+  const id = String(req.params.id ?? '')
+  const service = await prisma.service.findUnique({ where: { id } })
+  if (!service) return res.status(404).send('not_found')
+
+  const image = service.imageUrl ?? null
+  if (!image) return res.status(404).send('no_image')
+
+  if (typeof image === 'string' && /^https?:\/\//i.test(image)) {
+    res.redirect(302, image)
+    return
+  }
+
+  if (typeof image !== 'string' || !image.startsWith('data:image/')) {
+    return res.status(415).send('unsupported_image')
+  }
+
+  const match = image.match(/^data:([^;,]+);base64,(.+)$/)
+  if (!match) return res.status(400).send('invalid_data_url')
+
+  const mime = match[1] || 'image/jpeg'
+  const b64 = match[2] || ''
+  try {
+    const buf = Buffer.from(b64, 'base64')
+    res.setHeader('Content-Type', mime)
+    res.setHeader('Cache-Control', 'public, max-age=3600')
+    res.status(200).send(buf)
+  } catch {
+    res.status(400).send('invalid_base64')
+  }
 })
 
 app.get('/api/appointments/staff', async (req, res) => { 

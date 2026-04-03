@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, ExternalLink, Image as ImageIcon } from 'lucide-react';
 
 import { base44 } from '@/api/base44Client';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { getErrorMessage } from '@/lib/toast';
 import Auth from './Auth';
 import { useAuth } from '@/lib/AuthContext';
 import { Link } from 'react-router-dom';
+import ImageWithFallback from '@/components/ui/image-with-fallback';
 
 export default function MyAppointments() {
   const queryClient = useQueryClient();
@@ -129,6 +130,32 @@ export default function MyAppointments() {
                         {a.observations ? (
                           <div className="font-body text-xs text-muted-foreground mt-1">{a.observations}</div>
                         ) : null}
+                        {a.image_url ? (
+                          <a
+                            href={String(a.image_url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-3 inline-flex items-center gap-3 rounded-none border border-border bg-card px-3 py-2 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition-colors"
+                            title="Abrir imagem"
+                          >
+                            <div className="w-10 h-10 border border-border bg-secondary/30 shrink-0 overflow-hidden rounded-none">
+                              <ImageWithFallback
+                                src={String(a.image_url)}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                iconClassName="w-5 h-5 text-muted-foreground/50"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <ImageIcon className="w-4 h-4" />
+                                <span className="truncate">Imagem da marcação</span>
+                              </div>
+                              <div className="mt-1 truncate opacity-80">{String(a.image_url)}</div>
+                            </div>
+                            <ExternalLink className="w-4 h-4 shrink-0" />
+                          </a>
+                        ) : null}
                       </div>
                       {(a.status === 'pending' || a.status === 'confirmed') ? (
                         <div className="flex items-center gap-2">
@@ -185,6 +212,32 @@ export default function MyAppointments() {
                     </div>
                     {a.observations ? (
                       <div className="font-body text-xs text-muted-foreground mt-1">{a.observations}</div>
+                    ) : null}
+                    {a.image_url ? (
+                      <a
+                        href={String(a.image_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center gap-3 rounded-none border border-border bg-card px-3 py-2 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition-colors"
+                        title="Abrir imagem"
+                      >
+                        <div className="w-10 h-10 border border-border bg-secondary/30 shrink-0 overflow-hidden rounded-none">
+                          <ImageWithFallback
+                            src={String(a.image_url)}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            iconClassName="w-5 h-5 text-muted-foreground/50"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <ImageIcon className="w-4 h-4" />
+                            <span className="truncate">Imagem da marcação</span>
+                          </div>
+                          <div className="mt-1 truncate opacity-80">{String(a.image_url)}</div>
+                        </div>
+                        <ExternalLink className="w-4 h-4 shrink-0" />
+                      </a>
                     ) : null}
                     <Separator className="my-3" />
                   </div>

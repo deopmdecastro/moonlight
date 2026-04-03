@@ -394,8 +394,13 @@ export const base44 = {
   },
   integrations: {
     Core: {
-      UploadFile: async ({ file } = {}) => {
+      UploadFile: async ({ file, maxSide = 1600, quality = 0.85, format = 'auto' } = {}) => {
         if (!file) throw new Error('Missing file');
+
+        const safeMaxSide = Math.max(320, Math.min(3200, Math.floor(Number(maxSide) || 1600)));
+        const safeQuality = Math.max(0.4, Math.min(0.95, Number(quality) || 0.85));
+        const safeFormat = String(format ?? 'auto').toLowerCase();
+        const preferJpeg = safeFormat === 'jpeg' || safeFormat === 'jpg';
 
         const readAsDataUrl = (blob) =>
           new Promise((resolve, reject) => {
@@ -419,10 +424,9 @@ export const base44 = {
               });
             }
 
-            const maxSide = 1600;
             const width = img.naturalWidth || img.width || 1;
             const height = img.naturalHeight || img.height || 1;
-            const scale = Math.min(1, maxSide / Math.max(width, height));
+            const scale = Math.min(1, safeMaxSide / Math.max(width, height));
             const targetW = Math.max(1, Math.round(width * scale));
             const targetH = Math.max(1, Math.round(height * scale));
 
@@ -433,16 +437,17 @@ export const base44 = {
             if (!ctx) throw new Error('canvas_context_failed');
             ctx.drawImage(img, 0, 0, targetW, targetH);
 
-            const quality = 0.85;
             let dataUrl = '';
-            try {
-              dataUrl = canvas.toDataURL('image/webp', quality);
-            } catch {
-              dataUrl = '';
+            if (!preferJpeg) {
+              try {
+                dataUrl = canvas.toDataURL('image/webp', safeQuality);
+              } catch {
+                dataUrl = '';
+              }
             }
             if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
               try {
-                dataUrl = canvas.toDataURL('image/jpeg', quality);
+                dataUrl = canvas.toDataURL('image/jpeg', safeQuality);
               } catch {
                 dataUrl = '';
               }

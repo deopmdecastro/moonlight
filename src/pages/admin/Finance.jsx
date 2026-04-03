@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Download, Euro, TrendingUp, Package, ShoppingCart, Receipt } from 'lucide-react';
+import { Download, Euro, TrendingUp, Package, ShoppingCart, Receipt, CalendarClock } from 'lucide-react';
 import {
   CartesianGrid,
   Legend,
@@ -125,6 +125,13 @@ export default function AdminFinance() {
     queryKey: ['admin-orders'],
     queryFn: () => base44.entities.Order.list('-created_date', 5000),
   });
+
+  const { data: appointmentsCompletedRes } = useQuery({
+    queryKey: ['admin-appointments-completed'],
+    queryFn: () => base44.admin.appointments.list({ status: 'completed', limit: 5000 }),
+  });
+
+  const completedAppointments = appointmentsCompletedRes?.appointments ?? [];
 
 
   const queryClient = useQueryClient();
@@ -260,7 +267,17 @@ export default function AdminFinance() {
       return acc;
     }, {});
 
-    const revenueDelivered = revenueByStatus.delivered ?? 0;
+    let appointmentsRevenueCompleted = 0;
+    for (const a of completedAppointments ?? []) {
+      if (String(a?.status ?? '') !== 'completed') continue;
+      const price = Number(a?.service?.price ?? 0) || 0;
+      if (!Number.isFinite(price) || price <= 0) continue;
+      appointmentsRevenueCompleted += price;
+    }
+    appointmentsRevenueCompleted = Number(appointmentsRevenueCompleted.toFixed(2));
+
+    const revenueDeliveredOrders = revenueByStatus.delivered ?? 0;
+    const revenueDelivered = Number((revenueDeliveredOrders + appointmentsRevenueCompleted).toFixed(2));
     const revenueOpen =
       (revenueByStatus.pending ?? 0) +
       (revenueByStatus.confirmed ?? 0) +
@@ -283,12 +300,14 @@ export default function AdminFinance() {
       purchasesLogisticsTotal,
       expensesTotal,
       byCategory: byCategoryRows,
+      appointmentsRevenueCompleted,
+      revenueDeliveredOrders: Number((revenueDeliveredOrders ?? 0).toFixed(2)),
       revenueDelivered,
       revenueOpen,
       revenueCancelled: revenueByStatus.cancelled ?? 0,
       grossProfitDelivered: Number(grossProfitDelivered.toFixed(2)),
     };
-  }, [inventory, purchases, expenses, orders]);
+  }, [inventory, purchases, expenses, orders, completedAppointments]);
 
   const health = useMemo(() => {
     const now = new Date();
@@ -307,6 +326,13 @@ export default function AdminFinance() {
       const k = monthKey(o?.created_date ?? o?.created_at);
       if (!k || !byMonth.has(k)) continue;
       byMonth.get(k).receita += Number(o?.total ?? 0) || 0;
+    }
+
+    for (const a of completedAppointments ?? []) {
+      if (String(a?.status ?? '') !== 'completed') continue;
+      const k = monthKey(a?.start_at ?? a?.end_at ?? a?.updated_date ?? a?.created_date);
+      if (!k || !byMonth.has(k)) continue;
+      byMonth.get(k).receita += Number(a?.service?.price ?? 0) || 0;
     }
 
     for (const p of purchases ?? []) {
@@ -349,6 +375,13 @@ export default function AdminFinance() {
         receita += Number(o?.total ?? 0) || 0;
       }
 
+      for (const a of completedAppointments ?? []) {
+        if (String(a?.status ?? '') !== 'completed') continue;
+        const d = new Date(a?.start_at ?? a?.end_at ?? a?.updated_date ?? a?.created_date ?? 0);
+        if (!Number.isFinite(d.getTime()) || d < start) continue;
+        receita += Number(a?.service?.price ?? 0) || 0;
+      }
+
       for (const p of purchases ?? []) {
         if (String(p?.status ?? '') === 'cancelled') continue;
         const d = new Date(p?.purchased_at ?? p?.purchased_date ?? p?.created_date ?? p?.created_at ?? 0);
@@ -375,13 +408,14 @@ export default function AdminFinance() {
       last90,
       profitable: last3Months >= 0,
     };
-  }, [orders, purchases, expenses]);
+  }, [orders, purchases, expenses, completedAppointments]);
 
   const cards = [
     { title: 'Investido em Stock', value: `${stats.invested.toFixed(2)} €`, icon: Euro, color: 'text-primary' },
     { title: 'Valor Esperado (PVP)', value: `${stats.expected.toFixed(2)} €`, icon: TrendingUp, color: 'text-green-700' },
     { title: 'Margem Potencial', value: `${stats.marginPotential.toFixed(2)} €`, icon: Package, color: 'text-accent' },
     { title: 'Receita (Entregue)', value: `${stats.revenueDelivered.toFixed(2)} €`, icon: ShoppingCart, color: 'text-green-700' },
+    { title: 'Marcações (concluídas)', value: `${stats.appointmentsRevenueCompleted.toFixed(2)} €`, icon: CalendarClock, color: 'text-primary' },
     {
       title: 'Lucro (Entregue)',
       value: `${stats.grossProfitDelivered.toFixed(2)} €`,

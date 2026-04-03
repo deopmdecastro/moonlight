@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Download, Eye, Euro, Package, Search, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Download, Eye, Euro, Package, Search, TrendingUp, AlertTriangle, CalendarClock, User } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { base44 } from '@/api/base44Client';
@@ -97,6 +97,72 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+
+  const { data: appointmentsContentRes } = useQuery({
+    queryKey: ['admin-appointments-settings-for-reports'],
+    queryFn: () => base44.admin.content.appointments.get(),
+  });
+
+  const appointmentsEnabled = Boolean(appointmentsContentRes?.content?.enabled);
+  const apptFrom = useMemo(() => {
+    const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const apptTo = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const { data: apptRes } = useQuery({
+    enabled: appointmentsEnabled,
+    queryKey: ['admin-appointments-for-reports', apptFrom, apptTo],
+    queryFn: () => base44.admin.appointments.list({ from: apptFrom, to: apptTo, status: 'all', limit: 5000 }),
+  });
+
+  const appointmentAnalytics = useMemo(() => {
+    if (!appointmentsEnabled) return null;
+    const appointments = apptRes?.appointments ?? [];
+    const byService = new Map();
+    const byStaff = new Map();
+    let total = 0;
+    let completed = 0;
+    let cancelled = 0;
+
+    for (const a of appointments) {
+      total += 1;
+      const status = String(a?.status ?? '');
+      if (status === 'completed') completed += 1;
+      if (status === 'cancelled') cancelled += 1;
+
+      const serviceName = String(a?.service?.name ?? '').trim() || 'Sem serviço';
+      const staffName = String(a?.staff?.name ?? '').trim() || 'Sem atendente';
+
+      const sRow = byService.get(serviceName) ?? { name: serviceName, total: 0, completed: 0 };
+      sRow.total += 1;
+      if (status === 'completed') sRow.completed += 1;
+      byService.set(serviceName, sRow);
+
+      const stRow = byStaff.get(staffName) ?? { name: staffName, total: 0, completed: 0 };
+      stRow.total += 1;
+      if (status === 'completed') stRow.completed += 1;
+      byStaff.set(staffName, stRow);
+    }
+
+    const topServices = Array.from(byService.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 12);
+    const topStaff = Array.from(byStaff.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 12);
+
+    return {
+      enabled: true,
+      from: apptFrom,
+      to: apptTo,
+      total,
+      completed,
+      cancelled,
+      topServices,
+      topStaff,
+    };
+  }, [appointmentsEnabled, apptRes, apptFrom, apptTo]);
 
   const stats = useMemo(() => {
     const productsCount = inventory.length;
@@ -243,6 +309,7 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
         createdAt: new Date(),
         stats,
         analytics,
+        appointmentAnalytics,
         mode: 'blob',
       });
 
@@ -275,6 +342,7 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
         stats,
         analytics,
         purchaseAdjustments,
+        appointmentAnalytics,
       });
       toast.success('Excel exportado');
     } catch (err) {
@@ -311,6 +379,79 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
             </Card>
           ))}
         </div>
+
+        {appointmentsEnabled ? (
+          <Card className="mt-6">
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <CardTitle className="font-heading text-xl">Marcações (30 dias)</CardTitle>
+                <div className="text-right min-w-0">
+                  <div className="font-body text-xs text-muted-foreground">Período</div>
+                  <div className="font-body text-sm tabular-nums text-muted-foreground">
+                    {appointmentAnalytics?.from} → {appointmentAnalytics?.to}
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(appointmentAnalytics?.total ?? 0) === 0 ? (
+                <EmptyState icon={CalendarClock} description="Sem marcações" className="py-6" />
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="rounded-lg border border-border bg-secondary/10 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CalendarClock className="w-4 h-4 text-primary shrink-0" />
+                        <h3 className="font-heading text-lg truncate">Serviços com mais marcações</h3>
+                      </div>
+                      <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">{appointmentAnalytics?.total ?? 0}</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-[1fr_auto_auto] gap-3 text-xs text-muted-foreground font-body">
+                        <span>Serviço</span>
+                        <span className="text-right">Total</span>
+                        <span className="text-right">Concl.</span>
+                      </div>
+                      {(appointmentAnalytics?.topServices ?? []).slice(0, 8).map((s) => (
+                        <div key={s.name} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-body text-sm">
+                          <div className="min-w-0 truncate">{s.name}</div>
+                          <div className="text-right tabular-nums text-muted-foreground">{s.total}</div>
+                          <div className="text-right tabular-nums text-muted-foreground">{s.completed}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-secondary/10 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <User className="w-4 h-4 text-accent shrink-0" />
+                        <h3 className="font-heading text-lg truncate">Atendentes com mais marcações</h3>
+                      </div>
+                      <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">
+                        {appointmentAnalytics?.completed ?? 0} concluídas
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-[1fr_auto_auto] gap-3 text-xs text-muted-foreground font-body">
+                        <span>Atendente</span>
+                        <span className="text-right">Total</span>
+                        <span className="text-right">Concl.</span>
+                      </div>
+                      {(appointmentAnalytics?.topStaff ?? []).slice(0, 8).map((s) => (
+                        <div key={s.name} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-body text-sm">
+                          <div className="min-w-0 truncate">{s.name}</div>
+                          <div className="text-right tabular-nums text-muted-foreground">{s.total}</div>
+                          <div className="text-right tabular-nums text-muted-foreground">{s.completed}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card className="mt-6">
           <CardHeader>
