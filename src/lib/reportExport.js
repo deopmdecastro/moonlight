@@ -424,7 +424,8 @@ function createPdfHtmlReportElement({
       .zana-pdf-report .report-info h1 { margin: 0; font-size: 20px; color: var(--primary-color); letter-spacing: .5px; }
       .zana-pdf-report .report-info span { font-size: 11px; color: #777; }
 
-      .zana-pdf-report .report-body { flex: 1; }
+      /* Important for pagination: allow flex child to shrink to page height */
+      .zana-pdf-report .report-body { flex: 1; min-height: 0; overflow: hidden; }
 
       .zana-pdf-report .section-title {
         font-size: 16px;
@@ -986,6 +987,9 @@ export async function exportReportsExcel({
           ['Unidades em Stock', stats?.stockUnits ?? 0],
           ['Baixo Stock (≤2)', stats?.lowStock ?? 0],
           ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],
+          ['Devoluções (clientes)', stats?.returns_completed ?? 0],
+          ['Pendentes (devoluções)', stats?.returns_pending ?? 0],
+          ['Reembolsos (clientes) (€)', moneyPt(stats?.returns_refund_total ?? 0)],
           ['Unidades devolvidas ao fornecedor', stats?.return_units ?? 0],
           ['Valor devolvido (€)', moneyPt(stats?.return_value ?? 0)],
           ['Unidades removidas do stock', stats?.writeoff_units ?? 0],
@@ -1064,6 +1068,7 @@ export async function exportFinanceExcel({ filename, title = 'Financeiro', logoU
           ['Canceladas (€)', moneyPt(stats?.revenueCancelled ?? 0)],
           ['Compras (Stock) (€)', moneyPt(stats?.purchasesStockTotal ?? 0)],
           ['Consumíveis (€)', moneyPt(stats?.purchasesLogisticsTotal ?? 0)],
+          ['Despesas (€)', moneyPt(stats?.expensesTotal ?? 0)],
           ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],
         ],
       },
@@ -1102,6 +1107,9 @@ export async function exportReportsPdf({
     { label: 'Unidades em Stock', value: stats?.stockUnits ?? 0 },
     { label: 'Baixo Stock (≤2)', value: stats?.lowStock ?? 0, valueColor: '#d9534f' },
     { label: 'Total em Compras', value: `€ ${moneyPt(stats?.purchasesTotal ?? 0)}` },
+    { label: 'Devoluções (clientes)', value: stats?.returns_completed ?? 0 },
+    { label: 'Pendentes (devoluções)', value: stats?.returns_pending ?? 0 },
+    { label: 'Reembolsos (clientes)', value: `€ ${moneyPt(stats?.returns_refund_total ?? 0)}` },
   ];
 
   const topViewed = analytics?.top_viewed_products ?? [];
@@ -1177,6 +1185,7 @@ export async function exportFinancePdf({
     { label: 'Receita (Entregue) (€)', value: moneyPt(stats?.revenueDelivered ?? 0) },
     { label: 'Lucro (Entregue) (€)', value: moneyPt(stats?.grossProfitDelivered ?? 0) },
     { label: 'Consumíveis (€)', value: moneyPt(stats?.purchasesLogisticsTotal ?? 0) },
+    { label: 'Despesas (€)', value: moneyPt(stats?.expensesTotal ?? 0) },
   ];
 
   const byCategory = Array.isArray(stats?.byCategory) ? stats.byCategory : [];
@@ -1201,6 +1210,7 @@ export async function exportFinancePdf({
           ['Stock atual (custo) (€)', moneyPt(stats?.stockCurrentCost ?? 0)],
           ['Compras (Stock) (€)', moneyPt(stats?.purchasesStockTotal ?? 0)],
           ['Consumíveis (€)', moneyPt(stats?.purchasesLogisticsTotal ?? 0)],
+          ['Despesas (€)', moneyPt(stats?.expensesTotal ?? 0)],
           ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],
         ],
       },
@@ -1308,15 +1318,198 @@ export async function exportOrderInvoicePdf({ filename, title = 'Fatura', logoUr
 export async function exportElementToPdf(element, filename, { title, mode = 'download' } = {}) {
   if (!element) throw new Error('missing_element');
 
+  const A4_PX_HEIGHT = 1123; // A4 @ ~96dpi (matches createPdfHtmlReportElement)
+
+  function isOverflowing(container) {
+    return container.scrollHeight > container.clientHeight + 1;
+  }
+
+  function createEmptyReportPage({ header, footer } = {}) {
+    const page = document.createElement('div');
+    page.className = 'report-container';
+    page.style.height = `${A4_PX_HEIGHT}px`;
+    page.style.minHeight = `${A4_PX_HEIGHT}px`;
+    page.style.overflow = 'hidden';
+
+    const headerClone = header ? header.cloneNode(true) : null;
+    const footerClone = footer ? footer.cloneNode(true) : null;
+
+    const body = document.createElement('div');
+    body.className = 'report-body';
+    body.style.flex = '1 1 auto';
+    body.style.minHeight = '0';
+    body.style.overflow = 'hidden';
+
+    if (headerClone) page.appendChild(headerClone);
+    page.appendChild(body);
+    if (footerClone) page.appendChild(footerClone);
+
+    return { page, body };
+  }
+
+  function paginateReport(elementRoot) {
+    const root = elementRoot;
+    const container = root.querySelector('.report-container');
+    if (!container) return null;
+    const body = container.querySelector('.report-body');
+    const header = container.querySelector('header');
+    const footer = container.querySelector('.report-footer');
+    if (!body || !header || !footer) return null;
+
+    // Force fixed height so we can measure remaining space per page reliably.
+    container.style.height = `${A4_PX_HEIGHT}px`;
+    container.style.minHeight = `${A4_PX_HEIGHT}px`;
+    container.style.overflow = 'hidden';
+    // Critical for flex layouts: allow body to shrink, otherwise it expands to content and overflow checks fail.
+    body.style.minHeight = '0';
+    body.style.overflow = 'hidden';
+
+    const children = Array.from(body.children);
+    const summaryTitle = children.find((n) => n.matches?.('h2.section-title')) ?? null;
+    const statsGrid = body.querySelector('.stats-grid');
+    if (!summaryTitle || !statsGrid) return null;
+
+    const statsIndex = children.indexOf(statsGrid);
+    const startIndex = statsIndex >= 0 ? statsIndex + 1 : 0;
+
+    const sections = [];
+    for (let i = startIndex; i < children.length; i += 1) {
+      const node = children[i];
+      if (!node?.matches?.('h2.section-title')) continue;
+      const next = children[i + 1];
+      if (!next || next.tagName !== 'TABLE') continue;
+      sections.push({ titleNode: node, tableNode: next });
+      i += 1;
+    }
+
+    // Preserve the injected stylesheet(s) before rebuilding pages.
+    const styleClones = Array.from(root.querySelectorAll('style')).map((s) => s.cloneNode(true));
+
+    // Clean root and rebuild pages.
+    root.innerHTML = '';
+    for (const s of styleClones) root.appendChild(s);
+
+    const pages = [];
+
+    const { page: firstPage, body: firstBody } = createEmptyReportPage({ header, footer });
+    pages.push(firstPage);
+    root.appendChild(firstPage);
+
+    // Summary always on first page.
+    firstBody.appendChild(summaryTitle.cloneNode(true));
+    firstBody.appendChild(statsGrid.cloneNode(true));
+
+    let currentBody = firstBody;
+
+    const startNewPage = () => {
+      const { page, body } = createEmptyReportPage({ header, footer });
+      pages.push(page);
+      root.appendChild(page);
+      currentBody = body;
+    };
+
+    const appendSectionTableChunk = ({ titleNode, tableNode, rowNodes, includeTitle }) => {
+      if (includeTitle) currentBody.appendChild(titleNode.cloneNode(true));
+
+      const tableClone = tableNode.cloneNode(false);
+      const thead = tableNode.querySelector('thead');
+      const tbody = document.createElement('tbody');
+      if (thead) tableClone.appendChild(thead.cloneNode(true));
+      tableClone.appendChild(tbody);
+      currentBody.appendChild(tableClone);
+
+      for (const row of rowNodes) tbody.appendChild(row.cloneNode(true));
+
+      return tableClone;
+    };
+
+    const splitTableAcrossPages = ({ titleNode, tableNode }) => {
+      const rows = Array.from(tableNode.querySelectorAll('tbody > tr'));
+      if (rows.length === 0) {
+        // No rows, just append as-is (header only).
+        currentBody.appendChild(titleNode.cloneNode(true));
+        currentBody.appendChild(tableNode.cloneNode(true));
+        return;
+      }
+
+      let idx = 0;
+      let firstChunk = true;
+      while (idx < rows.length) {
+        // Ensure we have room for at least title + one row; otherwise new page.
+        if (!firstChunk) startNewPage();
+
+        const chunkRows = [];
+        // Provisional append with 0 rows, then add until overflow.
+        const tableClone = appendSectionTableChunk({
+          titleNode,
+          tableNode,
+          rowNodes: [],
+          includeTitle: true,
+        });
+
+        while (idx < rows.length) {
+          const rowClone = rows[idx].cloneNode(true);
+          tableClone.querySelector('tbody')?.appendChild(rowClone);
+
+          if (isOverflowing(currentBody)) {
+            // Remove last row that caused overflow.
+            rowClone.remove();
+            break;
+          }
+
+          chunkRows.push(rows[idx]);
+          idx += 1;
+        }
+
+        // If even the first row doesn't fit, force it in to avoid infinite loop.
+        if (chunkRows.length === 0 && idx < rows.length) {
+          tableClone.querySelector('tbody')?.appendChild(rows[idx].cloneNode(true));
+          idx += 1;
+        }
+
+        firstChunk = false;
+      }
+    };
+
+    for (const s of sections) {
+      // Try to append whole section (title + full table) to current page.
+      const marker = document.createElement('div');
+      marker.style.display = 'contents';
+      currentBody.appendChild(marker);
+
+      const titleClone = s.titleNode.cloneNode(true);
+      const tableClone = s.tableNode.cloneNode(true);
+      marker.appendChild(titleClone);
+      marker.appendChild(tableClone);
+
+      if (!isOverflowing(currentBody)) {
+        continue;
+      }
+
+      // Doesn't fit. Remove and retry on new page.
+      marker.remove();
+      startNewPage();
+
+      const marker2 = document.createElement('div');
+      marker2.style.display = 'contents';
+      currentBody.appendChild(marker2);
+      marker2.appendChild(s.titleNode.cloneNode(true));
+      marker2.appendChild(s.tableNode.cloneNode(true));
+
+      if (!isOverflowing(currentBody)) {
+        continue;
+      }
+
+      // Still doesn't fit: split rows across pages.
+      marker2.remove();
+      splitTableAcrossPages({ titleNode: s.titleNode, tableNode: s.tableNode });
+    }
+
+    return pages;
+  }
+
   const [{ default: html2canvas }, jspdfMod] = await Promise.all([import('html2canvas'), import('jspdf')]);
   const jsPDF = jspdfMod.jsPDF ?? jspdfMod.default ?? jspdfMod;
-
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    backgroundColor: '#ffffff',
-    useCORS: true,
-    logging: false,
-  });
 
   const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -1332,39 +1525,32 @@ export async function exportElementToPdf(element, filename, { title, mode = 'dow
   const contentWidth = pageWidth - margin * 2;
   const contentHeight = pageHeight - contentTop - margin;
 
-  const pxPerPt = canvas.width / contentWidth;
-  const sliceHeightPx = Math.floor(contentHeight * pxPerPt);
+  // If it's a ZANA report, paginate by section/table rows so content isn't cut mid-table.
+  const pages = paginateReport(element);
+  const targets = pages?.length ? pages : [element];
 
-  const pageCanvas = document.createElement('canvas');
-  pageCanvas.width = canvas.width;
-  pageCanvas.height = sliceHeightPx;
-  const ctx = pageCanvas.getContext('2d');
-  if (!ctx) throw new Error('canvas_context_failed');
+  for (let pageIndex = 0; pageIndex < targets.length; pageIndex += 1) {
+    const target = targets[pageIndex];
+    // eslint-disable-next-line no-await-in-loop
+    const canvas = await html2canvas(target, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+    });
 
-  let y = 0;
-  let pageIndex = 0;
-  while (y < canvas.height) {
-    ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-
-    const remaining = canvas.height - y;
-    const drawHeight = Math.min(sliceHeightPx, remaining);
-
-    ctx.drawImage(canvas, 0, y, canvas.width, drawHeight, 0, 0, canvas.width, drawHeight);
-
-    const imgData = pageCanvas.toDataURL('image/png', 1.0);
-    const drawHeightPt = drawHeight / pxPerPt;
+    const pxPerPt = canvas.width / contentWidth;
+    const drawHeightPt = canvas.height / pxPerPt;
 
     if (pageIndex > 0) pdf.addPage();
     if (title) {
       pdf.setFontSize(12);
       pdf.text(String(title), margin, margin);
     }
-    pdf.addImage(imgData, 'PNG', margin, contentTop, contentWidth, drawHeightPt, undefined, 'FAST');
 
-    y += drawHeight;
-    pageIndex += 1;
+    // Fit to content area (rare, but avoid overflow on very tall pages).
+    const height = Math.min(drawHeightPt, contentHeight);
+    pdf.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', margin, contentTop, contentWidth, height, undefined, 'FAST');
   }
 
   const outName = filename ?? 'export.pdf';

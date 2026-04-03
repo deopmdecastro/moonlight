@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Download, Euro, TrendingUp, Package, ShoppingCart } from 'lucide-react';
+import { Download, Euro, TrendingUp, Package, ShoppingCart, Receipt } from 'lucide-react';
 import {
   CartesianGrid,
   Legend,
@@ -89,6 +89,10 @@ function FinanceHealthTooltip({ active, payload, label }) {
           <span className="font-body text-xs font-semibold">{moneyPt(row.compras)} €</span>
         </div>
         <div className="flex items-center justify-between gap-4">
+          <span className="font-body text-xs text-muted-foreground">Despesas</span>
+          <span className="font-body text-xs font-semibold">{moneyPt(row.despesas)} €</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
           <span className="font-body text-xs text-muted-foreground">Resultado</span>
           <span className="font-body text-xs font-semibold">{moneyPt(row.resultado)} €</span>
         </div>
@@ -112,6 +116,11 @@ export default function AdminFinance() {
     queryFn: () => base44.entities.Purchase.list('-purchased_at', 5000),
   });
 
+  const { data: expenses = [] } = useQuery({
+    queryKey: ['admin-expenses'],
+    queryFn: () => base44.admin.expenses.list(5000),
+  });
+
   const { data: orders = [] } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: () => base44.entities.Order.list('-created_date', 5000),
@@ -126,15 +135,42 @@ export default function AdminFinance() {
     const inventoryById = new Map();
     let stockCurrentCost = 0;
     let expected = 0;
+    const soldUnitsByProductId = new Map();
 
     for (const p of inventory) {
       if (p?.id) inventoryById.set(String(p.id), p);
       const stock = Number(p.stock ?? 0) || 0;
-      const price = Number(p.price ?? 0) || 0;
       const acq = Number(p.acquisition_cost ?? p.last_movement?.unit_cost ?? 0) || 0;
 
       stockCurrentCost += stock * acq;
-      expected += stock * price;
+    }
+
+    // "Vendido" (para stock total) = encomendas já confirmadas/emitidas ou em processamento/entregues.
+    // Não incluímos canceladas.
+    const soldStatuses = new Set(['confirmed', 'processing', 'shipped', 'delivered']);
+    for (const o of orders ?? []) {
+      const status = String(o?.status ?? '').trim();
+      if (!soldStatuses.has(status)) continue;
+      const items = Array.isArray(o?.items) ? o.items : [];
+      for (const it of items) {
+        const productId = it?.product_id ? String(it.product_id) : '';
+        const qty = Number(it?.quantity ?? 0) || 0;
+        if (!productId || !Number.isFinite(qty) || qty <= 0) continue;
+        soldUnitsByProductId.set(productId, (Number(soldUnitsByProductId.get(productId) ?? 0) || 0) + qty);
+      }
+    }
+
+    // Valor Esperado (PVP): stock total (vendido + disponível) × PVP atual.
+    // Total = stock atual (disponível) + unidades já vendidas.
+    expected = 0;
+    for (const p of inventory) {
+      const id = p?.id ? String(p.id) : '';
+      if (!id) continue;
+      const stock = Number(p?.stock ?? 0) || 0;
+      const sold = Number(soldUnitsByProductId.get(id) ?? 0) || 0;
+      const price = Number(p?.price ?? 0) || 0;
+      if (!Number.isFinite(price) || price <= 0) continue;
+      expected += (stock + sold) * price;
     }
 
     // "Investimento por categoria" não deve decrementar com vendas.
@@ -153,6 +189,15 @@ export default function AdminFinance() {
         if (!Number.isFinite(line) || line <= 0) continue;
 
         const productId = String(it?.product_id ?? '').trim() || null;
+        const hasProduct = Boolean(productId);
+
+        // Apenas itens de stock entram no investimento por categoria.
+        // - products: todos os itens contam (mesmo sem vínculo)
+        // - mixed: só itens vinculados a produto (stock)
+        // - kind ausente (registos antigos): só itens vinculados a produto (heurística segura)
+        if (kind === 'mixed' && !hasProduct) continue;
+        if (!kind && !hasProduct) continue;
+
         const product = productId ? inventoryById.get(productId) : null;
         const category = String(product?.category ?? 'outros');
         const price = Number(product?.price ?? 0) || 0;
@@ -200,6 +245,14 @@ export default function AdminFinance() {
     purchasesLogisticsTotal = Number(purchasesLogisticsTotal.toFixed(2));
     const purchasesTotal = Number((purchasesStockTotal + purchasesLogisticsTotal).toFixed(2));
 
+    let expensesTotal = 0;
+    for (const e of expenses ?? []) {
+      const amount = Number(e?.amount ?? 0) || 0;
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      expensesTotal += amount;
+    }
+    expensesTotal = Number(expensesTotal.toFixed(2));
+
     const revenueByStatus = orders.reduce((acc, o) => {
       const status = String(o.status ?? 'pending');
       const total = Number(o.total ?? 0) || 0;
@@ -214,25 +267,28 @@ export default function AdminFinance() {
       (revenueByStatus.processing ?? 0) +
       (revenueByStatus.shipped ?? 0);
 
-    const grossProfitDelivered = revenueDelivered - purchasesStockTotal;
+    // Lucro (Entregue): Receita (Entregue) − (Investido em Stock + Despesas + Consumíveis).
+    const grossProfitDelivered = revenueDelivered - purchasesStockTotal - expensesTotal - purchasesLogisticsTotal;
 
     return {
       // "Investido em Stock" = total comprado para stock (não diminui com vendas).
       invested: purchasesStockTotal,
       // Stock atual ao custo (para comparação / auditoria).
       stockCurrentCost: Number(stockCurrentCost.toFixed(2)),
-      expected,
-      marginPotential: expected - stockCurrentCost,
+      expected: Number(expected.toFixed(2)),
+      // Margem Potencial: Investido em Stock − Valor Esperado (PVP).
+      marginPotential: Number((expected - purchasesStockTotal).toFixed(2)),
       purchasesTotal,
       purchasesStockTotal,
       purchasesLogisticsTotal,
+      expensesTotal,
       byCategory: byCategoryRows,
       revenueDelivered,
       revenueOpen,
       revenueCancelled: revenueByStatus.cancelled ?? 0,
       grossProfitDelivered: Number(grossProfitDelivered.toFixed(2)),
     };
-  }, [inventory, purchases, orders]);
+  }, [inventory, purchases, expenses, orders]);
 
   const health = useMemo(() => {
     const now = new Date();
@@ -244,7 +300,7 @@ export default function AdminFinance() {
       if (k) months.push(k);
     }
 
-    const byMonth = new Map(months.map((k) => [k, { month: k, receita: 0, compras: 0 }]));
+    const byMonth = new Map(months.map((k) => [k, { month: k, receita: 0, compras: 0, despesas: 0 }]));
 
     for (const o of orders ?? []) {
       if (String(o?.status ?? '') !== 'delivered') continue;
@@ -260,15 +316,23 @@ export default function AdminFinance() {
       byMonth.get(k).compras += getPurchaseLineTotals(p).total || 0;
     }
 
+    for (const e of expenses ?? []) {
+      const k = monthKey(e?.expense_date ?? e?.expenseDate ?? e?.created_date ?? e?.created_at);
+      if (!k || !byMonth.has(k)) continue;
+      byMonth.get(k).despesas += Number(e?.amount ?? 0) || 0;
+    }
+
     const series = months.map((k) => {
       const row = byMonth.get(k) ?? { receita: 0, compras: 0 };
       const receita = Number(row.receita ?? 0) || 0;
       const compras = Number(row.compras ?? 0) || 0;
+      const despesas = Number(row.despesas ?? 0) || 0;
       return {
         month: k,
         receita: Number(receita.toFixed(2)),
         compras: Number(compras.toFixed(2)),
-        resultado: Number((receita - compras).toFixed(2)),
+        despesas: Number(despesas.toFixed(2)),
+        resultado: Number((receita - compras - despesas).toFixed(2)),
       };
     });
 
@@ -276,6 +340,7 @@ export default function AdminFinance() {
       const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
       let receita = 0;
       let compras = 0;
+      let despesas = 0;
 
       for (const o of orders ?? []) {
         if (String(o?.status ?? '') !== 'delivered') continue;
@@ -291,7 +356,13 @@ export default function AdminFinance() {
         compras += getPurchaseLineTotals(p).total || 0;
       }
 
-      return { receita, compras, resultado: receita - compras };
+      for (const e of expenses ?? []) {
+        const d = new Date(e?.expense_date ?? e?.expenseDate ?? e?.created_date ?? e?.created_at ?? 0);
+        if (!Number.isFinite(d.getTime()) || d < start) continue;
+        despesas += Number(e?.amount ?? 0) || 0;
+      }
+
+      return { receita, compras, despesas, resultado: receita - compras - despesas };
     };
 
     const last30 = sumPeriod(30);
@@ -304,7 +375,7 @@ export default function AdminFinance() {
       last90,
       profitable: last3Months >= 0,
     };
-  }, [orders, purchases]);
+  }, [orders, purchases, expenses]);
 
   const cards = [
     { title: 'Investido em Stock', value: `${stats.invested.toFixed(2)} €`, icon: Euro, color: 'text-primary' },
@@ -317,6 +388,7 @@ export default function AdminFinance() {
       icon: TrendingUp,
       color: stats.grossProfitDelivered >= 0 ? 'text-green-700' : 'text-destructive',
     },
+    { title: 'Despesas', value: `${stats.expensesTotal.toFixed(2)} €`, icon: Receipt, color: 'text-destructive' },
     { title: 'Consumíveis', value: `${stats.purchasesLogisticsTotal.toFixed(2)} €`, icon: Package, color: 'text-muted-foreground' },
   ];
 
@@ -477,7 +549,8 @@ export default function AdminFinance() {
                       <div className="font-body text-xs text-muted-foreground">Resultado (30 dias)</div>
                       <div className="font-heading text-2xl mt-2">{health.last30.resultado.toFixed(2)} €</div>
                       <div className="font-body text-xs text-muted-foreground mt-1">
-                        Receita: {moneyPt(health.last30.receita)} € · Compras: {moneyPt(health.last30.compras)} €
+                        Receita: {moneyPt(health.last30.receita)} € · Compras: {moneyPt(health.last30.compras)} € · Despesas:{' '}
+                        {moneyPt(health.last30.despesas)} €
                       </div>
                     </CardContent>
                   </Card>
@@ -486,7 +559,8 @@ export default function AdminFinance() {
                       <div className="font-body text-xs text-muted-foreground">Resultado (90 dias)</div>
                       <div className="font-heading text-2xl mt-2">{health.last90.resultado.toFixed(2)} €</div>
                       <div className="font-body text-xs text-muted-foreground mt-1">
-                        Receita: {moneyPt(health.last90.receita)} € · Compras: {moneyPt(health.last90.compras)} €
+                        Receita: {moneyPt(health.last90.receita)} € · Compras: {moneyPt(health.last90.compras)} € · Despesas:{' '}
+                        {moneyPt(health.last90.despesas)} €
                       </div>
                     </CardContent>
                   </Card>
@@ -496,7 +570,8 @@ export default function AdminFinance() {
                       <div className="font-body text-sm mt-2 text-muted-foreground">
                         Este gráfico compara{' '}
                         <span className="text-foreground font-medium">receita (encomendas entregues)</span> com{' '}
-                        <span className="text-foreground font-medium">compras ao fornecedor</span> (estimativa de caixa).
+                        <span className="text-foreground font-medium">compras ao fornecedor</span> e{' '}
+                        <span className="text-foreground font-medium">despesas operacionais</span>.
                       </div>
                     </CardContent>
                   </Card>
@@ -526,6 +601,7 @@ export default function AdminFinance() {
                       <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="4 4" />
                       <Line type="monotone" dataKey="receita" name="Receita" stroke="hsl(var(--chart-1))" strokeWidth={2.5} dot={false} />
                       <Line type="monotone" dataKey="compras" name="Compras" stroke="hsl(var(--chart-2))" strokeWidth={2.5} dot={false} />
+                      <Line type="monotone" dataKey="despesas" name="Despesas" stroke="hsl(var(--chart-4))" strokeWidth={2.5} dot={false} />
                       <Line type="monotone" dataKey="resultado" name="Resultado" stroke="hsl(var(--chart-5))" strokeWidth={2.5} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
@@ -535,8 +611,10 @@ export default function AdminFinance() {
 
             <div className="mt-6">
               <ul className="font-body text-sm text-muted-foreground list-disc pl-5 space-y-2">
-                <li>“Investido” usa “Preço de Aquisição” do produto; se não existir, usa o último `unit_cost` do inventário.</li>
-                <li>“Valor Esperado” usa o “Preço” (PVP) do produto.</li>
+                <li>“Investido em Stock” soma compras de stock (qtd × custo de aquisição).</li>
+                <li>“Valor Esperado (PVP)” soma o stock total (vendido + disponível) × preço de venda (PVP).</li>
+                <li>“Margem Potencial” = Valor Esperado (PVP) − Investido em Stock.</li>
+                <li>“Lucro (Entregue)” = Receita (Entregue) − (Investido em Stock + Despesas + Consumíveis).</li>
                 <li>“Caixa/Receita” são estimativas baseadas no total das encomendas (não incluem taxas nem confirmação de pagamento).</li>
               </ul>
             </div>

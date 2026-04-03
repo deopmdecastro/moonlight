@@ -715,6 +715,18 @@ export const base44 = {
       refund: async (returnId, data) =>
         authedJsonRequest(`/api/admin/returns/${encodeURIComponent(String(returnId ?? ''))}/refund`, { method: 'POST', body: data }),
     },
+    expenses: {
+      list: async (limit = 200) => {
+        const params = new URLSearchParams();
+        if (limit) params.set('limit', String(limit));
+        return authedJsonRequest(`/api/admin/expenses?${params.toString()}`);
+      },
+      create: async (data) => authedJsonRequest('/api/admin/expenses', { method: 'POST', body: data }),
+      update: async (id, patch) =>
+        authedJsonRequest(`/api/admin/expenses/${encodeURIComponent(String(id ?? ''))}`, { method: 'PATCH', body: patch }),
+      delete: async (id) =>
+        authedJsonRequest(`/api/admin/expenses/${encodeURIComponent(String(id ?? ''))}`, { method: 'DELETE' }),
+    },
   },
 		  content: {
 		    about: async () => jsonRequest('/api/content/about'),

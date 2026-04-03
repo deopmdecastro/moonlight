@@ -673,6 +673,23 @@ const ddl = [
   `CREATE INDEX IF NOT EXISTS "BackupHistory_type_idx" ON "BackupHistory" ("type");`,
   `CREATE INDEX IF NOT EXISTS "BackupHistory_actorId_idx" ON "BackupHistory" ("actorId");`,
 
+  `
+  CREATE TABLE IF NOT EXISTS "Expense" (
+    "id" TEXT PRIMARY KEY,
+    "expenseDate" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "category" TEXT NOT NULL,
+    "vendor" TEXT,
+    "description" TEXT,
+    "amount" NUMERIC(12,2) NOT NULL,
+    "notes" TEXT,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
+  `CREATE INDEX IF NOT EXISTS "Expense_expenseDate_idx" ON "Expense" ("expenseDate");`,
+  `CREATE INDEX IF NOT EXISTS "Expense_category_idx" ON "Expense" ("category");`,
+  `CREATE INDEX IF NOT EXISTS "Expense_createdAt_idx" ON "Expense" ("createdAt");`,
+
   // Migrate older local DBs (TEXT columns) to proper enum types used by Prisma.
   `ALTER TABLE IF EXISTS "Product" ALTER COLUMN "category" TYPE "ProductCategory" USING ("category"::"ProductCategory");`,
   `ALTER TABLE IF EXISTS "Product" ALTER COLUMN "material" TYPE "ProductMaterial" USING ("material"::"ProductMaterial");`,

@@ -86,6 +86,11 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     queryFn: () => base44.admin.logs.list(500),
   });
 
+  const { data: returns = [] } = useQuery({
+    queryKey: ['admin-returns-for-reports'],
+    queryFn: () => base44.admin.returns.requests.list(500),
+  });
+
   const { data: analytics } = useQuery({
     queryKey: ['admin-analytics-summary'],
     queryFn: () => base44.admin.analytics.summary(30),
@@ -117,8 +122,22 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
       }
     }
 
-    return { productsCount, stockUnits, lowStock, purchasesTotal, ...adjustments };
-  }, [inventory, purchases, logs]);
+    const list = Array.isArray(returns) ? returns : [];
+    const returnsPending = list.filter((r) => ['return_request', 'return_approved'].includes(String(r?.status ?? ''))).length;
+    const returnsCompleted = list.filter((r) => ['return_received', 'refund_recorded'].includes(String(r?.status ?? ''))).length;
+    const refundTotal = list.reduce((sum, r) => sum + (Number(r?.refund_amount ?? 0) || 0), 0);
+
+    return {
+      productsCount,
+      stockUnits,
+      lowStock,
+      purchasesTotal,
+      returns_pending: returnsPending,
+      returns_completed: returnsCompleted,
+      returns_refund_total: Number(refundTotal.toFixed(2)),
+      ...adjustments,
+    };
+  }, [inventory, purchases, logs, returns]);
 
   const purchaseAdjustments = useMemo(() => {
     const byKey = new Map();
@@ -203,6 +222,8 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     { title: 'Unidades em Stock', value: stats.stockUnits, icon: TrendingUp, color: 'text-green-700' },
     { title: 'Baixo Stock (≤2)', value: stats.lowStock, icon: AlertTriangle, color: 'text-destructive' },
     { title: 'Total em Compras', value: `${stats.purchasesTotal.toFixed(2)} €`, icon: Euro, color: 'text-accent' },
+    { title: 'Devoluções (clientes)', value: stats.returns_completed, icon: Package, color: 'text-primary' },
+    { title: 'Pendentes (devoluções)', value: stats.returns_pending, icon: Search, color: 'text-muted-foreground' },
     { title: 'Devolvidos ao Fornecedor', value: stats.return_units, icon: Package, color: 'text-primary' },
     { title: 'Removidos do Stock', value: stats.writeoff_units, icon: AlertTriangle, color: 'text-destructive' },
   ];

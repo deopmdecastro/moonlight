@@ -727,3 +727,19 @@ model BackupHistory {
   @@index([type])
   @@index([actorId])
 }
+
+model Expense {
+  id          String   @id @default(cuid())
+  expenseDate DateTime @default(now())
+  category    String
+  vendor      String?
+  description String?
+  amount      Decimal  @db.Decimal(12, 2)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([expenseDate])
+  @@index([category])
+  @@index([createdAt])
+}

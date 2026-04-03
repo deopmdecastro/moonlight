@@ -66,6 +66,7 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
 		const AdminInventory = lazy(() => import('@/pages/admin/Inventory'));
 		const AdminReports = lazy(() => import('@/pages/admin/Reports'));
 		const AdminFinance = lazy(() => import('@/pages/admin/Finance'));
+    const ExpensesAdmin = lazy(() => import('@/pages/admin/Expenses'));
     const LoyaltyAdmin = lazy(() => import('@/pages/admin/LoyaltyAdmin'));
 		const AdminCoupons = lazy(() => import('@/pages/admin/Coupons'));
 		const AdminSalesTargets = lazy(() => import('@/pages/admin/SalesTargets'));
@@ -190,6 +191,7 @@ const AuthenticatedApp = () => {
 	        <Route path="/admin/inventario" element={<AdminInventory />} />
 	        <Route path="/admin/relatorios" element={<AdminReports />} />
 	        <Route path="/admin/financeiro" element={<AdminFinance />} />
+          <Route path="/admin/despesas" element={<ExpensesAdmin />} />
 	        <Route path="/admin/cupons" element={<AdminCoupons />} />
           <Route path="/admin/pontos" element={<LoyaltyAdmin />} />
           <Route path="/admin/marcacoes" element={<AdminAppointments />} />

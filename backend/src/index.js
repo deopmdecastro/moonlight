@@ -1673,6 +1673,17 @@ const purchasePayloadSchema = z
   })
   .passthrough()
 
+const expensePayloadSchema = z
+  .object({
+    expense_date: z.string().datetime().optional().nullable(),
+    category: z.string().min(1).max(80),
+    vendor: z.string().max(200).optional().nullable(),
+    description: z.string().max(500).optional().nullable(),
+    amount: z.union([z.number(), z.string()]),
+    notes: z.string().max(4000).optional().nullable(),
+  })
+  .passthrough()
+
 function derivePurchaseKindFromItems(items) {
   const list = Array.isArray(items) ? items : []
   if (list.length === 0) return 'products'
@@ -3640,6 +3651,20 @@ function toApiSupplier(s) {
     notes: s.notes ?? null,
     created_date: s.createdAt,
     updated_date: s.updatedAt,
+  }
+}
+
+function toApiExpense(e) {
+  return {
+    id: e.id,
+    expense_date: e.expenseDate,
+    category: e.category,
+    vendor: e.vendor ?? null,
+    description: e.description ?? null,
+    amount: e.amount === null || e.amount === undefined ? 0 : decimalToNumber(e.amount) ?? 0,
+    notes: e.notes ?? null,
+    created_date: e.createdAt,
+    updated_date: e.updatedAt,
   }
 }
 
@@ -9016,6 +9041,134 @@ app.delete('/api/admin/suppliers/:id', async (req, res) => {
   } catch (e) {
     // likely FK constraint
     res.status(409).json({ error: 'cannot_delete' })
+  }
+})
+
+// Expenses (despesas)
+app.get('/api/admin/expenses', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const limit = parseLimit(req.query.limit, 200)
+  try {
+    const rows =
+      await prisma.$queryRaw`SELECT * FROM "Expense" ORDER BY "expenseDate" DESC LIMIT ${limit};`
+    res.json((Array.isArray(rows) ? rows : []).map(toApiExpense))
+  } catch (err) {
+    return sendInternalError(res, err, 'expense_list_failed')
+  }
+})
+
+app.post('/api/admin/expenses', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = expensePayloadSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const amount = parseDecimal(parsed.data.amount) ?? 0
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'invalid_amount' })
+
+  const expenseDate = parsed.data.expense_date ? new Date(parsed.data.expense_date) : new Date()
+  if (!Number.isFinite(expenseDate.getTime())) return res.status(400).json({ error: 'invalid_date' })
+
+  try {
+    const id = crypto.randomUUID()
+    const now = new Date()
+    const amountNum = Number(amount.toFixed(2))
+    const createdRows = await prisma.$queryRaw`
+      INSERT INTO "Expense" ("id","expenseDate","category","vendor","description","amount","notes","createdAt","updatedAt")
+      VALUES (
+        ${id},
+        ${expenseDate},
+        ${parsed.data.category},
+        ${parsed.data.vendor ?? null},
+        ${parsed.data.description ?? null},
+        (${amountNum})::numeric,
+        ${parsed.data.notes ?? null},
+        ${now},
+        ${now}
+      )
+      RETURNING *;
+    `
+    const created = Array.isArray(createdRows) ? createdRows[0] : null
+    if (!created) return sendInternalError(res, new Error('expense_insert_failed'), 'expense_create_failed')
+
+    await writeAuditLog({ actorId: admin.id, action: 'create', entityType: 'Expense', entityId: created.id })
+    res.status(201).json(toApiExpense(created))
+  } catch (err) {
+    return sendInternalError(res, err, 'expense_create_failed')
+  }
+})
+
+app.patch('/api/admin/expenses/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = expensePayloadSchema.partial().safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  try {
+    const id = String(req.params.id ?? '').trim()
+    if (!id) return res.status(400).json({ error: 'invalid_id' })
+
+    const existingRows = await prisma.$queryRaw`SELECT * FROM "Expense" WHERE "id" = ${id} LIMIT 1;`
+    const existing = Array.isArray(existingRows) ? existingRows[0] : null
+    if (!existing) return res.status(404).json({ error: 'not_found' })
+
+    const nextDateRaw = parsed.data.expense_date !== undefined ? parsed.data.expense_date : undefined
+    const nextDate = nextDateRaw === undefined ? existing.expenseDate : nextDateRaw ? new Date(nextDateRaw) : existing.expenseDate
+    if (nextDate && !Number.isFinite(new Date(nextDate).getTime())) return res.status(400).json({ error: 'invalid_date' })
+
+    const nextCategory = parsed.data.category !== undefined ? parsed.data.category : existing.category
+    const nextVendor = parsed.data.vendor !== undefined ? (parsed.data.vendor ?? null) : existing.vendor ?? null
+    const nextDescription = parsed.data.description !== undefined ? (parsed.data.description ?? null) : existing.description ?? null
+    const nextNotes = parsed.data.notes !== undefined ? (parsed.data.notes ?? null) : existing.notes ?? null
+
+    let nextAmount = existing.amount
+    if (parsed.data.amount !== undefined) {
+      const amount = parseDecimal(parsed.data.amount)
+      if (amount === null || !Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'invalid_amount' })
+      nextAmount = Number(amount.toFixed(2))
+    }
+
+    const updatedRows = await prisma.$queryRaw`
+      UPDATE "Expense"
+      SET
+        "expenseDate" = ${nextDate},
+        "category" = ${nextCategory},
+        "vendor" = ${nextVendor},
+        "description" = ${nextDescription},
+        "amount" = (${nextAmount})::numeric,
+        "notes" = ${nextNotes},
+        "updatedAt" = ${new Date()}
+      WHERE "id" = ${id}
+      RETURNING *;
+    `
+    const updated = Array.isArray(updatedRows) ? updatedRows[0] : null
+    if (!updated) return res.status(404).json({ error: 'not_found' })
+
+    await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'Expense', entityId: updated.id, meta: { patch: req.body } })
+    res.json(toApiExpense(updated))
+  } catch (err) {
+    return sendInternalError(res, err, 'expense_update_failed')
+  }
+})
+
+app.delete('/api/admin/expenses/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  try {
+    const id = String(req.params.id ?? '').trim()
+    if (!id) return res.status(400).json({ error: 'invalid_id' })
+
+    const deleted = await prisma.$executeRaw`DELETE FROM "Expense" WHERE "id" = ${id};`
+    if (!deleted) return res.status(404).json({ error: 'not_found' })
+    await writeAuditLog({ actorId: admin.id, action: 'delete', entityType: 'Expense', entityId: req.params.id })
+    res.status(204).send()
+  } catch (err) {
+    return sendInternalError(res, err, 'expense_delete_failed')
   }
 })
 
