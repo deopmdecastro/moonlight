@@ -185,7 +185,8 @@ const AuthenticatedApp = () => {
               <Route path="backup" element={<Navigate to="/admin/configuracoes#backup" replace />} />
           </Route>
 	        <Route path="/admin/fornecedores" element={<AdminSuppliers />} />
-	        <Route path="/admin/compras" element={<AdminPurchases />} />
+	        <Route path="/admin/compras" element={<Navigate to="/admin/compras/todos" replace />} />
+	        <Route path="/admin/compras/:view" element={<AdminPurchases />} />
 	        <Route path="/admin/inventario" element={<AdminInventory />} />
 	        <Route path="/admin/relatorios" element={<AdminReports />} />
 	        <Route path="/admin/financeiro" element={<AdminFinance />} />

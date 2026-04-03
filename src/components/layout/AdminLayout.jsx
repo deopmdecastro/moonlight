@@ -74,7 +74,16 @@ const navSections = [
     label: 'Operação',
     items: [
       { to: '/admin/fornecedores', icon: Truck, label: 'Fornecedores' },
-      { to: '/admin/compras', icon: ShoppingBasket, label: 'Compras' },
+      {
+        to: '/admin/compras/todos',
+        icon: ShoppingBasket,
+        label: 'Compras',
+        children: [
+          { to: '/admin/compras/produtos', label: 'Produtos' },
+          { to: '/admin/compras/consumiveis', label: 'Consumíveis' },
+          { to: '/admin/compras/todos', label: 'Todos' },
+        ],
+      },
       { to: '/admin/inventario', icon: Boxes, label: 'Inventário' },
       { to: '/admin/relatorios', icon: BarChartBig, label: 'Relatórios' },
       { to: '/admin/avaliacoes', icon: MessageSquare, label: 'Avaliações' },
@@ -104,19 +113,43 @@ export default function AdminLayout() {
           </div>
           <div className="space-y-1">
             {section.items.map((item) => {
-              const active = location.pathname === item.to || (item.to !== '/admin' && location.pathname.startsWith(item.to));
+              const children = Array.isArray(item.children) ? item.children : null;
+              const active =
+                location.pathname === item.to ||
+                (item.to !== '/admin' && location.pathname.startsWith(item.to)) ||
+                (children ? children.some((c) => location.pathname === c.to || location.pathname.startsWith(c.to)) : false);
               return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={onNavigate}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-body transition-colors min-w-0 ${
-                    active ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-secondary'
-                  }`}
-                >
-                  <item.icon className="w-4 h-4" />
-                  <span className="truncate">{item.label}</span>
-                </Link>
+                <div key={item.to}>
+                  <Link
+                    to={item.to}
+                    onClick={onNavigate}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-body transition-colors min-w-0 ${
+                      active ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-secondary'
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                  {children ? (
+                    <div className="ml-7 mt-1 space-y-1">
+                      {children.map((child) => {
+                        const childActive = location.pathname === child.to || location.pathname.startsWith(child.to);
+                        return (
+                          <Link
+                            key={child.to}
+                            to={child.to}
+                            onClick={onNavigate}
+                            className={`block px-3 py-2 rounded-md text-xs font-body transition-colors min-w-0 ${
+                              childActive ? 'bg-secondary text-foreground' : 'text-foreground/60 hover:bg-secondary/70'
+                            }`}
+                          >
+                            <span className="truncate">{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </div>

@@ -4,6 +4,7 @@ import { Instagram, Play } from 'lucide-react';
 import zIcon from '@/img/Z.svg';
 import { base44 } from '@/api/base44Client';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
+import EmptyState from '@/components/ui/empty-state';
 
 const instagramHandle = 'zana.acessorios_';
 const instagramUrl = `https://www.instagram.com/${instagramHandle}/`;
@@ -67,10 +68,8 @@ export default function InstagramSection() {
         </div>
 
         {cards.length === 0 ? (
-          <div className="bg-card border border-border p-6">
-            <p className="font-body text-sm text-muted-foreground">
-              Ainda não há links configurados. O admin pode adicionar em <span className="font-mono text-[13px]">/admin/conteudo/instagram</span>.
-            </p>
+          <div className="bg-card border border-border">
+            <EmptyState icon={Instagram} description="Sem publicações do Instagram por agora." className="py-10" />
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -18,7 +18,7 @@ export function targetPath(log) {
   if (type === 'CashClosure') return '/admin/fecho-de-caixa';
   if (type === 'Coupon') return '/admin/cupons';
 
-  if (type === 'Purchase' || type === 'PurchaseItem') return '/admin/compras';
+  if (type === 'Purchase' || type === 'PurchaseItem') return '/admin/compras/todos';
   if (type === 'Inventory' || type === 'InventoryMovement') return '/admin/inventario';
   if (type === 'Product') return '/admin/produtos';
   if (type === 'Supplier') return '/admin/fornecedores';

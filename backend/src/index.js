@@ -1359,11 +1359,22 @@ const purchasePayloadSchema = z
     supplier_id: z.string().optional().nullable(),
     reference: z.string().max(200).optional().nullable(),
     status: z.enum(['draft', 'received', 'cancelled']).optional(),
+    kind: z.enum(['products', 'logistics', 'mixed']).optional().nullable(),
     purchased_at: z.string().datetime().optional(),
     notes: z.string().max(4000).optional().nullable(),
     items: z.array(purchaseItemPayloadSchema).min(1),
   })
   .passthrough()
+
+function derivePurchaseKindFromItems(items) {
+  const list = Array.isArray(items) ? items : []
+  if (list.length === 0) return 'products'
+  const hasLinked = list.some((it) => Boolean(it?.productId ?? it?.product_id))
+  const hasUnlinked = list.some((it) => !Boolean(it?.productId ?? it?.product_id))
+  if (hasLinked && hasUnlinked) return 'mixed'
+  if (hasUnlinked && !hasLinked) return 'logistics'
+  return 'products'
+}
 
 const inventoryAdjustSchema = z
   .object({
@@ -3311,12 +3322,14 @@ function toApiSupplier(s) {
 }
 
 function toApiPurchase(p) {
+  const kind = derivePurchaseKindFromItems(p.items)
   return {
     id: p.id,
     supplier_id: p.supplierId ?? null,
     supplier: p.supplier ? toApiSupplier(p.supplier) : null,
     reference: p.reference ?? null,
     status: p.status,
+    kind,
     purchased_at: p.purchasedAt,
     notes: p.notes ?? null,
     total: p.total === null || p.total === undefined ? null : decimalToNumber(p.total),
@@ -8641,6 +8654,19 @@ app.post('/api/admin/purchases', async (req, res) => {
 	    const items = sanitized.items.filter((it) => it.productName && it.quantity > 0)
 	    if (items.length === 0) return res.status(400).json({ error: 'invalid_items' })
 
+      const requestedKindRaw = parsed.data.kind === null || parsed.data.kind === undefined ? '' : String(parsed.data.kind)
+      const requestedKind = requestedKindRaw.trim()
+      const derivedKind = derivePurchaseKindFromItems(items)
+      const finalKind = requestedKind && ['products', 'logistics', 'mixed'].includes(requestedKind) ? requestedKind : derivedKind
+
+      if (finalKind === 'products' && items.some((it) => !it.productId)) {
+        return res.status(400).json({ error: 'products_require_linked_items' })
+      }
+
+      if (finalKind === 'logistics' && items.some((it) => it.productId)) {
+        return res.status(400).json({ error: 'logistics_cannot_link_products' })
+      }
+
 	    const total = items.reduce((sum, it) => sum + it.unitCost * it.quantity, 0)
 
 		    const created = await prisma.purchase.create({
@@ -8702,9 +8728,29 @@ app.patch('/api/admin/purchases/:id', async (req, res) => {
 	    const nextStatus = parsed.data.status ?? existing.status
 	    const purchasedAt = parsed.data.purchased_at ? new Date(parsed.data.purchased_at) : undefined
 
+      if (parsed.data.kind !== undefined && !parsed.data.items) {
+        return res.status(400).json({ error: 'kind_requires_items' })
+      }
+
 	    const sanitized = parsed.data.items
 	      ? await sanitizePurchaseInput({ supplierId: parsed.data.supplier_id ?? existing.supplierId, items: parsed.data.items })
 	      : null
+
+      if (parsed.data.items) {
+        const cleanForKind = (sanitized?.items ?? []).filter((it) => it.productName && it.quantity > 0)
+        const requestedKindRaw = parsed.data.kind === null || parsed.data.kind === undefined ? '' : String(parsed.data.kind)
+        const requestedKind = requestedKindRaw.trim()
+        const derivedKind = derivePurchaseKindFromItems(cleanForKind)
+        const finalKind = requestedKind && ['products', 'logistics', 'mixed'].includes(requestedKind) ? requestedKind : derivedKind
+
+        if (finalKind === 'products' && cleanForKind.some((it) => !it.productId)) {
+          return res.status(400).json({ error: 'products_require_linked_items' })
+        }
+
+        if (finalKind === 'logistics' && cleanForKind.some((it) => it.productId)) {
+          return res.status(400).json({ error: 'logistics_cannot_link_products' })
+        }
+      }
 
 	    const updated = await prisma.$transaction(async (tx) => {
 		      if (existing.status !== 'received' && parsed.data.items) {

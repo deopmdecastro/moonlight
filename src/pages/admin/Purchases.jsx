@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -58,7 +59,7 @@ function getPurchaseKindLabel(purchase) {
   if (items.length === 0) return null;
   const hasStockItems = items.some((it) => Boolean(it?.product_id));
   const hasNonStockItems = items.some((it) => !it?.product_id);
-if (hasNonStockItems && !hasStockItems) return 'Consumíveis';
+  if (hasNonStockItems && !hasStockItems) return 'Consumíveis';
   if (hasNonStockItems && hasStockItems) return 'Mista';
   return null;
 }
@@ -93,6 +94,8 @@ const emptyPurchase = {
 };
 
 export default function AdminPurchases() {
+  const { view } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [jsonDialogOpen, setJsonDialogOpen] = useState(false);
@@ -115,12 +118,35 @@ export default function AdminPurchases() {
   const [writeoffLines, setWriteoffLines] = useState([]);
   const [limit, setLimit] = useState(50);
 
+  const effectiveView = String(view ?? 'todos').trim().toLowerCase();
+  const fixedPurchaseKind =
+    effectiveView === 'produtos' ? 'products' : effectiveView === 'consumiveis' ? 'logistics' : effectiveView === 'todos' ? null : null;
+
+  useEffect(() => {
+    if (!view) return;
+    if (effectiveView === 'produtos' || effectiveView === 'consumiveis' || effectiveView === 'todos') return;
+    navigate('/admin/compras/todos', { replace: true });
+  }, [effectiveView, navigate, view]);
+
+  useEffect(() => {
+    if (!fixedPurchaseKind) return;
+    if (dialogOpen) return;
+    setPurchaseType(fixedPurchaseKind);
+  }, [dialogOpen, fixedPurchaseKind]);
+
   const { data: purchases = [], isLoading: isLoadingPurchases } = useQuery({
     queryKey: ['admin-purchases', limit],
     queryFn: () => base44.entities.Purchase.list('-purchased_at', limit),
   });
 
   const canLoadMore = !isLoadingPurchases && Array.isArray(purchases) && purchases.length === limit && limit < 500;
+
+  const visiblePurchases = useMemo(() => {
+    const list = Array.isArray(purchases) ? purchases : [];
+    if (effectiveView === 'produtos') return list.filter((p) => derivePurchaseType(p) === 'products');
+    if (effectiveView === 'consumiveis') return list.filter((p) => derivePurchaseType(p) === 'logistics');
+    return list;
+  }, [effectiveView, purchases]);
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ['admin-suppliers'],
@@ -217,7 +243,7 @@ export default function AdminPurchases() {
   const openCreate = () => {
     setEditing(null);
     setForm({ ...emptyPurchase, purchased_at: new Date().toISOString() });
-    setPurchaseType('products');
+    setPurchaseType(fixedPurchaseKind ?? 'products');
     setJsonText('');
     setDialogOpen(true);
   };
@@ -691,6 +717,16 @@ export default function AdminPurchases() {
       return;
     }
 
+    if (purchaseType === 'products' && items.some((it) => !it.product_id)) {
+      toast.error('Selecione um produto (stock) em todos os itens.');
+      return;
+    }
+
+    if (purchaseType === 'logistics' && items.some((it) => it.product_id)) {
+      toast.error('Consumíveis não podem estar vinculados a produtos.');
+      return;
+    }
+
     const payload = {
       supplier_id: form.supplier_id || null,
       reference: form.reference?.trim() || null,
@@ -802,8 +838,15 @@ export default function AdminPurchases() {
 
   return (
 	    <div>
-	      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
-	        <h1 className="font-heading text-3xl">Compras</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+        <div>
+          <h1 className="font-heading text-3xl">Compras</h1>
+          {effectiveView === 'produtos' ? (
+            <div className="font-body text-sm text-muted-foreground mt-1">Produtos (stock)</div>
+          ) : effectiveView === 'consumiveis' ? (
+            <div className="font-body text-sm text-muted-foreground mt-1">Consumíveis</div>
+          ) : null}
+        </div>
 	        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
 	          <Button onClick={openCreate} className="rounded-none font-body text-sm gap-2 w-full sm:w-auto">
 	            <Plus className="w-4 h-4" /> Nova
@@ -826,7 +869,7 @@ export default function AdminPurchases() {
             </tr>
           </thead>
           <tbody>
-            {purchases.map((p) => (
+            {visiblePurchases.map((p) => (
               <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
                 <td className="p-3 font-body text-xs text-muted-foreground">{new Date(p.purchased_at).toLocaleDateString('pt-PT')}</td>
                 <td className="p-3 font-body text-sm">
@@ -844,7 +887,7 @@ export default function AdminPurchases() {
                     const kind = getPurchaseKindLabel(p);
                     return kind ? (
                       <div className="mt-2">
-                      <Badge className="bg-secondary text-foreground text-[10px]">{kind === 'Logística' ? 'Consumíveis' : kind}</Badge>
+                      <Badge className="bg-secondary text-foreground text-[10px]">{kind}</Badge>
                       </div>
                     ) : null;
                   })()}
@@ -864,15 +907,15 @@ export default function AdminPurchases() {
             ))}
           </tbody>
         </table>
-        {isLoadingPurchases && (Array.isArray(purchases) ? purchases.length : 0) === 0 ? (
+        {isLoadingPurchases && (Array.isArray(visiblePurchases) ? visiblePurchases.length : 0) === 0 ? (
           <EmptyState icon={ShoppingBasket} description="A carregar..." className="py-8" />
-        ) : purchases.length === 0 ? (
+        ) : visiblePurchases.length === 0 ? (
           <EmptyState icon={ShoppingBasket} description="Sem compras" className="py-8" />
         ) : null}
       </div>
 
       <LoadMoreControls
-        leftText={`A mostrar ${Math.min(limit, Array.isArray(purchases) ? purchases.length : 0)} compras.`}
+        leftText={`A mostrar ${Array.isArray(visiblePurchases) ? visiblePurchases.length : 0} compras.`}
         onLess={() => setLimit(50)}
         lessDisabled={isLoadingPurchases || limit <= 50}
         onMore={() => setLimit((p) => Math.min(500, p + 50))}
@@ -889,20 +932,22 @@ export default function AdminPurchases() {
 		            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 	              <div>
 	                <Label className="font-body text-xs">Tipo de compra</Label>
-	                <Select
-	                  value={purchaseType}
-	                  onValueChange={(v) => setPurchaseType(v)}
-	                  disabled={isLocked}
-	                >
-	                  <SelectTrigger className="rounded-none mt-1">
-	                    <SelectValue />
-	                  </SelectTrigger>
-	                  <SelectContent>
-	                    <SelectItem value="products">Produtos (stock)</SelectItem>
-	                    <SelectItem value="logistics">Logística / consumíveis</SelectItem>
-	                    <SelectItem value="mixed">Mista</SelectItem>
-	                  </SelectContent>
-	                </Select>
+                  {fixedPurchaseKind ? (
+                    <div className="mt-1 flex h-9 w-full items-center justify-between whitespace-nowrap border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background rounded-none font-body">
+                      {fixedPurchaseKind === 'products' ? 'Produtos (stock)' : 'Logística / consumíveis'}
+                    </div>
+                  ) : (
+                    <Select value={purchaseType} onValueChange={(v) => setPurchaseType(v)} disabled={isLocked}>
+                      <SelectTrigger className="rounded-none mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="products">Produtos (stock)</SelectItem>
+                        <SelectItem value="logistics">Logística / consumíveis</SelectItem>
+                        <SelectItem value="mixed">Mista</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                   {purchaseType === 'logistics' ? (
                     <div className="mt-1">
                       <div className="text-xs text-muted-foreground bg-secondary/30 border border-border rounded-none px-3 py-2">
@@ -1043,7 +1088,7 @@ export default function AdminPurchases() {
                       </div>
                     ) : (
                       <div className="md:col-span-4">
-                        <Label className="font-body text-xs">Produto (opcional)</Label>
+                        <Label className="font-body text-xs">{purchaseType === 'products' ? 'Produto *' : 'Produto (opcional)'}</Label>
                         {productOptions.length > 10 ? (
                           <SearchableSelect
                             value={it.product_id ?? 'none'}
@@ -1053,8 +1098,8 @@ export default function AdminPurchases() {
                               const nextImage = product ? getPrimaryImage(product.images) : '';
                               updateItem(idx, {
                                 product_id: productId,
-                                product_name: product?.name ?? it.product_name,
-                                product_image: nextImage ?? it.product_image,
+                                product_name: product ? product.name : purchaseType === 'products' ? '' : it.product_name,
+                                product_image: product ? nextImage ?? it.product_image : purchaseType === 'products' ? '' : it.product_image,
                               });
                             }}
                             options={productPickerOptions}
@@ -1072,8 +1117,8 @@ export default function AdminPurchases() {
                               const nextImage = product ? getPrimaryImage(product.images) : '';
                               updateItem(idx, {
                                 product_id: productId,
-                                product_name: product?.name ?? it.product_name,
-                                product_image: nextImage ?? it.product_image,
+                                product_name: product ? product.name : purchaseType === 'products' ? '' : it.product_name,
+                                product_image: product ? nextImage ?? it.product_image : purchaseType === 'products' ? '' : it.product_image,
                               });
                             }}
                             disabled={isLocked}
@@ -1095,12 +1140,12 @@ export default function AdminPurchases() {
                     )}
 
                     <div className="md:col-span-4">
-                      <Label className="font-body text-xs">Nome do item</Label>
+                      <Label className="font-body text-xs">{purchaseType === 'products' ? 'Nome do produto' : 'Nome do item'}</Label>
                       <Input
                         value={it.product_name}
                         onChange={(e) => updateItem(idx, { product_name: e.target.value })}
                         className="rounded-none mt-1"
-                        disabled={isLocked}
+                        disabled={isLocked || purchaseType === 'products'}
                       />
                     </div>
 
