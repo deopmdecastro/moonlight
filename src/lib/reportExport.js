@@ -846,7 +846,7 @@ export async function exportFinanceExcel({ filename, title = 'Financeiro', logoU
           ['Receita pendente (€)', moneyPt(stats?.revenueOpen ?? 0)],
           ['Canceladas (€)', moneyPt(stats?.revenueCancelled ?? 0)],
           ['Compras (Stock) (€)', moneyPt(stats?.purchasesStockTotal ?? 0)],
-          ['Despesas (Logística) (€)', moneyPt(stats?.purchasesLogisticsTotal ?? 0)],
+          ['Consumíveis (€)', moneyPt(stats?.purchasesLogisticsTotal ?? 0)],
           ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],
         ],
       },
@@ -958,6 +958,7 @@ export async function exportFinancePdf({
     { label: 'Valor Esperado (PVP) (€)', value: moneyPt(stats?.expected ?? 0) },
     { label: 'Margem Potencial (€)', value: moneyPt(stats?.marginPotential ?? 0) },
     { label: 'Receita (Entregue) (€)', value: moneyPt(stats?.revenueDelivered ?? 0) },
+    { label: 'Consumíveis (€)', value: moneyPt(stats?.purchasesLogisticsTotal ?? 0) },
   ];
 
   const byCategory = Array.isArray(stats?.byCategory) ? stats.byCategory : [];
@@ -979,7 +980,7 @@ export async function exportFinancePdf({
           ['Receita pendente (€)', moneyPt(stats?.revenueOpen ?? 0)],
           ['Canceladas (€)', moneyPt(stats?.revenueCancelled ?? 0)],
           ['Compras (Stock) (€)', moneyPt(stats?.purchasesStockTotal ?? 0)],
-          ['Despesas (Logística) (€)', moneyPt(stats?.purchasesLogisticsTotal ?? 0)],
+          ['Consumíveis (€)', moneyPt(stats?.purchasesLogisticsTotal ?? 0)],
           ['Total em Compras (€)', moneyPt(stats?.purchasesTotal ?? 0)],
         ],
       },

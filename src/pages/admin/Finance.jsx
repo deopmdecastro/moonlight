@@ -30,6 +30,7 @@ function getPurchaseLineTotals(purchase) {
   const items = Array.isArray(purchase?.items) ? purchase.items : [];
   let stock = 0;
   let logistics = 0;
+  const kind = String(purchase?.kind ?? '').trim(); // products | logistics | mixed
 
   for (const it of items) {
     const qty = Number(it?.quantity ?? 0) || 0;
@@ -37,8 +38,18 @@ function getPurchaseLineTotals(purchase) {
     const line = qty * unit;
     if (!Number.isFinite(line) || line <= 0) continue;
 
-    if (it?.product_id) stock += line;
-    else logistics += line;
+    if (kind === 'products') {
+      stock += line;
+    } else if (kind === 'logistics') {
+      logistics += line;
+    } else if (kind === 'mixed') {
+      if (it?.product_id) stock += line;
+      else logistics += line;
+    } else {
+      // Fallback for older records without `kind`.
+      if (it?.product_id) stock += line;
+      else logistics += line;
+    }
   }
 
   return {
@@ -137,8 +148,13 @@ export default function AdminFinance() {
     for (const p of purchases ?? []) {
       if (String(p?.status ?? '') === 'cancelled') continue;
       const totals = getPurchaseLineTotals(p);
-      purchasesStockTotal += totals.stock;
-      purchasesLogisticsTotal += totals.logistics;
+      const kind = String(p?.kind ?? '').trim();
+
+      // "Consumíveis" no financeiro deve refletir apenas compras marcadas como logística/consumíveis.
+      // Compras de stock podem ter itens sem `product_id` (ex.: produto novo ainda não vinculado),
+      // mas continuam a ser stock — então, por segurança, qualquer compra não-"logistics" conta como stock.
+      if (kind === 'logistics') purchasesLogisticsTotal += totals.total;
+      else purchasesStockTotal += totals.total;
     }
 
     purchasesStockTotal = Number(purchasesStockTotal.toFixed(2));
@@ -250,7 +266,7 @@ export default function AdminFinance() {
     { title: 'Valor Esperado (PVP)', value: `${stats.expected.toFixed(2)} €`, icon: TrendingUp, color: 'text-green-700' },
     { title: 'Margem Potencial', value: `${stats.marginPotential.toFixed(2)} €`, icon: Package, color: 'text-accent' },
     { title: 'Receita (Entregue)', value: `${stats.revenueDelivered.toFixed(2)} €`, icon: ShoppingCart, color: 'text-green-700' },
-    { title: 'Despesas (Logística)', value: `${stats.purchasesLogisticsTotal.toFixed(2)} €`, icon: Package, color: 'text-muted-foreground' },
+    { title: 'Consumíveis', value: `${stats.purchasesLogisticsTotal.toFixed(2)} €`, icon: Package, color: 'text-muted-foreground' },
   ];
 
   const exportPdf = async () => {
