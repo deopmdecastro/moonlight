@@ -76,6 +76,7 @@ const ddl = [
 
   // Backfill/upgrade existing local DBs created before these columns existed.
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE;`,
+  `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isSeller" BOOLEAN NOT NULL DEFAULT FALSE;`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "isDeleted" BOOLEAN NOT NULL DEFAULT FALSE;`,
   `CREATE INDEX IF NOT EXISTS "User_isDeleted_idx" ON "User" ("isDeleted");`,
   `ALTER TABLE IF EXISTS "User" ADD COLUMN IF NOT EXISTS "phone" TEXT;`,
