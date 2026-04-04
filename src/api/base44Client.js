@@ -281,7 +281,9 @@ export const base44 = {
         const params = new URLSearchParams();
         if (order) params.set('order', order);
         if (limit) params.set('limit', String(limit));
-        return authedJsonRequest(`/api/admin/orders?${params.toString()}`);
+        const u = getStoredUser();
+        const useStaff = Boolean(u?.is_seller) && !Boolean(u?.is_admin);
+        return authedJsonRequest(`${useStaff ? '/api/staff/orders' : '/api/admin/orders'}?${params.toString()}`);
       },
       create: async (data) => {
         const token = getToken();
@@ -339,7 +341,9 @@ export const base44 = {
         if (limit) params.set('limit', String(limit));
         return authedJsonRequest(`/api/admin/users?${params.toString()}`);
       },
+      create: async (data) => authedJsonRequest('/api/admin/users', { method: 'POST', body: data }),
       update: async (id, patch) => authedJsonRequest(`/api/admin/users/${id}`, { method: 'PATCH', body: patch }),
+      delete: async (id) => authedJsonRequest(`/api/admin/users/${encodeURIComponent(String(id ?? ''))}`, { method: 'DELETE' }),
       orders: async (id) => authedJsonRequest(`/api/admin/users/${id}/orders`),
       wishlist: async (id) => authedJsonRequest(`/api/admin/users/${id}/wishlist`),
     },
@@ -738,6 +742,54 @@ export const base44 = {
         authedJsonRequest(`/api/admin/expenses/${encodeURIComponent(String(id ?? ''))}`, { method: 'PATCH', body: patch }),
       delete: async (id) =>
         authedJsonRequest(`/api/admin/expenses/${encodeURIComponent(String(id ?? ''))}`, { method: 'DELETE' }),
+    },
+    reports: {
+      sellers: async (days = 30) => {
+        const params = new URLSearchParams();
+        if (days) params.set('days', String(days));
+        return authedJsonRequest(`/api/admin/reports/sellers?${params.toString()}`);
+      },
+    },
+  },
+  staff: {
+    logs: {
+      list: async (limit = 200) => {
+        const params = new URLSearchParams();
+        if (limit) params.set('limit', String(limit));
+        return authedJsonRequest(`/api/staff/logs?${params.toString()}`);
+      },
+    },
+    customers: {
+      list: async (limit = 200) => {
+        const params = new URLSearchParams();
+        if (limit) params.set('limit', String(limit));
+        return authedJsonRequest(`/api/staff/customers?${params.toString()}`);
+      },
+    },
+    orders: {
+      list: async (order = '-created_date', limit = 200) => {
+        const params = new URLSearchParams();
+        if (order) params.set('order', order);
+        if (limit) params.set('limit', String(limit));
+        return authedJsonRequest(`/api/staff/orders?${params.toString()}`);
+      },
+    },
+    reports: {
+      summary: async (days = 30) => {
+        const params = new URLSearchParams();
+        if (days) params.set('days', String(days));
+        return authedJsonRequest(`/api/staff/reports/summary?${params.toString()}`);
+      },
+    },
+    appointments: {
+      list: async ({ from, to, status = 'all', limit = 5000 } = {}) => {
+        const params = new URLSearchParams();
+        if (from) params.set('from', String(from));
+        if (to) params.set('to', String(to));
+        if (status) params.set('status', String(status));
+        if (limit) params.set('limit', String(limit));
+        return authedJsonRequest(`/api/staff/appointments?${params.toString()}`);
+      },
     },
   },
 		  content: {

@@ -90,6 +90,8 @@ export default function Auth() {
 	      toast.success('Bem-vindo(a) de volta!');
 	      if (loggedUser?.is_admin) {
 	        navigate('/admin', { replace: true });
+	      } else if (loggedUser?.is_seller) {
+	        navigate('/vendedor', { replace: true });
 	      } else {
         navigate('/conta', { replace: true });
       }

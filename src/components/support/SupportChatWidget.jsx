@@ -88,7 +88,7 @@ export default function SupportChatWidget() {
   const [showOther, setShowOther] = useState(false);
 
   const path = location.pathname ?? '';
-  const hidden = path.startsWith('/admin') || path.startsWith('/suporte');
+  const hidden = path.startsWith('/admin') || path.startsWith('/suporte') || path.startsWith('/vendedor');
 
   const { data, isLoading } = useQuery({
     queryKey: ['support-chat'],

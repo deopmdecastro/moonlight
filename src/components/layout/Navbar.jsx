@@ -22,6 +22,7 @@ export default function Navbar() {
   const siteName = String(branding?.site_name ?? 'Zana').trim() || 'Zana';
   const isLogged = Boolean(user);
   const isAdmin = Boolean(user?.is_admin);
+  const isSeller = Boolean(user?.is_seller);
 
   useEffect(() => {
     const updateThemeColor = () => {
@@ -191,6 +192,18 @@ export default function Navbar() {
                       </SheetClose>
                     ) : null}
 
+                    {isSeller ? (
+                      <SheetClose asChild>
+                        <Link
+                          to="/vendedor"
+                          className="flex items-center gap-3 rounded-md px-3 py-2 font-body text-sm hover:bg-secondary/60 transition-colors"
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                          Painel Vendedor
+                        </Link>
+                      </SheetClose>
+                    ) : null}
+
                     <SheetClose asChild>
                       <Button
                         type="button"
@@ -234,6 +247,12 @@ export default function Navbar() {
 
             {isAdmin ? (
               <Link to="/admin" className={iconLinkClassName} aria-label="Painel Admin" title="Painel Admin">
+                <LayoutDashboard className="w-4 h-4" />
+              </Link>
+            ) : null}
+
+            {isSeller ? (
+              <Link to="/vendedor" className={iconLinkClassName} aria-label="Painel Vendedor" title="Painel Vendedor">
                 <LayoutDashboard className="w-4 h-4" />
               </Link>
             ) : null}

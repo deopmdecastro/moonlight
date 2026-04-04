@@ -1071,8 +1071,13 @@ export default function AppointmentsAdmin() {
                           <td className="p-3 font-body text-sm whitespace-nowrap">{formatPtDateTime(a.start_at)}</td>
                           <td className="p-3 font-body text-sm">{a.service?.name ?? '-'}</td>
                           <td className="p-3 font-body text-sm">{a.staff?.name ?? '-'}</td>
-                          <td className="p-3 font-body text-sm text-muted-foreground">
-                            {[a.guest_name, a.customer_email].filter(Boolean).join(' · ') || '-'}
+                          <td className="p-3 font-body text-sm">
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{a.customer_name ?? a.guest_name ?? '-'}</div>
+                              {a.customer_email ? (
+                                <div className="text-xs text-muted-foreground truncate">{a.customer_email}</div>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="p-3">
                             <Badge
@@ -1160,7 +1165,14 @@ export default function AppointmentsAdmin() {
                     <div>
                       <Label className="font-body text-xs">Cliente</Label>
                       <div className="font-body text-sm text-muted-foreground mt-1">
-                        {[editing.guest_name, editing.customer_email].filter(Boolean).join(' · ') || '-'}
+                        <div className="min-w-0">
+                          <div className="font-medium text-foreground truncate">
+                            {editing.customer_name ?? editing.guest_name ?? '-'}
+                          </div>
+                          {editing.customer_email ? (
+                            <div className="text-xs text-muted-foreground truncate">{editing.customer_email}</div>
+                          ) : null}
+                        </div>
                         {editing.guest_phone ? (
                           <span className="block mt-1">Tel.: {editing.guest_phone}</span>
                         ) : null}

@@ -220,16 +220,272 @@ async function sendEmailWithAttachments({ to, subject, text, html, fromName, att
 }
 
 async function sendPasswordResetEmail({ to, resetUrl }) {
+  const brandingRecord = await prisma.siteContent.findUnique({ where: { key: 'branding' } })
+  const branding = brandingRecord?.value && typeof brandingRecord.value === 'object' ? brandingRecord.value : {}
+
+  const isHexColor = (value) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(value ?? '').trim())
+  const themeColor = isHexColor(branding?.theme_color) ? String(branding.theme_color).trim() : '#782641'
+  const backgroundColor = isHexColor(branding?.background_color) ? String(branding.background_color).trim() : '#f8f5f1'
+  const siteName = String(branding?.site_name ?? '').trim() || storeName
+
+  const normalizeAbsoluteUrl = (value) => {
+    const raw = String(value ?? '').trim()
+    if (!raw) return ''
+    if (/^https?:\/\//i.test(raw)) return raw
+    if (/^data:image\//i.test(raw)) return raw
+    if (raw.startsWith('/') && appBaseUrl) return String(appBaseUrl).replace(/\/+$/, '') + raw
+    return ''
+  }
+
+  const base = String(appBaseUrl ?? '').replace(/\/+$/, '')
+  const logoUrl =
+    normalizeAbsoluteUrl(branding?.logo_primary_url) ||
+    normalizeAbsoluteUrl(branding?.logo_url) ||
+    (base ? `${base}/icons/icon.svg` : '')
+
+  const safeResetUrl = (() => {
+    const raw = String(resetUrl ?? '').trim()
+    if (!raw) return base || ''
+    if (/^https?:\/\//i.test(raw)) return raw
+    if (raw.startsWith('/') && base) return `${base}${raw}`
+    return raw
+  })()
+
   const subject = 'Recuperação de palavra-passe'
   const text = [
-    'Recebemos um pedido para recuperar a sua palavra-passe.',
+    `Recebemos um pedido para recuperar a sua palavra-passe na ${siteName}.`,
     '',
-    `Abra este link para definir uma nova palavra-passe: ${resetUrl}`,
+    `Abra este link para definir uma nova palavra-passe: ${safeResetUrl}`,
     '',
     'Se não foi você, ignore este email.',
   ].join('\n')
 
-  const res = await sendEmail({ fromName: storeName, to, subject, text })
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width,initial-scale=1"/>
+        <meta name="x-apple-disable-message-reformatting"/>
+      </head>
+      <body style="margin:0;padding:0;background:${escapeHtml(backgroundColor)};">
+        <div style="display:none;font-size:1px;color:${escapeHtml(backgroundColor)};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+          Defina uma nova palavra-passe para a sua conta.
+        </div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${escapeHtml(backgroundColor)};">
+          <tr>
+            <td align="center" style="padding:28px 16px;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:600px;width:100%;background:#ffffff;border:1px solid #e0d9d1;">
+                <tr>
+                  <td style="padding:22px 22px 14px 22px;border-bottom:1px solid #eee;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;">
+                      <tr>
+                        <td style="vertical-align:middle;">
+                          ${
+                            logoUrl
+                              ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(siteName)}" height="28" style="display:block;border:0;outline:none;text-decoration:none;max-width:180px;height:28px;width:auto;"/>`
+                              : `<div style="font-size:16px;font-weight:800;color:${escapeHtml(themeColor)};letter-spacing:0.5px;">${escapeHtml(siteName)}</div>`
+                          }
+                        </td>
+                        <td style="vertical-align:middle;text-align:right;font-size:12px;color:#7e676f;">
+                          Recuperação de senha
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:22px;">
+                    <h1 style="margin:0 0 10px 0;font-size:18px;line-height:1.3;color:#2c1f24;font-weight:800;">
+                      Definir nova palavra-passe
+                    </h1>
+                    <p style="margin:0 0 14px 0;font-size:13px;line-height:1.7;color:#5b4a50;">
+                      Recebemos um pedido para recuperar a palavra-passe da sua conta.
+                    </p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:16px 0 16px 0;">
+                      <tr>
+                        <td style="background:${escapeHtml(themeColor)};border:1px solid ${escapeHtml(themeColor)};border-radius:0;">
+                          <a href="${escapeHtml(safeResetUrl)}" style="display:inline-block;padding:12px 18px;font-size:12px;line-height:1.2;color:#fbfaf8;text-decoration:none;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;">
+                            Definir palavra-passe
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin:0 0 10px 0;font-size:12px;line-height:1.6;color:#7e676f;word-break:break-word;overflow-wrap:anywhere;">
+                      Se o botão não funcionar, copie e cole este link no navegador:<br/>
+                      <a href="${escapeHtml(safeResetUrl)}" style="color:${escapeHtml(themeColor)};text-decoration:underline;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(safeResetUrl)}</a>
+                    </p>
+                    <p style="margin:0;font-size:12px;line-height:1.6;color:#7e676f;">
+                      Se não foi você, ignore este email.
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 22px;border-top:1px solid #eee;font-size:12px;line-height:1.6;color:#7e676f;">
+                    <strong style="color:#3d2930;">${escapeHtml(siteName)}</strong><br/>
+                    ${escapeHtml(storeEmail)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `.trim()
+
+  const res = await sendEmail({ fromName: siteName, to, subject, text, html })
+  return Boolean(res?.ok)
+}
+
+async function sendStaffOnboardingEmail({ to, tempPassword, roleLabel, resetUrl } = {}) {
+  const brandingRecord = await prisma.siteContent.findUnique({ where: { key: 'branding' } })
+  const branding = brandingRecord?.value && typeof brandingRecord.value === 'object' ? brandingRecord.value : {}
+
+  const isHexColor = (value) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(value ?? '').trim())
+  const themeColor = isHexColor(branding?.theme_color) ? String(branding.theme_color).trim() : '#782641'
+  const backgroundColor = isHexColor(branding?.background_color) ? String(branding.background_color).trim() : '#f8f5f1'
+  const siteName = String(branding?.site_name ?? '').trim() || storeName
+
+  const normalizeAbsoluteUrl = (value) => {
+    const raw = String(value ?? '').trim()
+    if (!raw) return ''
+    if (/^https?:\/\//i.test(raw)) return raw
+    if (/^data:image\//i.test(raw)) return raw
+    if (raw.startsWith('/') && appBaseUrl) return String(appBaseUrl).replace(/\/+$/, '') + raw
+    return ''
+  }
+
+  const base = String(appBaseUrl ?? '').replace(/\/+$/, '')
+  const logoUrl =
+    normalizeAbsoluteUrl(branding?.logo_primary_url) ||
+    normalizeAbsoluteUrl(branding?.logo_url) ||
+    (base ? `${base}/icons/icon.svg` : '')
+
+  const loginUrl = base ? `${base}/conta` : ''
+  const safeResetUrl = (() => {
+    const raw = String(resetUrl ?? '').trim()
+    if (!raw) return ''
+    if (/^https?:\/\//i.test(raw)) return raw
+    if (raw.startsWith('/') && base) return `${base}${raw}`
+    return raw
+  })()
+
+  const safeRoleLabel = String(roleLabel ?? '').trim() || 'Staff'
+  const safePassword = String(tempPassword ?? '').trim()
+
+  const subject = `Bem-vindo(a) ao painel (${siteName})`
+  const text = [
+    `Bem-vindo(a) à ${siteName}!`,
+    '',
+    `Foi criada uma conta de ${safeRoleLabel} para este email.`,
+    '',
+    `Login: ${String(to ?? '')}`,
+    safePassword ? `Senha temporária: ${safePassword}` : '',
+    loginUrl ? `Entrar: ${loginUrl}` : '',
+    safeResetUrl ? `Definir nova senha: ${safeResetUrl}` : '',
+    '',
+    'Recomendação: após entrar, defina uma nova senha.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const credentialBox = safePassword
+    ? `
+      <div style="margin:14px 0 0 0;border:1px solid #e9e2dc;background:#fff7f2;padding:12px 14px;">
+        <div style="font-size:11px;color:#7e676f;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;margin:0 0 6px 0;">Credenciais</div>
+        <div style="font-size:12px;color:#2c1f24;line-height:1.6;word-break:break-word;overflow-wrap:anywhere;">
+          <div><strong>Email:</strong> ${escapeHtml(String(to ?? ''))}</div>
+          <div><strong>Senha temporária:</strong> ${escapeHtml(safePassword)}</div>
+        </div>
+      </div>
+    `.trim()
+    : ''
+
+  const resetSection = safeResetUrl
+    ? `
+      <p style="margin:14px 0 0 0;font-size:12px;line-height:1.6;color:#7e676f;word-break:break-word;overflow-wrap:anywhere;">
+        Para sua segurança, recomendamos definir uma nova senha: <a href="${escapeHtml(safeResetUrl)}" style="color:${escapeHtml(themeColor)};text-decoration:underline;">${escapeHtml(safeResetUrl)}</a>
+      </p>
+    `.trim()
+    : ''
+
+  const loginButton = loginUrl
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:16px 0 0 0;">
+        <tr>
+          <td style="background:${escapeHtml(themeColor)};border:1px solid ${escapeHtml(themeColor)};border-radius:0;">
+            <a href="${escapeHtml(loginUrl)}" style="display:inline-block;padding:12px 18px;font-size:12px;line-height:1.2;color:#fbfaf8;text-decoration:none;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;">
+              Entrar no painel
+            </a>
+          </td>
+        </tr>
+      </table>
+    `.trim()
+    : ''
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width,initial-scale=1"/>
+        <meta name="x-apple-disable-message-reformatting"/>
+      </head>
+      <body style="margin:0;padding:0;background:${escapeHtml(backgroundColor)};">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${escapeHtml(backgroundColor)};">
+          <tr>
+            <td align="center" style="padding:28px 16px;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:600px;width:100%;background:#ffffff;border:1px solid #e0d9d1;">
+                <tr>
+                  <td style="padding:22px 22px 14px 22px;border-bottom:1px solid #eee;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;">
+                      <tr>
+                        <td style="vertical-align:middle;">
+                          ${
+                            logoUrl
+                              ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(siteName)}" height="28" style="display:block;border:0;outline:none;text-decoration:none;max-width:180px;height:28px;width:auto;"/>`
+                              : `<div style="font-size:16px;font-weight:800;color:${escapeHtml(themeColor)};letter-spacing:0.5px;">${escapeHtml(siteName)}</div>`
+                          }
+                        </td>
+                        <td style="vertical-align:middle;text-align:right;font-size:12px;color:#7e676f;">
+                          ${escapeHtml(safeRoleLabel)}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:22px;">
+                    <h1 style="margin:0 0 10px 0;font-size:18px;line-height:1.3;color:#2c1f24;font-weight:800;">
+                      Bem-vindo(a)!
+                    </h1>
+                    <p style="margin:0 0 10px 0;font-size:13px;line-height:1.7;color:#5b4a50;">
+                      A sua conta de <strong>${escapeHtml(safeRoleLabel)}</strong> foi criada com sucesso.
+                    </p>
+                    ${credentialBox}
+                    ${loginButton}
+                    ${resetSection}
+                    <p style="margin:14px 0 0 0;font-size:12px;line-height:1.6;color:#7e676f;">
+                      Recomendação: após entrar, defina uma nova senha.
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 22px;border-top:1px solid #eee;font-size:12px;line-height:1.6;color:#7e676f;">
+                    <strong style="color:#3d2930;">${escapeHtml(siteName)}</strong><br/>
+                    ${escapeHtml(storeEmail)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `.trim()
+
+  const res = await sendEmail({ fromName: siteName, to, subject, text, html })
   return Boolean(res?.ok)
 }
 
@@ -1790,6 +2046,7 @@ function pickPublicUser(user) {
     id: user.id,
     email: user.email,
     is_admin: Boolean(user.isAdmin),
+    is_seller: Boolean(user.isSeller),
     created_date: user.createdAt,
     updated_date: user.updatedAt,
     full_name: user.fullName ?? null,
@@ -1868,6 +2125,16 @@ async function requireAdmin(req, res) {
   const user = await requireUser(req, res)
   if (!user) return null
   if (!user.isAdmin) {
+    res.status(403).json({ error: 'forbidden' })
+    return null
+  }
+  return user
+}
+
+async function requireStaff(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return null
+  if (!user.isAdmin && !user.isSeller) {
     res.status(403).json({ error: 'forbidden' })
     return null
   }
@@ -3651,6 +3918,7 @@ function toApiAppointment(a) {
   return { 
     id: a.id, 
     user_id: a.userId ?? null, 
+    customer_name: a.user?.fullName ?? a.guestName ?? null,
     customer_email: a.user?.email ?? a.guestEmail ?? null,
     guest_name: a.guestName ?? null,
     guest_email: a.guestEmail ?? null,
@@ -6443,10 +6711,384 @@ app.get('/api/admin/users', async (req, res) => {
   if (!admin) return
 
   const users = await prisma.user.findMany({
+    where: { isDeleted: false },
     orderBy: { createdAt: 'desc' },
     take: parseLimit(req.query.limit, 100),
   })
   res.json(users.map(pickPublicUser))
+})
+
+// Staff APIs (seller + admin). These power the seller area without exposing full admin operations.
+app.get('/api/staff/logs', async (req, res) => {
+  const staff = await requireStaff(req, res)
+  if (!staff) return
+
+  const logs = await prisma.auditLog.findMany({
+    where: {
+      OR: [
+        { actorId: staff.id },
+        { action: 'notify', meta: { path: ['to_user_id'], equals: staff.id } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    take: parseLimit(req.query.limit, 200),
+    include: { actor: true },
+  })
+
+  res.json(
+    logs.map((l) => ({
+      id: l.id,
+      action: l.action,
+      entity_type: l.entityType,
+      entity_id: l.entityId ?? null,
+      meta: l.meta ?? null,
+      created_date: l.createdAt,
+      actor: l.actor ? { id: l.actor.id, email: l.actor.email } : null,
+    })),
+  )
+})
+
+app.get('/api/staff/customers', async (req, res) => {
+  const staff = await requireStaff(req, res)
+  if (!staff) return
+
+  const limit = parseLimit(req.query.limit, 200)
+
+  // Admin sees all customers. Sellers see customers from orders they touched.
+  let emails = null
+  if (!staff.isAdmin) {
+    const logs = await prisma.auditLog.findMany({
+      where: { actorId: staff.id, entityType: 'Order', entityId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      take: 5000,
+      select: { entityId: true },
+    })
+    const orderIds = Array.from(new Set(logs.map((l) => l.entityId).filter(Boolean)))
+    if (!orderIds.length) return res.json([])
+
+    const orders = await prisma.order.findMany({
+      where: { id: { in: orderIds } },
+      select: { customerEmail: true },
+      take: 5000,
+    })
+    emails = Array.from(
+      new Set(
+        orders
+          .map((o) => String(o.customerEmail ?? '').trim().toLowerCase())
+          .filter((e) => e && e !== 'balcao@zana.local'),
+      ),
+    )
+    if (!emails.length) return res.json([])
+  }
+
+  const users = await prisma.user.findMany({
+    where: {
+      isDeleted: false,
+      isAdmin: false,
+      isSeller: false,
+      ...(emails ? { email: { in: emails } } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  })
+
+  res.json(users.map(pickPublicUser))
+})
+
+app.get('/api/staff/orders', async (req, res) => {
+  const staff = await requireStaff(req, res)
+  if (!staff) return
+
+  const limit = parseLimit(req.query.limit, 500)
+  const orderBy = parseOrderParam(req.query.order)
+
+  if (staff.isAdmin) {
+    const orders = await prisma.order.findMany({
+      orderBy,
+      include: { items: true },
+      take: limit,
+    })
+    return res.json(orders.map(toApiOrder))
+  }
+
+  const logs = await prisma.auditLog.findMany({
+    where: { actorId: staff.id, entityType: 'Order', entityId: { not: null } },
+    orderBy: { createdAt: 'desc' },
+    take: 5000,
+    select: { entityId: true },
+  })
+  const orderIds = Array.from(new Set(logs.map((l) => l.entityId).filter(Boolean))).slice(0, limit)
+  if (!orderIds.length) return res.json([])
+
+  const orders = await prisma.order.findMany({
+    where: { id: { in: orderIds } },
+    orderBy,
+    include: { items: true },
+    take: limit,
+  })
+
+  res.json(orders.map(toApiOrder))
+})
+
+app.get('/api/staff/reports/summary', async (req, res) => {
+  const staff = await requireStaff(req, res)
+  if (!staff) return
+
+  const daysRaw = Number.parseInt(String(req.query.days ?? '30'), 10)
+  const days = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(daysRaw, 365) : 30
+  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+
+  let orders = []
+  if (staff.isAdmin) {
+    orders = await prisma.order.findMany({
+      where: { createdAt: { gte: from } },
+      select: { createdAt: true, total: true, status: true },
+      take: 50_000,
+      orderBy: { createdAt: 'desc' },
+    })
+  } else {
+    const logs = await prisma.auditLog.findMany({
+      where: { actorId: staff.id, entityType: 'Order', entityId: { not: null }, createdAt: { gte: from } },
+      orderBy: { createdAt: 'desc' },
+      take: 50_000,
+      select: { entityId: true },
+    })
+    const orderIds = Array.from(new Set(logs.map((l) => l.entityId).filter(Boolean)))
+    if (orderIds.length) {
+      orders = await prisma.order.findMany({
+        where: { id: { in: orderIds }, createdAt: { gte: from } },
+        select: { createdAt: true, total: true, status: true },
+        take: 50_000,
+        orderBy: { createdAt: 'desc' },
+      })
+    }
+  }
+
+  const statusCounts = {}
+  let totalOrders = 0
+  let revenue = 0
+  let deliveredRevenue = 0
+
+  const byDay = new Map()
+  for (const o of orders ?? []) {
+    totalOrders += 1
+    const status = String(o.status ?? '')
+    statusCounts[status] = (statusCounts[status] ?? 0) + 1
+    const total = Number(o.total ?? 0) || 0
+    if (['confirmed', 'processing', 'shipped', 'delivered'].includes(status)) revenue += total
+    if (status === 'delivered') deliveredRevenue += total
+
+    const d = o.createdAt ? new Date(o.createdAt) : null
+    const key = d && Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : null
+    if (!key) continue
+    const row = byDay.get(key) ?? { date: key, orders: 0, revenue: 0 }
+    row.orders += 1
+    if (['confirmed', 'processing', 'shipped', 'delivered'].includes(status)) row.revenue += total
+    byDay.set(key, row)
+  }
+
+  const series = Array.from(byDay.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)))
+
+  res.json({
+    ok: true,
+    scope: staff.isAdmin ? 'all' : 'mine',
+    days,
+    from: from.toISOString(),
+    to: new Date().toISOString(),
+    total_orders: totalOrders,
+    revenue_total: Number(revenue.toFixed(2)),
+    revenue_delivered: Number(deliveredRevenue.toFixed(2)),
+    status_counts: statusCounts,
+    by_day: series.map((r) => ({ ...r, revenue: Number((r.revenue ?? 0).toFixed(2)) })),
+  })
+})
+
+app.get('/api/staff/appointments', async (req, res) => {
+  const staff = await requireStaff(req, res)
+  if (!staff) return
+
+  const { content: appointmentsContent } = await getAppointmentsContent()
+  if (!appointmentsContent?.enabled) return res.json({ enabled: false, appointments: [] })
+
+  const from = String(req.query.from ?? '').trim()
+  const to = String(req.query.to ?? '').trim()
+  const status = String(req.query.status ?? '').trim()
+  const take = parseLimit(req.query.limit, 5000)
+
+  const where = {}
+  if (from || to) {
+    where.startAt = {}
+    if (from) where.startAt.gte = new Date(`${from}T00:00:00.000Z`)
+    if (to) where.startAt.lte = new Date(`${to}T23:59:59.999Z`)
+  }
+  if (status && status !== 'all') where.status = status
+
+  const appointments = await prisma.appointment.findMany({
+    where,
+    orderBy: [{ startAt: 'desc' }],
+    take,
+    include: { user: true, service: true, staff: true },
+  })
+
+  res.json({ enabled: true, appointments: appointments.map(toApiAppointment) })
+})
+
+const adminUserCreateSchema = z
+  .object({
+    email: z.string().email().max(320),
+    full_name: optionalNullableTrimmedString({ min: 1, max: 200 }),
+    phone: optionalNullableTrimmedString({ min: 3, max: 30 }),
+    is_admin: z.boolean().optional(),
+    is_seller: z.boolean().optional(),
+  })
+  .passthrough()
+
+app.post('/api/admin/users', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = adminUserCreateSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const email = parsed.data.email.trim().toLowerCase()
+  const isAdmin = parsed.data.is_admin === true
+  const isSeller = parsed.data.is_seller === true
+
+  if (!isAdmin && !isSeller) {
+    return res.status(400).json({ error: 'invalid_body', message: 'Selecione Admin ou Vendedor.' })
+  }
+
+  try {
+    // Create first to get a stable id for the temp password format.
+    const placeholder = crypto.randomUUID() + crypto.randomUUID()
+    const placeholderHash = hashPassword(placeholder)
+
+    const created = await prisma.user.create({
+      data: {
+        email,
+        fullName: parsed.data.full_name ?? null,
+        phone: parsed.data.phone ?? null,
+        isAdmin,
+        isSeller,
+        passwordSalt: placeholderHash.saltHex,
+        passwordHash: placeholderHash.hashHex,
+      },
+    })
+
+    const slugStore = String(storeName ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '')
+      .toLowerCase() || 'zana'
+    const suffix = String(created.id ?? '').slice(-6)
+    const password = `@${slugStore}${suffix}`
+
+    const finalHash = hashPassword(password)
+    await prisma.user.update({
+      where: { id: created.id },
+      data: { passwordSalt: finalHash.saltHex, passwordHash: finalHash.hashHex },
+    })
+
+    // Generate a password reset token so the admin can onboard the staff user.
+    const token = base64UrlEncode(crypto.randomBytes(32))
+    const tokenHash = sha256Hex(token)
+    const expiresAt = new Date(Date.now() + passwordResetTtlSeconds * 1000)
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: created.id,
+        tokenHash,
+        expiresAt,
+      },
+    })
+
+    const resetUrl = `${appBaseUrl}/conta?reset_token=${encodeURIComponent(token)}`
+    void (async () => {
+      try {
+        const roleLabel = isAdmin && isSeller ? 'Admin / Vendedor' : isAdmin ? 'Admin' : 'Vendedor'
+        await sendStaffOnboardingEmail({ to: email, tempPassword: password, roleLabel, resetUrl })
+      } catch (err) {
+        console.error('staff onboarding email failed', err)
+      }
+    })()
+
+    await writeAuditLog({
+      actorId: admin.id,
+      action: 'create',
+      entityType: 'User',
+      entityId: created.id,
+      meta: { email, is_admin: isAdmin, is_seller: isSeller },
+    })
+
+    const createdPublic = pickPublicUser({ ...created, isSeller, isAdmin })
+    res.status(201).json({
+      user: createdPublic,
+      resetToken: canReturnResetToken ? token : undefined,
+      temp_password: canReturnResetToken ? password : undefined,
+    })
+  } catch (e) {
+    if (e?.code === 'P2002') return res.status(409).json({ error: 'email_taken' })
+    throw e
+  }
+})
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const id = String(req.params.id ?? '')
+  if (!id) return res.status(400).json({ error: 'invalid_body' })
+  if (id === admin.id) return res.status(409).json({ error: 'cannot_delete_self' })
+
+  const target = await prisma.user.findUnique({ where: { id } })
+  if (!target) return res.status(404).json({ error: 'not_found' })
+
+  if (!target.isAdmin && !target.isSeller) {
+    return res.status(409).json({ error: 'not_staff' })
+  }
+  if (target.isDeleted) return res.status(409).json({ error: 'already_deleted' })
+
+  if (target.isAdmin) {
+    const adminCount = await prisma.user.count({ where: { isAdmin: true, isDeleted: false } })
+    if (adminCount <= 1) return res.status(409).json({ error: 'cannot_delete_last_admin' })
+  }
+
+  const tombstoneEmail = `deleted+${target.id}@zana.local`
+  const { saltHex, hashHex } = hashPassword(crypto.randomUUID() + crypto.randomUUID())
+
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`
+      UPDATE "User"
+      SET
+        "isDeleted" = TRUE,
+        "isAdmin" = FALSE,
+        "isSeller" = FALSE,
+        "email" = ${tombstoneEmail},
+        "fullName" = NULL,
+        "phone" = NULL,
+        "addressLine1" = NULL,
+        "addressLine2" = NULL,
+        "city" = NULL,
+        "postalCode" = NULL,
+        "country" = 'Portugal',
+        "newsletterOptIn" = FALSE,
+        "orderUpdatesEmail" = FALSE,
+        "passwordSalt" = ${saltHex},
+        "passwordHash" = ${hashHex},
+        "updatedAt" = NOW()
+      WHERE "id" = ${target.id};
+    `
+    await tx.passwordResetToken.updateMany({ where: { userId: target.id, usedAt: null }, data: { usedAt: new Date() } })
+  })
+
+  await writeAuditLog({
+    actorId: admin.id,
+    action: 'delete',
+    entityType: 'User',
+    entityId: target.id,
+    meta: { staff: true, previous_email: target.email },
+  })
+
+  res.status(204).send()
 })
 
 app.get('/api/admin/users/:id', async (req, res) => {
@@ -6797,7 +7439,7 @@ app.post('/api/admin/settings/purge', async (req, res) => {
       await tx.passwordResetToken.deleteMany({})
 
       if (!keepCustomers) {
-        await tx.user.deleteMany({ where: { isAdmin: false } })
+        await tx.user.deleteMany({ where: { isAdmin: false, isSeller: false } })
       }
 
       if (!keepProducts) {
@@ -6826,6 +7468,7 @@ app.patch('/api/admin/users/:id', async (req, res) => {
   const parsed = updateMeSchema
     .extend({
       is_admin: z.boolean().optional(),
+      is_seller: z.boolean().optional(),
       points_balance: z
         .preprocess(
           (v) => {
@@ -6870,6 +7513,7 @@ app.patch('/api/admin/users/:id', async (req, res) => {
     newsletterOptIn: parsed.data.newsletter_opt_in,
     orderUpdatesEmail: parsed.data.order_updates_email,
     isAdmin: parsed.data.is_admin,
+    isSeller: parsed.data.is_seller,
   }
 
   const wantsPointsBalance = parsed.data.points_balance !== undefined
@@ -7262,8 +7906,8 @@ app.patch('/api/admin/appointments/:id', async (req, res) => {
 })
 
 app.get('/api/admin/products', async (req, res) => {
-  const admin = await requireAdmin(req, res)
-  if (!admin) return
+  const staff = await requireStaff(req, res)
+  if (!staff) return
 
   const products = await prisma.product.findMany({
     orderBy: parseOrderParam(req.query.order),
@@ -7413,20 +8057,168 @@ app.delete('/api/admin/products/:id', async (req, res) => {
 })
 
 app.get('/api/admin/orders', async (req, res) => {
-  const admin = await requireAdmin(req, res)
-  if (!admin) return
+  const staff = await requireStaff(req, res)
+  if (!staff) return
 
   const orders = await prisma.order.findMany({
     orderBy: parseOrderParam(req.query.order),
     include: { items: true },
     take: parseLimit(req.query.limit, 500),
   })
-  res.json(orders.map(toApiOrder))
+
+  const orderIds = orders.map((o) => o.id).filter(Boolean)
+  const creatorLogs = orderIds.length
+    ? await prisma.auditLog.findMany({
+        where: {
+          entityType: 'Order',
+          action: 'create',
+          entityId: { in: orderIds },
+          actorId: { not: null },
+        },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          actor: { select: { id: true, email: true, fullName: true, isAdmin: true, isSeller: true } },
+        },
+      })
+    : []
+
+  const createdBy = new Map()
+  for (const log of creatorLogs) {
+    if (!log?.entityId) continue
+    if (createdBy.has(log.entityId)) continue
+    const source = log?.meta && typeof log.meta === 'object' ? log.meta.source : null
+    if (source !== 'admin') continue
+    if (!log?.actor) continue
+    createdBy.set(log.entityId, log.actor)
+  }
+
+  res.json(
+    orders.map((o) => {
+      const actor = createdBy.get(o.id) ?? null
+      const apiOrder = toApiOrder(o)
+      if (!actor) return apiOrder
+      return {
+        ...apiOrder,
+        seller: {
+          id: actor.id,
+          email: actor.email,
+          full_name: actor.fullName ?? null,
+          is_admin: Boolean(actor.isAdmin),
+          is_seller: Boolean(actor.isSeller),
+        },
+      }
+    }),
+  )
+})
+
+app.get('/api/admin/reports/sellers', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const daysRaw = Number.parseInt(String(req.query.days ?? '30'), 10)
+  const days = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(daysRaw, 365) : 30
+  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+
+  const logs = await prisma.auditLog.findMany({
+    where: {
+      action: 'create',
+      entityType: 'Order',
+      actorId: { not: null },
+      createdAt: { gte: from },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50_000,
+    include: { actor: { select: { id: true, email: true, fullName: true, isAdmin: true, isSeller: true } } },
+  })
+
+  const byActor = new Map()
+  const orderIds = new Set()
+
+  for (const l of logs) {
+    const actor = l?.actor ?? null
+    if (!actor?.id || !actor.isSeller) continue
+    const meta = l?.meta && typeof l.meta === 'object' ? l.meta : null
+    if ((meta?.source ?? null) !== 'admin') continue
+    if (!l?.entityId) continue
+
+    orderIds.add(l.entityId)
+    const row = byActor.get(actor.id) ?? {
+      seller: {
+        id: actor.id,
+        email: actor.email,
+        full_name: actor.fullName ?? null,
+        is_admin: Boolean(actor.isAdmin),
+        is_seller: Boolean(actor.isSeller),
+      },
+      order_ids: new Set(),
+      orders_total: 0,
+      delivered_orders: 0,
+      confirmed_orders: 0,
+      pending_orders: 0,
+      cancelled_orders: 0,
+      revenue_total: 0,
+      revenue_delivered: 0,
+    }
+    row.order_ids.add(l.entityId)
+    byActor.set(actor.id, row)
+  }
+
+  const ids = Array.from(orderIds)
+  const orders = ids.length
+    ? await prisma.order.findMany({
+        where: { id: { in: ids }, createdAt: { gte: from } },
+        select: { id: true, total: true, status: true },
+        take: 50_000,
+        orderBy: { createdAt: 'desc' },
+      })
+    : []
+
+  const byOrderId = new Map(orders.map((o) => [o.id, o]))
+
+  for (const row of byActor.values()) {
+    const uniqueIds = Array.from(row.order_ids)
+    row.orders_total = uniqueIds.length
+
+    for (const id of uniqueIds) {
+      const o = byOrderId.get(id)
+      if (!o) continue
+
+      const status = String(o.status ?? '')
+      const total = decimalToNumber(o.total) ?? 0
+
+      row.revenue_total += total
+      if (status === 'delivered') {
+        row.delivered_orders += 1
+        row.revenue_delivered += total
+      } else if (status === 'confirmed') {
+        row.confirmed_orders += 1
+      } else if (status === 'pending') {
+        row.pending_orders += 1
+      } else if (status === 'cancelled') {
+        row.cancelled_orders += 1
+      }
+    }
+
+    row.revenue_total = Number(row.revenue_total.toFixed(2))
+    row.revenue_delivered = Number(row.revenue_delivered.toFixed(2))
+    delete row.order_ids
+  }
+
+  const sellers = Array.from(byActor.values()).sort((a, b) => {
+    if (b.revenue_total !== a.revenue_total) return b.revenue_total - a.revenue_total
+    return (b.orders_total ?? 0) - (a.orders_total ?? 0)
+  })
+
+  res.json({
+    from: from.toISOString().slice(0, 10),
+    days,
+    sellers: sellers.slice(0, 50),
+  })
 })
 
 app.post('/api/admin/orders', async (req, res) => {
-  const admin = await requireAdmin(req, res)
-  if (!admin) return
+  const staff = await requireStaff(req, res)
+  if (!staff) return
 
   const candidate = req.body && typeof req.body === 'object' ? { ...req.body } : {}
   if (!String(candidate.customer_name ?? '').trim()) candidate.customer_name = 'Cliente Balcão'
@@ -7473,7 +8265,7 @@ app.post('/api/admin/orders', async (req, res) => {
 
   const shouldApplyInventory = status !== 'pending' && status !== 'cancelled'
   if (shouldApplyInventory) {
-    const applied = await applyOrderToInventory({ orderId: created.id, actorId: admin.id, status })
+    const applied = await applyOrderToInventory({ orderId: created.id, actorId: staff.id, status })
     if (!applied.ok) {
       try {
         await prisma.order.delete({ where: { id: created.id } })
@@ -7484,7 +8276,7 @@ app.post('/api/admin/orders', async (req, res) => {
     }
     if (!applied.already_applied) {
       await writeAuditLog({
-        actorId: admin.id,
+        actorId: staff.id,
         action: 'update',
         entityType: 'Inventory',
         entityId: created.id,
@@ -7494,7 +8286,7 @@ app.post('/api/admin/orders', async (req, res) => {
   }
 
   await writeAuditLog({
-    actorId: admin.id,
+    actorId: staff.id,
     action: 'create',
     entityType: 'Order',
     entityId: created.id,
@@ -7515,8 +8307,8 @@ app.post('/api/admin/orders', async (req, res) => {
 })
 
 app.post('/api/admin/orders/:id/invoice-email', async (req, res) => {
-  const admin = await requireAdmin(req, res)
-  if (!admin) return
+  const staff = await requireStaff(req, res)
+  if (!staff) return
 
   if (!isEmailConfigured()) return res.status(400).json({ error: 'smtp_not_configured' })
 
@@ -7573,7 +8365,7 @@ app.post('/api/admin/orders/:id/invoice-email', async (req, res) => {
     if (!out?.ok) return res.status(500).json({ error: out?.error ?? 'email_send_failed' })
 
     await writeAuditLog({
-      actorId: admin.id,
+      actorId: staff.id,
       action: 'create',
       entityType: 'Order',
       entityId: apiOrder.id,
@@ -7587,8 +8379,8 @@ app.post('/api/admin/orders/:id/invoice-email', async (req, res) => {
 })
 
 app.post('/api/admin/orders/:id/status-email', async (req, res) => {
-  const admin = await requireAdmin(req, res)
-  if (!admin) return
+  const staff = await requireStaff(req, res)
+  if (!staff) return
 
   if (!isEmailConfigured()) return res.status(400).json({ error: 'smtp_not_configured' })
 
@@ -7620,7 +8412,7 @@ app.post('/api/admin/orders/:id/status-email', async (req, res) => {
     if (!out?.ok) return res.status(500).json({ error: out?.error ?? 'email_send_failed' })
 
     await writeAuditLog({
-      actorId: admin.id,
+      actorId: staff.id,
       action: 'create',
       entityType: 'Order',
       entityId: apiOrder.id,
@@ -7634,8 +8426,8 @@ app.post('/api/admin/orders/:id/status-email', async (req, res) => {
 })
 
 app.patch('/api/admin/orders/:id', async (req, res) => {
-  const admin = await requireAdmin(req, res)
-  if (!admin) return
+  const staff = await requireStaff(req, res)
+  if (!staff) return
 
   const parsed = adminOrderUpdateSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
@@ -7650,13 +8442,13 @@ app.patch('/api/admin/orders/:id', async (req, res) => {
       existing.status === 'pending' && ['confirmed', 'processing', 'shipped', 'delivered'].includes(nextStatus)
 
     if (shouldApplyInventory) {
-      const applied = await applyOrderToInventory({ orderId: existing.id, actorId: admin.id, status: nextStatus })
+      const applied = await applyOrderToInventory({ orderId: existing.id, actorId: staff.id, status: nextStatus })
       if (!applied.ok) {
         return res.status(applied.error === 'insufficient_stock' ? 409 : 500).json({ error: applied.error })
       }
       if (!applied.already_applied) {
         await writeAuditLog({
-          actorId: admin.id,
+          actorId: staff.id,
           action: 'update',
           entityType: 'Inventory',
           entityId: existing.id,
@@ -7678,7 +8470,7 @@ app.patch('/api/admin/orders/:id', async (req, res) => {
     })
 
     await writeAuditLog({
-      actorId: admin.id,
+      actorId: staff.id,
       action: 'update',
       entityType: 'Order',
       entityId: updated.id,
@@ -7692,6 +8484,50 @@ app.patch('/api/admin/orders/:id', async (req, res) => {
         tracking_carrier: parsed.data.tracking_carrier ?? null,
       },
     })
+
+    // Notify the seller when an admin updates an order that the seller created manually.
+    // Example: admin marked the order as delivered.
+    if (staff.isAdmin) {
+      try {
+        const creator = await prisma.auditLog.findFirst({
+          where: {
+            entityType: 'Order',
+            entityId: updated.id,
+            action: 'create',
+            actorId: { not: null },
+            meta: { path: ['source'], equals: 'admin' },
+          },
+          orderBy: { createdAt: 'asc' },
+          include: { actor: { select: { id: true, isSeller: true } } },
+        })
+
+        const sellerId = creator?.actor && creator.actor.isSeller ? creator.actor.id : null
+        if (sellerId && sellerId !== staff.id) {
+          const keys = Object.keys(parsed.data ?? {})
+          const keySuffix = updated.updatedAt ? new Date(updated.updatedAt).toISOString() : String(Date.now())
+          const notificationKey = `seller_order_admin_update:${updated.id}:${keySuffix}`
+
+          await writeAuditLog({
+            actorId: null,
+            action: 'notify',
+            entityType: 'Order',
+            entityId: updated.id,
+            meta: {
+              notification_key: notificationKey,
+              kind: 'order_updated_by_admin',
+              to_user_id: sellerId,
+              actor_id: staff.id,
+              actor_email: staff.email ?? null,
+              previous_status: existing.status ?? null,
+              status: nextStatus ?? null,
+              keys,
+            },
+          })
+        }
+      } catch (err) {
+        console.error('seller notify failed', err)
+      }
+    }
     res.json(toApiOrder(updated))
   } catch {
     res.status(404).json({ error: 'not_found' })

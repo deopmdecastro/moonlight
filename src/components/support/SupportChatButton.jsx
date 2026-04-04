@@ -8,6 +8,7 @@ export default function SupportChatButton() {
   const location = useLocation();
   const path = location.pathname ?? '';
   if (path.startsWith('/admin')) return null;
+  if (path.startsWith('/vendedor')) return null;
   if (path.startsWith('/suporte')) return null;
 
   return (
@@ -21,4 +22,3 @@ export default function SupportChatButton() {
     </div>
   );
 }
-

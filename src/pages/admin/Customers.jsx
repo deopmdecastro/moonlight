@@ -42,7 +42,7 @@ export default function AdminCustomers() {
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['admin-users', limit],
     queryFn: () => base44.entities.User.list('-created_date', limit),
-    select: (data) => (Array.isArray(data) ? data.filter((u) => !u?.is_admin) : []),
+    select: (data) => (Array.isArray(data) ? data.filter((u) => !u?.is_admin && !u?.is_seller) : []),
   });
 
   const canLoadMore = !isLoadingUsers && Array.isArray(users) && users.length === limit && limit < 500;

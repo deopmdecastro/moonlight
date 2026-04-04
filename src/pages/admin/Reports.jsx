@@ -70,6 +70,7 @@ const orderStatusBadgeClassName = {
 export default function AdminReports({ title = 'Relatórios' } = {}) {
   const { branding } = useBranding();
   const reportLogoUrl = String(branding?.logo_primary_url ?? '').trim() || zanaLogoPrimary;
+  const sellerDays = 30;
 
   const { data: inventory = [] } = useQuery({
     queryKey: ['admin-inventory'],
@@ -98,27 +99,41 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     refetchOnWindowFocus: false,
   });
 
+  const { data: sellersRes } = useQuery({
+    queryKey: ['admin-reports-sellers', sellerDays],
+    queryFn: () => base44.admin.reports.sellers(sellerDays),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const { data: appointmentsContentRes } = useQuery({
     queryKey: ['admin-appointments-settings-for-reports'],
     queryFn: () => base44.admin.content.appointments.get(),
   });
 
-  const appointmentsEnabled = Boolean(appointmentsContentRes?.content?.enabled);
+  const appointmentsSettingEnabled = Boolean(appointmentsContentRes?.content?.enabled);
   const apptFrom = useMemo(() => {
     const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     return d.toISOString().slice(0, 10);
   }, []);
   const apptTo = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const { data: apptRes } = useQuery({
-    enabled: appointmentsEnabled,
+  const {
+    data: apptRes,
+    isLoading: isLoadingAppt,
+    isError: isErrorAppt,
+    refetch: refetchAppt,
+  } = useQuery({
     queryKey: ['admin-appointments-for-reports', apptFrom, apptTo],
     queryFn: () => base44.admin.appointments.list({ from: apptFrom, to: apptTo, status: 'all', limit: 5000 }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const appointmentAnalytics = useMemo(() => {
-    if (!appointmentsEnabled) return null;
-    const appointments = apptRes?.appointments ?? [];
+    const appointments = Array.isArray(apptRes?.appointments) ? apptRes.appointments : [];
+    const shouldShow = appointmentsSettingEnabled || appointments.length > 0;
+    if (!shouldShow) return null;
     const byService = new Map();
     const byStaff = new Map();
     let total = 0;
@@ -162,7 +177,14 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
       topServices,
       topStaff,
     };
-  }, [appointmentsEnabled, apptRes, apptFrom, apptTo]);
+  }, [appointmentsSettingEnabled, apptRes, apptFrom, apptTo]);
+
+  const showAppointmentsCard = Boolean(appointmentsSettingEnabled || isLoadingAppt || isErrorAppt || appointmentAnalytics);
+
+  const topSellers = useMemo(() => {
+    const sellers = sellersRes?.sellers ?? [];
+    return Array.isArray(sellers) ? sellers.slice(0, 10) : [];
+  }, [sellersRes?.sellers]);
 
   const stats = useMemo(() => {
     const productsCount = inventory.length;
@@ -380,7 +402,74 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
           ))}
         </div>
 
-        {appointmentsEnabled ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <CardTitle className="font-heading text-xl">Top vendedores ({sellerDays} dias)</CardTitle>
+              <div className="text-right min-w-0">
+                <div className="font-body text-xs text-muted-foreground">Período</div>
+                <div className="font-body text-sm tabular-nums text-muted-foreground">
+                  {sellersRes?.from ?? '—'} → {new Date().toISOString().slice(0, 10)}
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {topSellers.length === 0 ? (
+              <EmptyState icon={User} description="Sem vendas de vendedores no período." className="py-6" />
+            ) : (
+              <div className="rounded-lg border border-border overflow-x-auto">
+                <table className="w-full min-w-[720px]">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/30">
+                      <th className="text-left p-3 font-body text-xs text-muted-foreground">Vendedor</th>
+                      <th className="text-right p-3 font-body text-xs text-muted-foreground">Vendas</th>
+                      <th className="text-right p-3 font-body text-xs text-muted-foreground">Receita</th>
+                      <th className="text-right p-3 font-body text-xs text-muted-foreground">Entregues</th>
+                      <th className="text-right p-3 font-body text-xs text-muted-foreground">Receita (entregue)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topSellers.map((row) => {
+                      const seller = row?.seller ?? {};
+                      const name = String(seller?.full_name ?? '').trim() || String(seller?.email ?? '').trim() || '—';
+                      const email = String(seller?.email ?? '').trim();
+                      const ordersTotal = numberOrZero(row?.orders_total);
+                      const revenueTotal = numberOrZero(row?.revenue_total);
+                      const deliveredOrders = numberOrZero(row?.delivered_orders);
+                      const deliveredRevenue = numberOrZero(row?.revenue_delivered);
+                      return (
+                        <tr key={seller?.id ?? name} className="border-b border-border last:border-0 hover:bg-secondary/20">
+                          <td className="p-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded bg-secondary/20 flex items-center justify-center flex-shrink-0">
+                                <User className="w-4 h-4 text-muted-foreground" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-body text-sm font-medium truncate">{name}</div>
+                                {email ? <div className="font-body text-xs text-muted-foreground truncate">{email}</div> : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right font-body text-sm tabular-nums">{ordersTotal}</td>
+                          <td className="p-3 text-right font-body text-sm font-medium tabular-nums">{revenueTotal.toFixed(2)} €</td>
+                          <td className="p-3 text-right">
+                            <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">{deliveredOrders}</Badge>
+                          </td>
+                          <td className="p-3 text-right font-body text-sm tabular-nums text-muted-foreground">
+                            {deliveredRevenue.toFixed(2)} €
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {showAppointmentsCard ? (
           <Card className="mt-6">
             <CardHeader>
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -388,13 +477,24 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
                 <div className="text-right min-w-0">
                   <div className="font-body text-xs text-muted-foreground">Período</div>
                   <div className="font-body text-sm tabular-nums text-muted-foreground">
-                    {appointmentAnalytics?.from} → {appointmentAnalytics?.to}
+                    {appointmentAnalytics?.from ?? apptFrom} → {appointmentAnalytics?.to ?? apptTo}
                   </div>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {(appointmentAnalytics?.total ?? 0) === 0 ? (
+              {isErrorAppt ? (
+                <div className="space-y-3">
+                  <EmptyState icon={CalendarClock} description="Não foi possível carregar as marcações." className="py-6" />
+                  <div className="flex justify-center">
+                    <Button variant="outline" className="rounded-none font-body text-sm" onClick={() => refetchAppt()}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                </div>
+              ) : isLoadingAppt ? (
+                <EmptyState icon={CalendarClock} description="A carregar..." className="py-6" />
+              ) : (appointmentAnalytics?.total ?? 0) === 0 ? (
                 <EmptyState icon={CalendarClock} description="Sem marcações" className="py-6" />
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

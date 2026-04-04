@@ -115,9 +115,10 @@ export default function AdminOrders() {
   const [limit, setLimit] = useState(50);
 
   const [saleOpen, setSaleOpen] = useState(false);
+  const [customerChoice, setCustomerChoice] = useState('__counter__');
   const [saleForm, setSaleForm] = useState({
-    customer_name: '',
-    customer_email: '',
+    customer_name: 'Cliente Balcão',
+    customer_email: 'balcao@zana.local',
     customer_phone: '',
     shipping_address: '',
     shipping_city: '',
@@ -136,10 +137,27 @@ export default function AdminOrders() {
     queryFn: () => base44.entities.Order.list('-created_date', limit),
   });
 
+  const showSellerColumn = useMemo(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('mock_user') : null;
+      const u = raw ? JSON.parse(raw) : null;
+      return Boolean(u?.is_admin);
+    } catch {
+      return false;
+    }
+  }, []);
+
   const { data: products = [] } = useQuery({
     queryKey: ['admin-products'],
     queryFn: () => base44.entities.Product.list('-created_date', 500),
     staleTime: 60_000,
+  });
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ['staff-customers', 500],
+    queryFn: () => base44.staff.customers.list(500),
+    staleTime: 60_000,
+    select: (data) => (Array.isArray(data) ? data : []),
   });
 
   const { data: shippingData } = useQuery({
@@ -156,6 +174,23 @@ export default function AdminOrders() {
   }, [shippingMethods]);
 
   const byProductId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const customerById = useMemo(() => new Map(customers.map((u) => [String(u.id), u])), [customers]);
+
+  const customerOptions = useMemo(() => {
+    const mapped = (customers ?? []).map((u) => {
+      const name = String(u?.full_name ?? '').trim();
+      const email = String(u?.email ?? '').trim();
+      const labelName = name || email || 'Cliente';
+      const label = email ? `${labelName} (${email})` : labelName;
+      return { value: String(u.id), label };
+    });
+
+    return [
+      { value: '__counter__', label: 'Cliente Balcão (balcao@zana.local)' },
+      ...mapped,
+      { value: '__new__', label: 'Novo cliente (criar)' },
+    ];
+  }, [customers]);
 
   const filtered = useMemo(() => {
     return statusFilter === 'all' ? orders : orders.filter((o) => o.status === statusFilter);
@@ -239,6 +274,39 @@ export default function AdminOrders() {
       shipping_method_id: p.shipping_method_id || shippingCfg.defaultId || '',
     }));
   }, [saleOpen, shippingCfg.defaultId]);
+
+  useEffect(() => {
+    if (!saleOpen) return;
+    const email = String(saleForm.customer_email ?? '').trim().toLowerCase();
+    if (!email || email === 'balcao@zana.local') return setCustomerChoice('__counter__');
+
+    const match = (customers ?? []).find((u) => String(u?.email ?? '').trim().toLowerCase() === email);
+    setCustomerChoice(match ? String(match.id) : '__new__');
+  }, [saleOpen, customers, saleForm.customer_email]);
+
+  const isExistingCustomerChoice = customerChoice && !String(customerChoice).startsWith('__');
+
+  const handleCustomerChoice = (next) => {
+    const value = String(next ?? '');
+    setCustomerChoice(value);
+
+    if (value === '__new__') {
+      setSaleForm((p) => ({ ...p, customer_name: '', customer_email: '', customer_phone: '' }));
+      return;
+    }
+
+    if (value === '__counter__' || !value) {
+      setSaleForm((p) => ({ ...p, customer_name: 'Cliente Balcão', customer_email: 'balcao@zana.local', customer_phone: '' }));
+      return;
+    }
+
+    const u = customerById.get(value) ?? null;
+    if (!u) return;
+    const name = String(u?.full_name ?? '').trim() || String(u?.email ?? '').trim() || 'Cliente';
+    const email = String(u?.email ?? '').trim();
+    const phone = String(u?.phone ?? '').trim();
+    setSaleForm((p) => ({ ...p, customer_name: name, customer_email: email, customer_phone: phone }));
+  };
 
   const computedSale = useMemo(() => {
     const lines = (saleLines ?? []).map((l) => ({
@@ -466,6 +534,7 @@ export default function AdminOrders() {
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Total</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Pagamento</th>
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Origem</th>
+              {showSellerColumn ? <th className="text-left p-3 font-body text-xs text-muted-foreground">Vendedor</th> : null}
               <th className="text-left p-3 font-body text-xs text-muted-foreground">Estado</th>
               <th className="text-right p-3 font-body text-xs text-muted-foreground">Ações</th>
             </tr>
@@ -508,6 +577,22 @@ export default function AdminOrders() {
                 <td className="p-3 font-body text-xs text-muted-foreground whitespace-nowrap">
                   {orderSourceLabels[String(order.source ?? '')] ?? (order.source ? String(order.source) : 'Marketplace')}
                 </td>
+                {showSellerColumn ? (
+                  <td className="p-3">
+                    {order.seller ? (
+                      <div className="min-w-0">
+                        <div className="font-body text-sm font-medium truncate">
+                          {order.seller.full_name || order.seller.email || '—'}
+                        </div>
+                        {order.seller.email ? (
+                          <div className="font-body text-xs text-muted-foreground truncate">{order.seller.email}</div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="font-body text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                ) : null}
                 <td className="p-3">
                   <Select
                     value={order.status}
@@ -699,11 +784,14 @@ export default function AdminOrders() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
-                <Label className="font-body text-xs">Nome *</Label>
-                <Input
-                  value={saleForm.customer_name}
-                  onChange={(e) => setSaleForm((p) => ({ ...p, customer_name: e.target.value }))}
-                  className="rounded-none mt-1"
+                <Label className="font-body text-xs">Cliente *</Label>
+                <SearchableSelect
+                  value={customerChoice}
+                  onChange={handleCustomerChoice}
+                  options={customerOptions}
+                  placeholder="Selecionar cliente..."
+                  searchPlaceholder="Pesquisar cliente..."
+                  className="mt-1"
                 />
               </div>
               <div>
@@ -711,15 +799,27 @@ export default function AdminOrders() {
                 <Input
                   value={saleForm.customer_phone}
                   onChange={(e) => setSaleForm((p) => ({ ...p, customer_phone: e.target.value }))}
+                  disabled={Boolean(isExistingCustomerChoice)}
                   className="rounded-none mt-1"
                 />
               </div>
+              {customerChoice === '__new__' ? (
+                <div className="md:col-span-2">
+                  <Label className="font-body text-xs">Nome *</Label>
+                  <Input
+                    value={saleForm.customer_name}
+                    onChange={(e) => setSaleForm((p) => ({ ...p, customer_name: e.target.value }))}
+                    className="rounded-none mt-1"
+                  />
+                </div>
+              ) : null}
               <div className="md:col-span-2">
                 <Label className="font-body text-xs">Email *</Label>
                 <Input
                   type="email"
                   value={saleForm.customer_email}
                   onChange={(e) => setSaleForm((p) => ({ ...p, customer_email: e.target.value }))}
+                  disabled={Boolean(isExistingCustomerChoice)}
                   className="rounded-none mt-1"
                 />
               </div>

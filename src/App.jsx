@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { CartProvider } from '@/lib/CartContext';
 import RequireAdmin from '@/lib/RequireAdmin';
+import RequireSeller from '@/lib/RequireSeller';
 
 const queryClientInstance = new QueryClient({
   defaultOptions: {
@@ -28,6 +29,7 @@ const PageNotFound = lazy(() => import('./lib/PageNotFound'));
 // Layouts
 const StoreLayout = lazy(() => import('@/components/layout/StoreLayout'));
 const AdminLayout = lazy(() => import('@/components/layout/AdminLayout'));
+const SellerLayout = lazy(() => import('@/components/layout/SellerLayout'));
 
 // Pages
 const Home = lazy(() => import('@/pages/Home'));
@@ -87,6 +89,16 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
 			const FAQAdmin = lazy(() => import('@/pages/admin/FAQAdmin'));
       const BrandingAdmin = lazy(() => import('@/pages/admin/BrandingAdmin'));
       const MarketingAdmin = lazy(() => import('@/pages/admin/MarketingAdmin'));
+
+  // Seller
+  const SellerDashboard = lazy(() => import('@/pages/seller/SellerDashboard'));
+  const SellerOrders = lazy(() => import('@/pages/seller/SellerOrders'));
+  const SellerCustomers = lazy(() => import('@/pages/seller/SellerCustomers'));
+  const SellerReports = lazy(() => import('@/pages/seller/SellerReports'));
+  const SellerNotifications = lazy(() => import('@/pages/seller/SellerNotifications'));
+  const SellerAppointments = lazy(() => import('@/pages/seller/SellerAppointments'));
+  const SellerProfile = lazy(() => import('@/pages/seller/SellerProfile'));
+  const SellerProducts = lazy(() => import('@/pages/seller/SellerProducts'));
       const ProductOptionsAdmin = lazy(() => import('@/pages/admin/ProductOptionsAdmin'));
 
 const FAQPage = lazy(() => import('@/pages/FAQ'));
@@ -146,6 +158,25 @@ const AuthenticatedApp = () => {
           <Route path="/conta/marcacoes" element={<MyAppointments />} />
           <Route path="/marcacoes" element={<Appointments />} />
 	      </Route>
+
+      {/* Seller Layout */}
+      <Route
+        element={(
+          <RequireSeller>
+            <SellerLayout />
+          </RequireSeller>
+        )}
+      >
+        <Route path="/vendedor" element={<SellerDashboard />} />
+        <Route path="/vendedor/encomendas" element={<SellerOrders />} />
+        <Route path="/vendedor/produtos" element={<SellerProducts />} />
+        <Route path="/vendedor/vendas" element={<Navigate to="/vendedor/encomendas" replace />} />
+        <Route path="/vendedor/clientes" element={<SellerCustomers />} />
+        <Route path="/vendedor/relatorios" element={<SellerReports />} />
+        <Route path="/vendedor/notificacoes" element={<SellerNotifications />} />
+        <Route path="/vendedor/marcacoes" element={<SellerAppointments />} />
+        <Route path="/vendedor/perfil" element={<SellerProfile />} />
+      </Route>
 
       {/* Admin Layout */}
         <Route

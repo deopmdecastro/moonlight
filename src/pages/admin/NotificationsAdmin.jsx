@@ -51,7 +51,13 @@ export default function NotificationsAdmin() {
 
   const sorted = useMemo(() => {
     const list = Array.isArray(logs) ? logs : [];
-    return list
+    const filtered = list.filter((l) => {
+      if (String(l?.action ?? '') !== 'notify') return true;
+      const toUser = l?.meta?.to_user_id ?? null;
+      // Hide notifications targeted to sellers from the admin bell.
+      return !toUser;
+    });
+    return filtered
       .slice()
       .sort((a, b) => new Date(b?.created_date ?? 0).getTime() - new Date(a?.created_date ?? 0).getTime());
   }, [logs]);
