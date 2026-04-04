@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { KeyRound, User } from 'lucide-react';
+import { KeyRound, LogOut, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { base44 } from '@/api/base44Client';
@@ -66,12 +66,13 @@ export default function SellerProfile() {
           <Button
             type="button"
             variant="outline"
-            className="rounded-none font-body text-sm"
+            className="rounded-none font-body text-sm gap-2"
             onClick={() => {
               logout();
               window.location.assign('/');
             }}
           >
+            <LogOut className="w-4 h-4" />
             Sair
           </Button>
         </div>
