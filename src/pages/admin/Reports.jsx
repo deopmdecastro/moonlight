@@ -18,6 +18,15 @@ function numberOrZero(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function formatLocalYmd(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (!Number.isFinite(d.getTime())) return '';
+  const yyyy = String(d.getFullYear());
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function PurchaseAdjustmentsTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   const row = payload?.[0]?.payload ?? {};
@@ -113,10 +122,11 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
 
   const appointmentsSettingEnabled = Boolean(appointmentsContentRes?.content?.enabled);
   const apptFrom = useMemo(() => {
-    const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    return d.toISOString().slice(0, 10);
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return formatLocalYmd(d);
   }, []);
-  const apptTo = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const apptTo = useMemo(() => formatLocalYmd(new Date()), []);
 
   const {
     data: apptRes,
@@ -125,7 +135,7 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     refetch: refetchAppt,
   } = useQuery({
     queryKey: ['admin-appointments-for-reports', apptFrom, apptTo],
-    queryFn: () => base44.admin.appointments.list({ from: apptFrom, to: apptTo, status: 'all', limit: 5000 }),
+    queryFn: () => base44.admin.appointments.list({ from: apptFrom, to: apptTo, range_by: 'created_at', status: 'all', limit: 5000 }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
@@ -138,12 +148,16 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
     const byStaff = new Map();
     let total = 0;
     let completed = 0;
+    let pending = 0;
+    let confirmed = 0;
     let cancelled = 0;
 
     for (const a of appointments) {
       total += 1;
       const status = String(a?.status ?? '');
       if (status === 'completed') completed += 1;
+      if (status === 'pending') pending += 1;
+      if (status === 'confirmed') confirmed += 1;
       if (status === 'cancelled') cancelled += 1;
 
       const serviceName = String(a?.service?.name ?? '').trim() || 'Sem serviço';
@@ -173,6 +187,8 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
       to: apptTo,
       total,
       completed,
+      pending,
+      confirmed,
       cancelled,
       topServices,
       topStaff,
@@ -317,7 +333,7 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
   ];
 
   const exportPdf = async () => {
-    const date = new Date().toISOString().slice(0, 10);
+    const date = formatLocalYmd(new Date());
     const outName = `relatorios_${date}.pdf`;
     const popup = window.open('', '_blank');
 
@@ -355,7 +371,7 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
 
   const exportExcel = async () => {
     try {
-      const date = new Date().toISOString().slice(0, 10);
+      const date = formatLocalYmd(new Date());
       await exportReportsExcel({
         filename: `relatorios_${date}.xls`,
         title,
@@ -405,11 +421,11 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
         <Card className="mt-6">
           <CardHeader>
             <div className="flex items-start justify-between gap-4 flex-wrap">
-              <CardTitle className="font-heading text-xl">Top vendedores ({sellerDays} dias)</CardTitle>
+              <CardTitle className="font-heading text-xl">Top vendedores (últimos {sellerDays} dias)</CardTitle>
               <div className="text-right min-w-0">
                 <div className="font-body text-xs text-muted-foreground">Período</div>
                 <div className="font-body text-sm tabular-nums text-muted-foreground">
-                  {sellersRes?.from ?? '—'} → {new Date().toISOString().slice(0, 10)}
+                  {sellersRes?.from ?? '—'} → {formatLocalYmd(new Date())}
                 </div>
               </div>
             </div>
@@ -473,7 +489,7 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
           <Card className="mt-6">
             <CardHeader>
               <div className="flex items-start justify-between gap-4 flex-wrap">
-                <CardTitle className="font-heading text-xl">Marcações (30 dias)</CardTitle>
+                <CardTitle className="font-heading text-xl">Marcações (últimos 30 dias)</CardTitle>
                 <div className="text-right min-w-0">
                   <div className="font-body text-xs text-muted-foreground">Período</div>
                   <div className="font-body text-sm tabular-nums text-muted-foreground">
@@ -497,54 +513,72 @@ export default function AdminReports({ title = 'Relatórios' } = {}) {
               ) : (appointmentAnalytics?.total ?? 0) === 0 ? (
                 <EmptyState icon={CalendarClock} description="Sem marcações" className="py-6" />
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="rounded-lg border border-border bg-secondary/10 p-4">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <CalendarClock className="w-4 h-4 text-primary shrink-0" />
-                        <h3 className="font-heading text-lg truncate">Serviços com mais marcações</h3>
-                      </div>
-                      <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">{appointmentAnalytics?.total ?? 0}</Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-[1fr_auto_auto] gap-3 text-xs text-muted-foreground font-body">
-                        <span>Serviço</span>
-                        <span className="text-right">Total</span>
-                        <span className="text-right">Concl.</span>
-                      </div>
-                      {(appointmentAnalytics?.topServices ?? []).slice(0, 8).map((s) => (
-                        <div key={s.name} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-body text-sm">
-                          <div className="min-w-0 truncate">{s.name}</div>
-                          <div className="text-right tabular-nums text-muted-foreground">{s.total}</div>
-                          <div className="text-right tabular-nums text-muted-foreground">{s.completed}</div>
-                        </div>
-                      ))}
-                    </div>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">Total: {appointmentAnalytics?.total ?? 0}</Badge>
+                    <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">
+                      Pendentes: {appointmentAnalytics?.pending ?? 0}
+                    </Badge>
+                    <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">
+                      Confirmadas: {appointmentAnalytics?.confirmed ?? 0}
+                    </Badge>
+                    <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">
+                      Concluídas: {appointmentAnalytics?.completed ?? 0}
+                    </Badge>
+                    <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">
+                      Canceladas: {appointmentAnalytics?.cancelled ?? 0}
+                    </Badge>
                   </div>
 
-                  <div className="rounded-lg border border-border bg-secondary/10 p-4">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <User className="w-4 h-4 text-accent shrink-0" />
-                        <h3 className="font-heading text-lg truncate">Atendentes com mais marcações</h3>
-                      </div>
-                      <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">
-                        {appointmentAnalytics?.completed ?? 0} concluídas
-                      </Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-[1fr_auto_auto] gap-3 text-xs text-muted-foreground font-body">
-                        <span>Atendente</span>
-                        <span className="text-right">Total</span>
-                        <span className="text-right">Concl.</span>
-                      </div>
-                      {(appointmentAnalytics?.topStaff ?? []).slice(0, 8).map((s) => (
-                        <div key={s.name} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-body text-sm">
-                          <div className="min-w-0 truncate">{s.name}</div>
-                          <div className="text-right tabular-nums text-muted-foreground">{s.total}</div>
-                          <div className="text-right tabular-nums text-muted-foreground">{s.completed}</div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-border bg-secondary/10 p-4">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CalendarClock className="w-4 h-4 text-primary shrink-0" />
+                          <h3 className="font-heading text-lg truncate">Serviços com mais marcações</h3>
                         </div>
-                      ))}
+                        <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">{appointmentAnalytics?.total ?? 0}</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-[1fr_auto_auto] gap-3 text-xs text-muted-foreground font-body">
+                          <span>Serviço</span>
+                          <span className="text-right">Total</span>
+                          <span className="text-right">Concl.</span>
+                        </div>
+                        {(appointmentAnalytics?.topServices ?? []).slice(0, 8).map((s) => (
+                          <div key={s.name} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-body text-sm">
+                            <div className="min-w-0 truncate">{s.name}</div>
+                            <div className="text-right tabular-nums text-muted-foreground">{s.total}</div>
+                            <div className="text-right tabular-nums text-muted-foreground">{s.completed}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border bg-secondary/10 p-4">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <User className="w-4 h-4 text-accent shrink-0" />
+                          <h3 className="font-heading text-lg truncate">Atendentes com mais marcações</h3>
+                        </div>
+                        <Badge className="bg-secondary text-foreground text-[10px] tabular-nums">
+                          {appointmentAnalytics?.completed ?? 0} concluídas
+                        </Badge>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-[1fr_auto_auto] gap-3 text-xs text-muted-foreground font-body">
+                          <span>Atendente</span>
+                          <span className="text-right">Total</span>
+                          <span className="text-right">Concl.</span>
+                        </div>
+                        {(appointmentAnalytics?.topStaff ?? []).slice(0, 8).map((s) => (
+                          <div key={s.name} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-body text-sm">
+                            <div className="min-w-0 truncate">{s.name}</div>
+                            <div className="text-right tabular-nums text-muted-foreground">{s.total}</div>
+                            <div className="text-right tabular-nums text-muted-foreground">{s.completed}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>

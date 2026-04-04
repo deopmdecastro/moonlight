@@ -508,12 +508,13 @@ export const base44 = {
           stats: async () => authedJsonRequest('/api/admin/loyalty/stats'),
         },
         appointments: {
-          list: async ({ from, to, status = 'all', staff_id, limit = 200 } = {}) => {
+          list: async ({ from, to, status = 'all', staff_id, range_by, limit = 200 } = {}) => {
             const params = new URLSearchParams();
             if (from) params.set('from', String(from));
             if (to) params.set('to', String(to));
             if (status && status !== 'all') params.set('status', String(status));
             if (staff_id) params.set('staff_id', String(staff_id));
+            if (range_by) params.set('range_by', String(range_by));
             if (limit) params.set('limit', String(limit));
             return authedJsonRequest(`/api/admin/appointments?${params.toString()}`);
           },

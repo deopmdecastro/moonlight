@@ -7795,10 +7795,12 @@ app.get('/api/admin/appointments', async (req, res) => {
   const to = parseDateRangeEnd(req.query.to)
   const status = req.query.status ? String(req.query.status) : null
   const staffId = req.query.staff_id ? String(req.query.staff_id) : null
+  const rangeBy = req.query.range_by ? String(req.query.range_by) : 'start_at'
 
   const where = {}
-  if (from) where.startAt = { ...(where.startAt ?? {}), gte: from }
-  if (to) where.startAt = { ...(where.startAt ?? {}), lte: to }
+  const dateField = rangeBy === 'created_at' ? 'createdAt' : 'startAt'
+  if (from) where[dateField] = { ...(where[dateField] ?? {}), gte: from }
+  if (to) where[dateField] = { ...(where[dateField] ?? {}), lte: to }
   if (status && ['pending', 'confirmed', 'cancelled', 'completed'].includes(status)) where.status = status
   if (staffId) where.staffId = staffId
 

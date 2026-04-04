@@ -995,6 +995,8 @@ export async function exportReportsExcel({
           ...(appt
             ? [
                 ['Marcações (30 dias)', appt.total ?? 0],
+                ['Marcações pendentes (30 dias)', appt.pending ?? 0],
+                ['Marcações confirmadas (30 dias)', appt.confirmed ?? 0],
                 ['Marcações concluídas (30 dias)', appt.completed ?? 0],
               ]
             : []),
@@ -1139,6 +1141,8 @@ export async function exportReportsPdf({
     ...(appointmentAnalytics?.enabled
       ? [
           { label: 'Marcações (30 dias)', value: appointmentAnalytics?.total ?? 0 },
+          { label: 'Pendentes (30 dias)', value: appointmentAnalytics?.pending ?? 0 },
+          { label: 'Confirmadas (30 dias)', value: appointmentAnalytics?.confirmed ?? 0 },
           { label: 'Concluídas (30 dias)', value: appointmentAnalytics?.completed ?? 0 },
         ]
       : []),
