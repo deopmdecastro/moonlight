@@ -2,11 +2,37 @@ import React from "react";
 import { motion } from "framer-motion";
 import { useBranding } from "@/lib/useBranding";
 
-export default function CTASection() {
+function renderTitle({ title = "", highlight = "" } = {}) {
+  const full = String(title ?? "");
+  const mark = String(highlight ?? "");
+  if (!mark || !full.toLowerCase().includes(mark.toLowerCase())) return full;
+  const idx = full.toLowerCase().indexOf(mark.toLowerCase());
+  const before = full.slice(0, idx);
+  const mid = full.slice(idx, idx + mark.length);
+  const after = full.slice(idx + mark.length);
+  return (
+    <>
+      {before}
+      <span className="text-primary">{mid}</span>
+      {after}
+    </>
+  );
+}
+
+export default function CTASection({ content } = {}) {
   const { branding } = useBranding();
   const instagramRaw = String(branding?.instagram_handle ?? "").trim();
   const instagramHandle = instagramRaw ? instagramRaw.replace(/^@/, "") : "";
-  const instagramUrl = instagramHandle ? `https://instagram.com/${instagramHandle}` : "https://instagram.com/moonlight_capilar";
+  const instagramDefaultUrl = instagramHandle ? `https://instagram.com/${instagramHandle}` : "https://instagram.com/moonlight_capilar";
+
+  const title = String(content?.title ?? "").trim();
+  const titleHighlight = String(content?.title_highlight ?? "").trim();
+  const subtitle = String(content?.subtitle ?? "").trim();
+  const primaryLabel = String(content?.primary_label ?? "").trim() || "WhatsApp";
+  const primaryUrl = String(content?.primary_url ?? "").trim() || "https://wa.me/244927215851";
+  const secondaryLabel = String(content?.secondary_label ?? "").trim() || "Instagram";
+  const secondaryUrlRaw = String(content?.secondary_url ?? "").trim();
+  const secondaryUrl = secondaryUrlRaw || instagramDefaultUrl;
 
   return (
     <section className="py-32 px-6 relative">
@@ -25,29 +51,28 @@ export default function CTASection() {
         </div>
 
         <h2 className="font-display text-3xl md:text-5xl text-foreground leading-tight mb-6">
-          Pronta para transformar<br />
-          o seu <span className="text-primary">cabelo</span>?
+          {renderTitle({ title, highlight: titleHighlight })}
         </h2>
         <p className="font-mono text-sm text-muted-foreground mb-10 max-w-md mx-auto">
-          Entre em contacto connosco e descubra o tratamento ideal para o seu tipo de cabelo.
+          {subtitle}
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <a
-            href="https://wa.me/244927215851"
+            href={primaryUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="font-mono text-xs uppercase tracking-widest px-8 py-3.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-all duration-300"
           >
-            WhatsApp
+            {primaryLabel}
           </a>
           <a
-            href={instagramUrl}
+            href={secondaryUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="font-mono text-xs uppercase tracking-widest px-8 py-3.5 border border-border text-foreground rounded-full hover:border-primary hover:text-primary transition-all duration-300"
           >
-            Instagram
+            {secondaryLabel}
           </a>
         </div>
       </motion.div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { base44 } from '@/api/base44Client';
-import iconZ from '@/img/icon_z.svg';
+import moonlightIcon from '@/img/moonlight_logo_primary.svg';
 
 let currentManifestObjectUrl = null;
 
@@ -11,14 +11,14 @@ const defaults = {
   logo_primary_url: '',
   logo_url: '',
   favicon_url: '',
-  app_icon_url: iconZ,
+  app_icon_url: moonlightIcon,
   share_image_url: '',
-  theme_color: '#782641',
-  background_color: '#f8f5f2',
-  secondary_color: '#f1e7db',
-  contact_email: 'info@moonlightacessorios.com',
-  instagram_handle: '',
-  contact_address: 'Portugal',
+  theme_color: '#F59E0B',
+  background_color: '#FFFFFF',
+  secondary_color: '#FFF7D6',
+  contact_email: 'info@moonlightcapilar.com',
+  instagram_handle: 'moonlight_capilar',
+  contact_address: 'Luanda, Angola',
   footer_rights_text: '',
 };
 
@@ -142,7 +142,7 @@ function createDynamicManifest(branding) {
   const rawIconUrl =
     String(branding.app_icon_url ?? '').trim() ||
     String(branding.favicon_url ?? '').trim() ||
-    '/icons/icon_z.svg';
+    '/icons/icon.svg';
 
   const resolveManifestUrl = (value) => {
     const url = String(value ?? '').trim();
@@ -155,7 +155,7 @@ function createDynamicManifest(branding) {
     }
   };
 
-  const iconUrl = resolveManifestUrl(rawIconUrl) || new URL('/icons/icon_z.svg', window.location.origin).toString();
+  const iconUrl = resolveManifestUrl(rawIconUrl) || new URL('/icons/icon.svg', window.location.origin).toString();
   const startUrl = new URL('/', window.location.origin).toString();
   const manifest = {
     name: String(branding.site_name ?? 'Moonlight').trim() || 'Moonlight',
@@ -244,7 +244,7 @@ export function useBranding() {
       }
     }
 
-    const shareImage = String(branding.share_image_url ?? '').trim() || String(branding.app_icon_url ?? '').trim() || '/icons/icon_z.svg';
+    const shareImage = String(branding.share_image_url ?? '').trim() || String(branding.app_icon_url ?? '').trim() || '/icons/icon.svg';
     if (shareImage) {
       const ogImageMeta = getOrCreateMetaProperty('og:image');
       if (ogImageMeta) ogImageMeta.setAttribute('content', shareImage);

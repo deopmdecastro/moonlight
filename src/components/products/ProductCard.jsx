@@ -42,11 +42,11 @@ export default function ProductCard({ product }) {
   };
 
   const categoryLabels = {
-    colares: 'Colares',
-    brincos: 'Brincos',
-    pulseiras: 'Pulseiras',
-    aneis: 'Anéis',
-    conjuntos: 'Conjuntos',
+    tonico: 'Tónicos',
+    oleo: 'Óleos',
+    combo: 'Combos',
+    acessorio: 'Acessórios',
+    outro: 'Outros',
   };
 
   return (

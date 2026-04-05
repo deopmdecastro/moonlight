@@ -1,85 +1,80 @@
-import React from "react";
-import { motion } from "framer-motion";
-import { Droplets, Leaf, Shield, ChevronDown } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { Droplets, Leaf, Shield } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
-const RITUAL_IMG = "https://media.base44.com/images/public/69cc376dc1ad26b57bf8eecd/6eee5f2d7_generated_acd6eda3.png";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { base44 } from '@/api/base44Client';
+import { useGuideContent } from '@/lib/useGuideContent';
 
-const cronograma = [
-  {
-    number: "01",
-    title: "Hidratação",
-    description: "Reposição de água no cabelo através de extratos de plantas, frutas ou vitaminas.",
-    icon: Droplets,
-  },
-  {
-    number: "02",
-    title: "Nutrição",
-    description: "Responsável por repor os nutrientes perdidos e equilibrar a oleosidade natural do nosso cabelo.",
-    icon: Leaf,
-  },
-  {
-    number: "03",
-    title: "Reconstrução",
-    description: "Reposição proteica. Sua ação proporciona mais força aos cabelos frágeis e reequilibra a elasticidade comprometida por químicas e fatores externos.",
-    icon: Shield,
-  },
-];
-
-const faqs = [
-  {
-    q: "Quantas vezes devo passar óleo no cabelo?",
-    a: "Os óleos capilares podem ser utilizados diariamente em média de três vezes ao dia. Quanto mais exposto for o cabelo ao vento, sol e maresia mais vezes a aplicação diária.",
-  },
-  {
-    q: "É bom dormir com óleo no cabelo?",
-    a: "Usar óleo capilar à noite pode salvar os seus fios, afinal, eles sofrem danos até enquanto você dorme. A tração do cabelo com a pele e o suor, e com a fronha de algodão, machucam a fibra capilar, já que é uma parte bem sensível.",
-  },
-  {
-    q: "Quando usar os óleos da Moonlight?",
-    a: "Você pode utilizar o óleo de cabelo: antes de lavar o cabelo, após a lavagem do cabelo, antes de dormir e ao acordar.",
-  },
-  {
-    q: "Como aplicar no couro cabeludo?",
-    a: "Faça uma massagem bem suave com a ponta dos dedos ao aplicar no couro cabeludo.",
-  },
-];
+const iconByIndex = [Droplets, Leaf, Shield];
 
 export default function Guia() {
+  const { guide } = useGuideContent();
+
+  const { data: faqItems = [], isLoading: isLoadingFaq } = useQuery({
+    queryKey: ['faq'],
+    queryFn: () => base44.faq.list(),
+    staleTime: 300_000,
+  });
+
+  const cronograma = guide?.cronograma ?? {};
+  const umectacao = guide?.umectacao ?? {};
+  const letter = guide?.letter ?? {};
+
+  const steps = useMemo(() => (Array.isArray(cronograma.steps) ? cronograma.steps : []), [cronograma.steps]);
+  const bullets = useMemo(() => (Array.isArray(umectacao.bullets) ? umectacao.bullets : []), [umectacao.bullets]);
+
+  const faqs = useMemo(() => {
+    return (Array.isArray(faqItems) ? faqItems : [])
+      .filter((it) => it?.question && it?.answer)
+      .map((it, idx) => ({
+        id: String(it.id ?? `faq-${idx}`),
+        q: String(it.question ?? ''),
+        a: String(it.answer ?? ''),
+      }));
+  }, [faqItems]);
+
   return (
     <div className="pt-24">
       {/* Cronograma Capilar */}
       <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">O Ritual</span>
+            <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">
+              {cronograma.eyebrow ?? 'O Ritual'}
+            </span>
             <h1 className="font-display text-4xl md:text-6xl text-foreground mt-4 leading-tight">
-              Cronograma <span className="text-primary">Capilar</span>
+              {String(cronograma.title ?? 'Cronograma')}{' '}
+              <span className="text-primary">{String(cronograma.title_highlight ?? 'Capilar')}</span>
             </h1>
             <p className="font-mono text-sm text-muted-foreground mt-4 max-w-lg mx-auto">
-              O cronograma capilar é composto por 3 etapas essenciais para a saúde do seu cabelo.
+              {String(cronograma.subtitle ?? '')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-            {cronograma.map((step, i) => (
-              <motion.div
-                key={step.number}
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: i * 0.2 }}
-                className="group relative"
-              >
-                <div className="p-8 rounded-2xl border border-border hover:border-primary/30 bg-card/50 hover:bg-card transition-all duration-500 h-full">
-                  <span className="font-display text-7xl text-primary/10 absolute top-4 right-6">{step.number}</span>
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
-                    <step.icon className="w-6 h-6 text-primary" />
+            {steps.map((step, i) => {
+              const Icon = iconByIndex[i] ?? Droplets;
+              return (
+                <motion.div
+                  key={String(step.number ?? i)}
+                  initial={{ opacity: 0, y: 40 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: i * 0.2 }}
+                  className="group relative"
+                >
+                  <div className="p-8 rounded-2xl border border-border hover:border-primary/30 bg-card/50 hover:bg-card transition-all duration-500 h-full">
+                    <span className="font-display text-7xl text-primary/10 absolute top-4 right-6">{step.number}</span>
+                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
+                      <Icon className="w-6 h-6 text-primary" />
+                    </div>
+                    <h3 className="font-display text-2xl text-foreground mb-4">{step.title}</h3>
+                    <p className="font-mono text-sm text-muted-foreground leading-relaxed">{step.description}</p>
                   </div>
-                  <h3 className="font-display text-2xl text-foreground mb-4">{step.title}</h3>
-                  <p className="font-mono text-sm text-muted-foreground leading-relaxed">{step.description}</p>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -93,17 +88,17 @@ export default function Guia() {
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
           >
-            <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Nutrição Capilar</span>
+            <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">
+              {String(umectacao.eyebrow ?? 'Nutrição Capilar')}
+            </span>
             <h2 className="font-display text-3xl md:text-5xl text-foreground mt-4 mb-8 leading-tight">
-              Umectação
+              {String(umectacao.title ?? 'Umectação')}
             </h2>
             <p className="font-mono text-sm text-muted-foreground leading-relaxed mb-8">
-              A umectação é uma etapa da nutrição capilar, que consiste no tratamento à base de óleos, 
-              sejam eles essenciais ou vegetais. O seu principal objetivo é acabar com o ressecamento, 
-              nutrir os fios e devolver o brilho aos mesmos.
+              {String(umectacao.body ?? '')}
             </p>
             <div className="space-y-3">
-              {["Redução da quebra capilar", "Diminuição do frizz", "Redução do atrito entre os fios", "Fortalecimento da fibra capilar"].map((b) => (
+              {bullets.map((b) => (
                 <div key={b} className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full bg-primary" />
                   <span className="font-mono text-sm text-foreground">{b}</span>
@@ -121,8 +116,8 @@ export default function Guia() {
           >
             <div className="absolute -inset-4 rounded-2xl bg-primary/5 blur-2xl" />
             <img
-              src={RITUAL_IMG}
-              alt="Umectação capilar"
+              src={String(umectacao.image_url ?? '')}
+              alt={String(umectacao.image_alt ?? 'Umectação capilar')}
               className="relative w-full rounded-2xl"
             />
           </motion.div>
@@ -140,10 +135,10 @@ export default function Guia() {
           </div>
 
           <Accordion type="single" collapsible className="space-y-4">
-            {faqs.map((faq, i) => (
+            {(isLoadingFaq ? [] : faqs).map((faq, i) => (
               <AccordionItem
-                key={i}
-                value={`faq-${i}`}
+                key={faq.id}
+                value={faq.id}
                 className="border border-border rounded-xl px-6 data-[state=open]:border-primary/30 transition-colors"
               >
                 <AccordionTrigger className="font-mono text-sm text-foreground hover:no-underline py-5">
@@ -154,11 +149,17 @@ export default function Guia() {
                 </AccordionContent>
               </AccordionItem>
             ))}
+
+            {!isLoadingFaq && faqs.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="font-mono text-sm text-muted-foreground">Sem perguntas por enquanto.</p>
+              </div>
+            ) : null}
           </Accordion>
         </div>
       </section>
 
-      {/* Letter from hair */}
+      {/* Carta */}
       <section className="py-20 px-6">
         <div className="max-w-3xl mx-auto">
           <motion.div
@@ -169,28 +170,21 @@ export default function Guia() {
             className="p-8 md:p-12 rounded-2xl border border-primary/20 bg-card/50 relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-primary/5 blur-3xl" />
-            <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">Uma Mensagem Especial</span>
+            <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">
+              {String(letter.eyebrow ?? 'Uma Mensagem Especial')}
+            </span>
             <h3 className="font-display text-2xl md:text-3xl text-foreground mt-4 mb-6">
-              Do seu cabelo para você
+              {String(letter.title ?? 'Do seu cabelo para você')}
             </h3>
             <p className="font-mono text-sm text-muted-foreground leading-relaxed mb-4 italic">
-              "Oi minha dona linda e maravilhosa, muito obrigada por se dedicar tanto à mim, 
-              pelos cuidados, pelo tempo e dinheiro investidos! Eu sou tão importante como qualquer 
-              outra parte de seu corpo, por isso, me lave 3x na semana, me vista com um pijama de 
-              cetim todas as noites, penteia-me com cuidado, pois eu sinto muita dor, seque-me bem 
-              depois da lavagem."
+              {String(letter.body_1 ?? '')}
             </p>
-            <p className="font-mono text-sm text-muted-foreground leading-relaxed italic">
-              "Ao me prender, por favor seja delicada, e compre os óleos da Moonlight — eles ajudam 
-              na minha saúde e desenvolvimento. Por favor não se chateie quando eu encolher, isso faz 
-              parte das minhas características e deves amar-me como eu sou!"
-            </p>
-            <p className="font-display text-lg text-primary mt-8">
-              "Eu sou a coroa que você carrega, a tua identidade"
-            </p>
+            <p className="font-mono text-sm text-muted-foreground leading-relaxed italic">{String(letter.body_2 ?? '')}</p>
+            <p className="font-display text-lg text-primary mt-8">{String(letter.signature ?? '')}</p>
           </motion.div>
         </div>
       </section>
     </div>
   );
 }
+

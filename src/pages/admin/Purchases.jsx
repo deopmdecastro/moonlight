@@ -405,44 +405,43 @@ export default function AdminPurchases() {
 
   const normalizeProductCategory = (value) => {
     const raw = String(value ?? '').trim().toLowerCase();
-    if (!raw) return 'colares';
+    if (!raw) return 'tonico';
     const normalized = raw
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z_ ]/g, '')
       .replace(/\s+/g, '_');
 
-    const direct = new Set(['colares', 'brincos', 'pulseiras', 'aneis', 'conjuntos']);
+    const direct = new Set(['tonico', 'oleo', 'combo', 'acessorio', 'outro']);
     if (direct.has(normalized)) return normalized;
 
-    if (/(tornozeleir)/i.test(normalized)) return 'pulseiras';
-    if (/(anel)/i.test(normalized)) return 'aneis';
-    if (/(brinco)/i.test(normalized)) return 'brincos';
-    if (/(pulseir)/i.test(normalized)) return 'pulseiras';
-    if (/(conjunto)/i.test(normalized)) return 'conjuntos';
+    if (/(tonic|tonico)/i.test(normalized)) return 'tonico';
+    if (/(oleo|oil)/i.test(normalized)) return 'oleo';
+    if (/(combo|kit)/i.test(normalized)) return 'combo';
+    if (/(acessorio|touca|pente|escova)/i.test(normalized)) return 'acessorio';
 
-    return 'colares';
+    return 'outro';
   };
 
   const normalizeProductMaterial = (value) => {
     const raw = String(value ?? '').trim().toLowerCase();
-    if (!raw) return 'dourado';
+    if (!raw) return 'crespo';
     const normalized = raw
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z_ ]/g, '')
       .replace(/\s+/g, '_');
 
-    const direct = new Set(['aco_inox', 'prata', 'dourado', 'rose_gold', 'perolas', 'cristais']);
+    const direct = new Set(['crespo', 'cacheado', 'ondulado', 'liso', 'transicao']);
     if (direct.has(normalized)) return normalized;
 
-    if (/(aco|inox)/i.test(normalized)) return 'aco_inox';
-    if (/(prata)/i.test(normalized)) return 'prata';
-    if (/(rose|rosa)/i.test(normalized)) return 'rose_gold';
-    if (/(perola)/i.test(normalized)) return 'perolas';
-    if (/(cristal)/i.test(normalized)) return 'cristais';
+    if (/(cresp)/i.test(normalized)) return 'crespo';
+    if (/(cachead)/i.test(normalized)) return 'cacheado';
+    if (/(ondulad)/i.test(normalized)) return 'ondulado';
+    if (/(lis)/i.test(normalized)) return 'liso';
+    if (/(transic)/i.test(normalized)) return 'transicao';
 
-    return 'dourado';
+    return 'crespo';
   };
 
   const findProductByName = (name) => {

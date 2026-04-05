@@ -11,26 +11,26 @@ import { getErrorMessage, toastApiPromise } from '@/lib/toast';
 
 const defaultAbout = {
   hero_title: 'Sobre a Moonlight',
-  hero_subtitle: 'Celebrar a beleza, autenticidade e essência da mulher moderna.',
+  hero_subtitle: 'Clínica capilar especializada em cabelos crespos naturais.',
   story_title: 'A Nossa Essência',
-  story_image_url: 'https://media.base44.com/images/public/69c68e1a7672ae1454387e62/0912c9232_generated_fe47a609.png',
+  story_image_url: 'https://media.base44.com/images/public/69cc376dc1ad26b57bf8eecd/d9d7bc902_generated_a845f4fd.png',
   story_paragraphs: [
-    'A Moonlight nasce com a missão de celebrar o universo feminino, oferecendo às mulheres produtos pensados para o seu dia a dia, com praticidade, estilo e personalidade.',
-    'Mais do que uma marca, a Moonlight é um convite para que cada mulher se sinta única, confiante e inspirada.',
-    'Com o lançamento da Moonlight, apresentamos bijuterias e outros artigos que vão desde opções simples e elegantes até peças exclusivas e personalizadas. O propósito da marca é proporcionar não apenas produtos, mas experiências que traduzam beleza, autenticidade e a essência da mulher moderna.',
+    'A Moonlight nasceu para cuidar da saúde capilar e fortalecer a autoestima através de um atendimento humanizado e de produtos 100% naturais.',
+    'Promovemos a aceitação capilar como primeiro passo para alcançar resultados consistentes e duradouros.',
+    'Oferecemos terapias, acompanhamento e uma linha de óleos, tónicos e acessórios que apoiam os cuidados diários do seu cabelo.',
   ],
   values: [
     {
       title: 'Missão',
-      text: 'Celebrar a beleza feminina através de acessórios que combinam elegância, qualidade e preço acessível.',
+      text: 'Cuidar da saúde do cabelo com terapia capilar e produtos naturais, com foco em resultados e bem-estar.',
     },
     {
       title: 'Visão',
-      text: 'Ser a marca de referência em bijuterias para a mulher moderna, reconhecida pela qualidade e design único.',
+      text: 'Ser referência em cuidados capilares para cabelos naturais, com confiança, consistência e acompanhamento real.',
     },
     {
       title: 'Valores',
-      text: 'Autenticidade, sofisticação, acessibilidade e dedicação a cada cliente que nos escolhe.',
+      text: 'Respeito, acolhimento, ciência, natureza e compromisso com a autoestima de cada cliente.',
     },
   ],
 };

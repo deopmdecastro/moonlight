@@ -104,20 +104,19 @@ model PasswordResetToken {
 }
 
 enum ProductCategory {
-  colares
-  brincos
-  pulseiras
-  aneis
-  conjuntos
+  tonico
+  oleo
+  combo
+  acessorio
+  outro
 }
 
 enum ProductMaterial {
-  aco_inox
-  prata
-  dourado
-  rose_gold
-  perolas
-  cristais
+  crespo
+  cacheado
+  ondulado
+  liso
+  transicao
 }
 
 enum ProductStatus {

@@ -10,31 +10,24 @@ import ProductCard from '@/components/products/ProductCard';
 import { trackSearch } from '@/lib/analytics';
 import EmptyState from '@/components/ui/empty-state';
 
-const categories = [
-  { value: 'all', label: 'Todas' },
-  { value: 'colares', label: 'Colares' },
-  { value: 'brincos', label: 'Brincos' },
-  { value: 'pulseiras', label: 'Pulseiras' },
-  { value: 'aneis', label: 'Anéis' },
-  { value: 'conjuntos', label: 'Conjuntos' },
-];
-
-const materials = [
-  { value: 'all', label: 'Todos' },
-  { value: 'aco_inox', label: 'Aço Inox' },
-  { value: 'prata', label: 'Prata' },
-  { value: 'dourado', label: 'Dourado' },
-  { value: 'rose_gold', label: 'Rose Gold' },
-  { value: 'perolas', label: 'Pérolas' },
-  { value: 'cristais', label: 'Cristais' },
-];
-
 const sortOptions = [
   { value: 'newest', label: 'Mais recentes' },
   { value: 'price_asc', label: 'Preço: menor' },
   { value: 'price_desc', label: 'Preço: maior' },
   { value: 'bestseller', label: 'Mais vendidos' },
 ];
+
+function normalizeEnabledOptions(value, fallback) {
+  if (!Array.isArray(value) || value.length === 0) return fallback;
+  return value
+    .map((opt) => {
+      const v = String(opt?.value ?? '').trim();
+      if (!v) return null;
+      const label = String(opt?.label ?? v).trim() || v;
+      return opt?.enabled === false ? null : { value: v, label };
+    })
+    .filter(Boolean);
+}
 
 export default function Catalog() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -51,6 +44,34 @@ export default function Catalog() {
     queryFn: () => base44.entities.Product.filter({ status: 'active' }, '-created_date', 100),
   });
 
+  const { data: productOptionsRes } = useQuery({
+    queryKey: ['product-options-catalog'],
+    queryFn: () => base44.content.productOptions(),
+    staleTime: 300_000,
+  });
+
+  const options = useMemo(() => {
+    const content = productOptionsRes?.content && typeof productOptionsRes.content === 'object' ? productOptionsRes.content : {};
+    const categories = normalizeEnabledOptions(content.categories, [
+      { value: 'tonico', label: 'Tónicos' },
+      { value: 'oleo', label: 'Óleos' },
+      { value: 'combo', label: 'Combos' },
+      { value: 'acessorio', label: 'Acessórios' },
+    ]);
+    const materials = normalizeEnabledOptions(content.materials, [
+      { value: 'crespo', label: 'Crespo' },
+      { value: 'cacheado', label: 'Cacheado' },
+      { value: 'ondulado', label: 'Ondulado' },
+      { value: 'transicao', label: 'Transição' },
+    ]);
+
+    return {
+      categories: [{ value: 'all', label: 'Todas' }, ...categories],
+      materials: [{ value: 'all', label: 'Todos' }, ...materials],
+      hasMaterials: materials.length > 0,
+    };
+  }, [productOptionsRes]);
+
   const filtered = useMemo(() => {
     let result = [...products];
 
@@ -59,7 +80,7 @@ export default function Catalog() {
       result = result.filter(p => p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
     }
     if (category !== 'all') result = result.filter(p => p.category === category);
-    if (material !== 'all') result = result.filter(p => p.material === material);
+    if (options.hasMaterials && material !== 'all') result = result.filter(p => p.material === material);
 
     switch (sortBy) {
       case 'price_asc': result.sort((a, b) => (a.price || 0) - (b.price || 0)); break;
@@ -69,9 +90,9 @@ export default function Catalog() {
     }
 
     return result;
-  }, [products, search, category, material, sortBy]);
+  }, [products, search, category, material, sortBy, options.hasMaterials]);
 
-  const activeFilterCount = [category !== 'all', material !== 'all', search].filter(Boolean).length;
+  const activeFilterCount = [category !== 'all', (options.hasMaterials && material !== 'all'), search].filter(Boolean).length;
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -143,23 +164,25 @@ export default function Catalog() {
               <SelectTrigger className="w-[140px] rounded-none font-body text-sm">
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
-              <SelectContent>
-                {categories.map(c => (
+            <SelectContent>
+                {options.categories.map(c => (
                   <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select value={material} onValueChange={setMaterial}>
-              <SelectTrigger className="w-[140px] rounded-none font-body text-sm">
-                <SelectValue placeholder="Material" />
-              </SelectTrigger>
-              <SelectContent>
-                {materials.map(m => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {options.hasMaterials ? (
+              <Select value={material} onValueChange={setMaterial}>
+                <SelectTrigger className="w-[140px] rounded-none font-body text-sm">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {options.materials.map(m => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
 
             {activeFilterCount > 0 && (
               <Button variant="ghost" onClick={clearFilters} className="text-sm font-body gap-1">
@@ -171,7 +194,7 @@ export default function Catalog() {
 
         {/* Category Pills */}
         <div className="flex flex-wrap gap-2 mb-8">
-          {categories.map(c => (
+          {options.categories.map(c => (
             <button
               key={c.value}
               onClick={() => setCategory(c.value)}

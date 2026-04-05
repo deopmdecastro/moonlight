@@ -4,22 +4,22 @@ import { motion } from 'framer-motion';
 
 const fallbackCategories = {
   eyebrow: 'Explore',
-  title: 'As Nossas Coleções',
+  title: 'Os Nossos Produtos',
   items: [
     {
-      name: 'Colares',
-      slug: 'colares',
-      image_url: 'https://media.base44.com/images/public/69c68e1a7672ae1454387e62/2d13f0217_generated_69ec28d0.png',
+      name: 'Tónicos',
+      slug: 'tonico',
+      image_url: 'https://media.base44.com/images/public/69cc376dc1ad26b57bf8eecd/319b58075_generated_888a5b9c.png',
     },
     {
-      name: 'Brincos',
-      slug: 'brincos',
-      image_url: 'https://media.base44.com/images/public/69c68e1a7672ae1454387e62/5e15fdc1b_generated_83c31e3b.png',
+      name: 'Óleos',
+      slug: 'oleo',
+      image_url: 'https://media.base44.com/images/public/69cc376dc1ad26b57bf8eecd/319b58075_generated_888a5b9c.png',
     },
     {
-      name: 'Pulseiras',
-      slug: 'pulseiras',
-      image_url: 'https://media.base44.com/images/public/69c68e1a7672ae1454387e62/56b29b25c_generated_ac56f9ac.png',
+      name: 'Acessórios',
+      slug: 'acessorio',
+      image_url: 'https://media.base44.com/images/public/69cc376dc1ad26b57bf8eecd/d9d7bc902_generated_a845f4fd.png',
     },
   ],
 };
@@ -69,7 +69,7 @@ export default function CategoryGrid({ content } = {}) {
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
                 <h3 className="font-heading text-2xl md:text-3xl text-white">{cat.name}</h3>
-                <p className="font-body text-xs tracking-wider text-white/70 mt-1 uppercase">Ver coleção →</p>
+                <p className="font-body text-xs tracking-wider text-white/70 mt-1 uppercase">Ver produtos →</p>
               </div>
             </Link>
           </motion.div>

@@ -64,7 +64,7 @@ export default function Navbar() {
   const moreLinks = useMemo(
     () => [
       { to: '/catalogo', label: 'Catálogo (com filtros)' },
-      { to: '/faq', label: 'FAQ' },
+      { to: '/guia', label: 'Guia Capilar' },
       { to: '/suporte', label: 'Suporte' },
       { to: '/contacto', label: 'Contacto' },
       { to: '/favoritos', label: 'Favoritos' },

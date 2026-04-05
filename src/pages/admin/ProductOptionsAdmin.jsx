@@ -12,20 +12,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { getErrorMessage, toastApiPromise } from '@/lib/toast';
 
 const CATEGORY_DEFAULTS = [
-  { value: 'colares', label: 'Colares', enabled: true },
-  { value: 'brincos', label: 'Brincos', enabled: true },
-  { value: 'pulseiras', label: 'Pulseiras', enabled: true },
-  { value: 'aneis', label: 'Anéis', enabled: true },
-  { value: 'conjuntos', label: 'Conjuntos', enabled: true },
+  { value: 'tonico', label: 'Tónicos', enabled: true },
+  { value: 'oleo', label: 'Óleos', enabled: true },
+  { value: 'combo', label: 'Combos', enabled: true },
+  { value: 'acessorio', label: 'Acessórios', enabled: true },
 ];
 
 const MATERIAL_DEFAULTS = [
-  { value: 'aco_inox', label: 'Aço Inox', enabled: true },
-  { value: 'prata', label: 'Prata', enabled: true },
-  { value: 'dourado', label: 'Dourado', enabled: true },
-  { value: 'rose_gold', label: 'Rose Gold', enabled: true },
-  { value: 'perolas', label: 'Pérolas', enabled: true },
-  { value: 'cristais', label: 'Cristais', enabled: true },
+  { value: 'crespo', label: 'Crespo', enabled: true },
+  { value: 'cacheado', label: 'Cacheado', enabled: true },
+  { value: 'ondulado', label: 'Ondulado', enabled: true },
+  { value: 'liso', label: 'Liso', enabled: false },
+  { value: 'transicao', label: 'Transição', enabled: true },
 ];
 
 function normalizeLines(value) {
@@ -166,7 +164,7 @@ export default function ProductOptionsAdmin() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-heading text-xl">Materiais</CardTitle>
+              <CardTitle className="font-heading text-xl">Tipos de cabelo (opcional)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {(form.materials ?? []).map((m) => (
@@ -258,4 +256,3 @@ export default function ProductOptionsAdmin() {
     </div>
   );
 }
-

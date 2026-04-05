@@ -3,8 +3,8 @@ import { prisma } from './prisma.js'
 const ddl = [
   // Enums (Postgres). Prisma binds parameters using these types, so they must exist even if
   // local tables were created with TEXT columns.
-  `DO $$ BEGIN CREATE TYPE "ProductCategory" AS ENUM ('colares','brincos','pulseiras','aneis','conjuntos'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN CREATE TYPE "ProductMaterial" AS ENUM ('aco_inox','prata','dourado','rose_gold','perolas','cristais'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `DO $$ BEGIN CREATE TYPE "ProductCategory" AS ENUM ('tonico','oleo','combo','acessorio','outro'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `DO $$ BEGIN CREATE TYPE "ProductMaterial" AS ENUM ('crespo','cacheado','ondulado','liso','transicao'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "ProductStatus" AS ENUM ('active','inactive','out_of_stock'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "OrderStatus" AS ENUM ('pending','confirmed','processing','shipped','delivered','cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "AppointmentStatus" AS ENUM ('pending','confirmed','cancelled','completed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,

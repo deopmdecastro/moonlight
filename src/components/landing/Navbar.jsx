@@ -3,11 +3,29 @@ import { Link } from "react-router-dom";
 import { Moon, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/AuthContext";
+import { useBranding } from "@/lib/useBranding";
+import { useLandingContent } from "@/lib/useLandingContent";
+import moonlightLogo from "@/img/moonlight_logo_primary.svg";
+
+function getInstagramUrl(handle) {
+  const raw = String(handle ?? "").trim();
+  if (!raw) return "";
+  const clean = raw.replace(/^@/, "");
+  return clean ? `https://instagram.com/${clean}` : "";
+}
+
+function parseWhatsAppNumber(url) {
+  const value = String(url ?? "").trim();
+  const match = value.match(/wa\.me\/(\d{6,15})/i);
+  return match?.[1] ?? "";
+}
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
+  const { branding } = useBranding();
+  const { landing } = useLandingContent();
   const isLogged = Boolean(user);
 
   useEffect(() => {
@@ -25,6 +43,15 @@ export default function Navbar() {
     { label: "Agendamento", href: "/agendamento" },
   ];
 
+  const siteName = String(branding?.site_name ?? "Moonlight").trim() || "Moonlight";
+  const logoSrc = String(branding?.logo_primary_url ?? "").trim() || moonlightLogo;
+
+  const instagramUrl =
+    getInstagramUrl(branding?.instagram_handle) || "https://instagram.com/moonlight_capilar";
+  const whatsappUrl =
+    String(landing?.cta?.primary_url ?? "").trim() || "https://wa.me/244927215851";
+  const whatsappNumber = parseWhatsAppNumber(whatsappUrl);
+
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
@@ -33,12 +60,9 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="relative w-8 h-8">
-            <div className="absolute inset-0 rounded-full bg-accent/60" />
-            <div className="absolute top-0 right-0 w-6 h-6 rounded-full bg-primary" />
-          </div>
+          <img src={logoSrc} alt={siteName} className="h-9 w-auto shrink-0" loading="eager" />
           <span className="font-display text-xl text-foreground tracking-tight group-hover:text-primary transition-colors">
-            moonlight
+            {siteName}
           </span>
         </Link>
 
@@ -111,12 +135,21 @@ export default function Navbar() {
               ) : null}
 
               <a
-                href="https://wa.me/244927215851"
+                href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono text-sm uppercase tracking-widest text-primary mt-2"
               >
-                +244 927 215 851
+                {whatsappNumber ? `+${whatsappNumber}` : "WhatsApp"}
+              </a>
+
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-sm uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
+              >
+                Instagram
               </a>
             </div>
           </motion.div>

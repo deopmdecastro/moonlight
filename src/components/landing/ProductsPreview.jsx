@@ -3,29 +3,47 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight, Sparkles } from "lucide-react";
 
-const products = [
-  { name: "Tônico de Alho", benefit: "Antiqueda & Crescimento" },
-  { name: "Tônico de Gengibre", benefit: "Hidratação & Brilho" },
-  { name: "Super Tônico", benefit: "Força & Volume" },
-  { name: "Óleo de Cravo-da-Índia", benefit: "Fortalecimento" },
-  { name: "Óleo de Alecrim", benefit: "Antioxidante" },
-  { name: "Óleo de Hibisco", benefit: "Reconstrução" },
-];
+function renderTitle({ title = "", highlight = "" } = {}) {
+  const full = String(title ?? "");
+  const mark = String(highlight ?? "");
+  if (!mark || !full.toLowerCase().includes(mark.toLowerCase())) return full;
+  const idx = full.toLowerCase().indexOf(mark.toLowerCase());
+  const before = full.slice(0, idx);
+  const mid = full.slice(idx, idx + mark.length);
+  const after = full.slice(idx + mark.length);
+  return (
+    <>
+      {before}
+      <span className="text-primary">{mid}</span>
+      {after}
+    </>
+  );
+}
 
-export default function ProductsPreview({ productsImage }) {
+export default function ProductsPreview({ content } = {}) {
+  const imageUrl = String(content?.image_url ?? "").trim();
+  const imageAlt = String(content?.image_alt ?? "").trim() || "Produtos";
+  const eyebrow = String(content?.eyebrow ?? "").trim();
+  const title = String(content?.title ?? "").trim();
+  const titleHighlight = String(content?.title_highlight ?? "").trim();
+  const subtitle = String(content?.subtitle ?? "").trim();
+  const items = Array.isArray(content?.items) ? content.items : [];
+  const ctaLabel = String(content?.cta_label ?? "").trim() || "Ver mais";
+  const ctaTo = String(content?.cta_to ?? "").trim() || "/produtos";
+
   return (
     <section className="py-32 px-6 relative">
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-      
+
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-20">
-          <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">100% Naturais</span>
+          <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">{eyebrow || "Produtos"}</span>
           <h2 className="font-display text-3xl md:text-5xl text-foreground mt-4 leading-tight">
-            Óleos <span className="text-primary">Moonlight</span>
+            {renderTitle({ title, highlight: titleHighlight })}
           </h2>
-          <p className="font-mono text-sm text-muted-foreground mt-4 max-w-lg mx-auto">
-            Feitos com muito amor a pensar em si e no seu cabelo.
-          </p>
+          {subtitle ? (
+            <p className="font-mono text-sm text-muted-foreground mt-4 max-w-lg mx-auto">{subtitle}</p>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -38,16 +56,16 @@ export default function ProductsPreview({ productsImage }) {
           >
             <div className="absolute -inset-8 rounded-3xl bg-primary/3 blur-3xl" />
             <img
-              src={productsImage}
-              alt="Óleos Moonlight - Produtos capilares naturais"
+              src={imageUrl}
+              alt={imageAlt}
               className="relative w-full rounded-2xl hover:brightness-110 transition-all duration-700"
             />
           </motion.div>
 
           <div className="space-y-4">
-            {products.map((product, i) => (
+            {items.map((product, i) => (
               <motion.div
-                key={product.name}
+                key={`${product?.name ?? i}`}
                 initial={{ opacity: 0, x: 30 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
@@ -59,8 +77,8 @@ export default function ProductsPreview({ productsImage }) {
                     <Sparkles className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-mono text-sm text-foreground">{product.name}</h3>
-                    <p className="font-mono text-xs text-muted-foreground">{product.benefit}</p>
+                    <h3 className="font-mono text-sm text-foreground">{String(product?.name ?? "")}</h3>
+                    <p className="font-mono text-xs text-muted-foreground">{String(product?.benefit ?? "")}</p>
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -68,10 +86,10 @@ export default function ProductsPreview({ productsImage }) {
             ))}
 
             <Link
-              to="/produtos"
+              to={ctaTo}
               className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-primary mt-6 hover:gap-4 transition-all duration-300"
             >
-              Ver todos os produtos <ArrowRight className="w-4 h-4" />
+              {ctaLabel} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
@@ -79,3 +97,4 @@ export default function ProductsPreview({ productsImage }) {
     </section>
   );
 }
+

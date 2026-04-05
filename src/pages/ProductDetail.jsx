@@ -19,12 +19,11 @@ import ProductCard from '@/components/products/ProductCard';
 import { normalizeImages } from '@/lib/images';
 
 const materialLabels = {
-  aco_inox: 'Aço Inoxidável',
-  prata: 'Prata',
-  dourado: 'Dourado',
-  rose_gold: 'Rose Gold',
-  perolas: 'Pérolas',
-  cristais: 'Cristais',
+  crespo: 'Crespo',
+  cacheado: 'Cacheado',
+  ondulado: 'Ondulado',
+  liso: 'Liso',
+  transicao: 'Transição',
 };
 
 export default function ProductDetail() {

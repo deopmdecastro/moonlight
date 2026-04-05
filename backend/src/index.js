@@ -1501,11 +1501,9 @@ const productPayloadSchema = z
     price: z.union([z.number(), z.string()]),
     acquisition_cost: z.union([z.number(), z.string()]).optional().nullable(),
     original_price: z.union([z.number(), z.string()]).optional().nullable(),
-    category: z.enum(['colares', 'brincos', 'pulseiras', 'aneis', 'conjuntos']),
-    material: z
-      .enum(['aco_inox', 'prata', 'dourado', 'rose_gold', 'perolas', 'cristais'])
-      .optional()
-      .nullable(),
+    // Allow categories/materials defined in Admin -> Conteúdo -> Catálogo.
+    category: z.string().min(1).max(60),
+    material: z.string().min(1).max(60).optional().nullable(),
     colors: z.array(z.string()).optional(),
     sizes: z.array(z.string()).optional(),
     images: z.array(z.string()).optional(),
@@ -1693,7 +1691,7 @@ const productOptionsSchema = z
     categories: z
       .array(
         z.object({
-          value: z.enum(['colares', 'brincos', 'pulseiras', 'aneis', 'conjuntos']),
+          value: z.string().min(1).max(60),
           label: z.string().min(1).max(80),
           enabled: z.boolean().optional(),
         }),
@@ -1702,7 +1700,7 @@ const productOptionsSchema = z
     materials: z
       .array(
         z.object({
-          value: z.enum(['aco_inox', 'prata', 'dourado', 'rose_gold', 'perolas', 'cristais']),
+          value: z.string().min(1).max(60),
           label: z.string().min(1).max(80),
           enabled: z.boolean().optional(),
         }),
@@ -1854,6 +1852,51 @@ const searchEventSchema = z
 
 // Any JSON object payload (unknown keys allowed).
 const aboutContentSchema = z.object({}).catchall(z.any())
+
+const guideContentSchema = z
+  .object({
+    cronograma: z
+      .object({
+        eyebrow: z.string().optional().nullable(),
+        title: z.string().optional().nullable(),
+        title_highlight: z.string().optional().nullable(),
+        subtitle: z.string().optional().nullable(),
+        steps: z
+          .array(
+            z.object({
+              number: z.string().optional().nullable(),
+              title: z.string().optional().nullable(),
+              description: z.string().optional().nullable(),
+            }),
+          )
+          .optional()
+          .nullable(),
+      })
+      .optional()
+      .nullable(),
+    umectacao: z
+      .object({
+        eyebrow: z.string().optional().nullable(),
+        title: z.string().optional().nullable(),
+        body: z.string().optional().nullable(),
+        bullets: z.array(z.string()).optional().nullable(),
+        image_url: z.string().optional().nullable(),
+        image_alt: z.string().optional().nullable(),
+      })
+      .optional()
+      .nullable(),
+    letter: z
+      .object({
+        eyebrow: z.string().optional().nullable(),
+        title: z.string().optional().nullable(),
+        body_1: z.string().optional().nullable(),
+        body_2: z.string().optional().nullable(),
+        signature: z.string().optional().nullable(),
+      })
+      .optional()
+      .nullable(),
+  })
+  .passthrough()
 
 const loyaltyContentSchema = z
   .object({
@@ -4968,6 +5011,11 @@ app.get('/api/content/branding', async (req, res) => {
   res.json({ content: record?.value ?? null, updated_date: record?.updatedAt ?? null })
 })
 
+app.get('/api/content/guide', async (req, res) => {
+  const record = await prisma.siteContent.findUnique({ where: { key: 'guide' } })
+  res.json({ content: record?.value ?? null, updated_date: record?.updatedAt ?? null })
+})
+
 app.get('/api/content/loyalty', async (req, res) => {
   const record = await prisma.siteContent.findUnique({ where: { key: 'loyalty' } })
   const content = await getLoyaltyContent()
@@ -4987,23 +5035,21 @@ app.get('/api/content/returns', async (req, res) => {
 app.get('/api/content/product-options', async (req, res) => {
   const defaults = {
     categories: [
-      { value: 'colares', label: 'Colares', enabled: true },
-      { value: 'brincos', label: 'Brincos', enabled: true },
-      { value: 'pulseiras', label: 'Pulseiras', enabled: true },
-      { value: 'aneis', label: 'Anéis', enabled: true },
-      { value: 'conjuntos', label: 'Conjuntos', enabled: true },
+      { value: 'tonico', label: 'Tónicos', enabled: true },
+      { value: 'oleo', label: 'Óleos', enabled: true },
+      { value: 'combo', label: 'Combos', enabled: true },
+      { value: 'acessorio', label: 'Acessórios', enabled: true },
     ],
     materials: [
-      { value: 'aco_inox', label: 'Aço Inox', enabled: true },
-      { value: 'prata', label: 'Prata', enabled: true },
-      { value: 'dourado', label: 'Dourado', enabled: true },
-      { value: 'rose_gold', label: 'Rose Gold', enabled: true },
-      { value: 'perolas', label: 'Pérolas', enabled: true },
-      { value: 'cristais', label: 'Cristais', enabled: true },
+      { value: 'crespo', label: 'Crespo', enabled: true },
+      { value: 'cacheado', label: 'Cacheado', enabled: true },
+      { value: 'ondulado', label: 'Ondulado', enabled: true },
+      { value: 'liso', label: 'Liso', enabled: false },
+      { value: 'transicao', label: 'Transição', enabled: true },
     ],
-    colors: ['Dourado', 'Prata', 'Preto', 'Branco', 'Rosa', 'Azul', 'Vermelho', 'Verde'],
-    sizes: ['Único', 'PP', 'P', 'M', 'G'],
-    attributes: ['Material', 'Cor', 'Tamanho'],
+    colors: ['Natural', 'Transparente', 'Âmbar', 'Escuro', 'Claro'],
+    sizes: ['30ml', '50ml', '100ml', '250ml', '500ml'],
+    attributes: ['Categoria', 'Tipo', 'Tamanho'],
   }
 
   const record = await prisma.siteContent.findUnique({ where: { key: 'product_options' } })
@@ -9152,6 +9198,33 @@ app.patch('/api/admin/content/about', async (req, res) => {
   })
 
   await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'about', meta: { keys: Object.keys(value ?? {}) } })
+  res.json({ content: record.value, updated_date: record.updatedAt })
+})
+
+// Content (Guide)
+app.get('/api/admin/content/guide', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const record = await prisma.siteContent.findUnique({ where: { key: 'guide' } })
+  res.json({ content: record?.value ?? null, updated_date: record?.updatedAt ?? null })
+})
+
+app.patch('/api/admin/content/guide', async (req, res) => {
+  const admin = await requireAdmin(req, res)
+  if (!admin) return
+
+  const parsed = guideContentSchema.safeParse(req.body ?? {})
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
+
+  const value = parsed.data
+  const record = await prisma.siteContent.upsert({
+    where: { key: 'guide' },
+    create: { key: 'guide', value },
+    update: { value },
+  })
+
+  await writeAuditLog({ actorId: admin.id, action: 'update', entityType: 'SiteContent', entityId: 'guide', meta: { keys: Object.keys(value ?? {}) } })
   res.json({ content: record.value, updated_date: record.updatedAt })
 })
 

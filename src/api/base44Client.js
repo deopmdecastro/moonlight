@@ -637,6 +637,10 @@ export const base44 = {
 			        get: async () => authedJsonRequest('/api/admin/content/about'),
 			        update: async (data) => authedJsonRequest('/api/admin/content/about', { method: 'PATCH', body: data }),
 			      },
+            guide: {
+              get: async () => authedJsonRequest('/api/admin/content/guide'),
+              update: async (data) => authedJsonRequest('/api/admin/content/guide', { method: 'PATCH', body: data }),
+            },
 	      landing: {
 	        get: async () => authedJsonRequest('/api/admin/content/landing'),
 	        update: async (data) => authedJsonRequest('/api/admin/content/landing', { method: 'PATCH', body: data }),
@@ -821,6 +825,7 @@ export const base44 = {
   },
 		  content: {
 		    about: async () => jsonRequest('/api/content/about'),
+        guide: async () => jsonRequest('/api/content/guide'),
 		    landing: async () => jsonRequest('/api/content/landing'),
 		    payments: async () => jsonRequest('/api/content/payments'),
         shipping: async () => jsonRequest('/api/content/shipping'),

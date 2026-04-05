@@ -108,7 +108,6 @@ const Checkout = lazy(() => import('@/pages/Checkout'));
   const SellerCashClosures = lazy(() => import('@/pages/seller/SellerCashClosures'));
       const ProductOptionsAdmin = lazy(() => import('@/pages/admin/ProductOptionsAdmin'));
 
-const FAQPage = lazy(() => import('@/pages/FAQ'));
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -161,7 +160,7 @@ const AuthenticatedApp = () => {
 	        <Route path="/cookies" element={<CookiesPolicy />} />
 	        <Route path="/termos" element={<Terms />} />
           <Route path="/newsletter/unsubscribe" element={<NewsletterUnsubscribe />} />
-		        <Route path="/faq" element={<FAQPage />} />
+		        <Route path="/faq" element={<Navigate to="/guia" replace />} />
 	        <Route path="/favoritos" element={<WishlistPage />} />
 	        <Route path="/conta" element={<Account />} />
           <Route path="/notificacoes" element={<Notifications />} />

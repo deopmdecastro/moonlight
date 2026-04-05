@@ -9,8 +9,8 @@ const tabs = [
   { to: 'blog-comentarios', label: 'Comentários', icon: MessageSquare },
   { to: 'sobre', label: 'Sobre Nós', icon: FileText },
   { to: 'instagram', label: 'Instagram', icon: Instagram },
-  { to: 'faq', label: 'FAQ', icon: HelpCircle },
-  { to: 'branding', label: 'Branding', icon: Image },
+  { to: 'faq', label: 'Guia Capilar', icon: HelpCircle },
+  { to: 'branding', label: 'Identidade', icon: Image },
   { to: 'marketing', label: 'Marketing', icon: Megaphone },
 ];
 
@@ -48,3 +48,4 @@ export default function ContentLayout() {
     </div>
   );
 }
+

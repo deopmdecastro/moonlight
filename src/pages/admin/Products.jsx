@@ -24,8 +24,8 @@ import LoadMoreControls from '@/components/ui/load-more-controls';
 import EmptyState from '@/components/ui/empty-state';
 
 const emptyProduct = {
-  name: '', description: '', price: '', acquisition_cost: '', original_price: '', category: 'colares',
-  material: 'dourado', colors: [], sizes: [], images: [], stock: 0, is_featured: false,
+  name: '', description: '', price: '', acquisition_cost: '', original_price: '', category: 'tonico',
+  material: 'crespo', colors: [], sizes: [], images: [], stock: 0, is_featured: false,
   videos: [], free_shipping: false, is_new: false, is_bestseller: false, status: 'active'
 };
 
@@ -103,21 +103,19 @@ export default function AdminProducts() {
       categories: enabledCategories.length
         ? enabledCategories
         : [
-            { value: 'colares', label: 'Colares' },
-            { value: 'brincos', label: 'Brincos' },
-            { value: 'pulseiras', label: 'Pulseiras' },
-            { value: 'aneis', label: 'Anéis' },
-            { value: 'conjuntos', label: 'Conjuntos' },
+            { value: 'tonico', label: 'Tónicos' },
+            { value: 'oleo', label: 'Óleos' },
+            { value: 'combo', label: 'Combos' },
+            { value: 'acessorio', label: 'Acessórios' },
           ],
       materials: enabledMaterials.length
         ? enabledMaterials
         : [
-            { value: 'aco_inox', label: 'Aço Inox' },
-            { value: 'prata', label: 'Prata' },
-            { value: 'dourado', label: 'Dourado' },
-            { value: 'rose_gold', label: 'Rose Gold' },
-            { value: 'perolas', label: 'Pérolas' },
-            { value: 'cristais', label: 'Cristais' },
+            { value: 'crespo', label: 'Crespo' },
+            { value: 'cacheado', label: 'Cacheado' },
+            { value: 'ondulado', label: 'Ondulado' },
+            { value: 'liso', label: 'Liso' },
+            { value: 'transicao', label: 'Transição' },
           ],
       colors: colors.map((c) => String(c ?? '').trim()).filter(Boolean),
       sizes: sizes.map((s) => String(s ?? '').trim()).filter(Boolean),
