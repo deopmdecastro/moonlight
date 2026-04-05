@@ -4216,25 +4216,87 @@ async function ensureMockContent() {
     await prisma.faqItem.createMany({
       data: [
         {
-          question: 'Quanto tempo demora a entrega?',
-          answer: 'Normalmente entre 1–3 dias úteis (Portugal Continental). Em períodos promocionais pode variar.',
+          question: 'Quantas vezes devo passar óleo no cabelo?',
+          answer: 'Os óleos capilares podem ser utilizados diariamente em média de três vezes ao dia. Quanto mais exposto for o cabelo ao vento, sol e maresia, mais vezes a aplicação diária.',
           order: 1,
           isActive: true,
         },
         {
-          question: 'Posso trocar ou devolver?',
-          answer: 'Sim. Se houver algum problema com o pedido, contacte-nos pelo Suporte e ajudamos rapidamente.',
+          question: 'É bom dormir com óleo no cabelo?',
+          answer: 'Usar óleo capilar à noite pode salvar os seus fios. A fricção com a fronha e o suor podem ressecar e fragilizar a fibra capilar — o óleo ajuda a proteger e manter a hidratação.',
           order: 2,
           isActive: true,
         },
         {
-          question: 'Como devo cuidar das bijuterias?',
-          answer: 'Evite contacto com água, perfumes e cremes. Guarde as peças em local seco e limpe com pano macio.',
+          question: 'Quando usar os óleos da Moonlight?',
+          answer: 'Você pode utilizar o óleo: antes de lavar o cabelo, após a lavagem (como finalização), antes de dormir e ao acordar.',
           order: 3,
+          isActive: true,
+        },
+        {
+          question: 'Como aplicar no couro cabeludo?',
+          answer: 'Faça uma massagem suave com a ponta dos dedos ao aplicar no couro cabeludo.',
+          order: 4,
           isActive: true,
         },
       ],
     })
+  } else {
+    // DB de desenvolvimento já tinha FAQ antigo (bijuterias): desativa e garante FAQ capilar.
+    const existing = await prisma.faqItem.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'asc' }], take: 500 })
+    const key = (s) => String(s ?? '').trim().toLowerCase()
+    const existingByQuestion = new Map(existing.map((it) => [key(it.question), it]))
+
+    const desired = [
+      {
+        order: 1,
+        question: 'Quantas vezes devo passar óleo no cabelo?',
+        answer:
+          'Os óleos capilares podem ser utilizados diariamente em média de três vezes ao dia. Quanto mais exposto for o cabelo ao vento, sol e maresia, mais vezes a aplicação diária.',
+      },
+      {
+        order: 2,
+        question: 'É bom dormir com óleo no cabelo?',
+        answer:
+          'Usar óleo capilar à noite pode salvar os seus fios. A fricção com a fronha e o suor podem ressecar e fragilizar a fibra capilar — o óleo ajuda a proteger e manter a hidratação.',
+      },
+      {
+        order: 3,
+        question: 'Quando usar os óleos da Moonlight?',
+        answer:
+          'Você pode utilizar o óleo: antes de lavar o cabelo, após a lavagem (como finalização), antes de dormir e ao acordar.',
+      },
+      {
+        order: 4,
+        question: 'Como aplicar no couro cabeludo?',
+        answer: 'Faça uma massagem suave com a ponta dos dedos ao aplicar no couro cabeludo.',
+      },
+    ]
+
+    // Hide old jewellery-specific FAQs.
+    await prisma.faqItem.updateMany({
+      where: {
+        OR: [
+          { question: { contains: 'bijuter', mode: 'insensitive' } },
+          { answer: { contains: 'bijuter', mode: 'insensitive' } },
+        ],
+      },
+      data: { isActive: false },
+    })
+
+    const toCreate = []
+    const toUpdate = []
+
+    for (const it of desired) {
+      const found = existingByQuestion.get(key(it.question))
+      if (!found) toCreate.push({ ...it, isActive: true })
+      else toUpdate.push({ id: found.id, patch: { answer: it.answer, order: it.order, isActive: true } })
+    }
+
+    if (toCreate.length) await prisma.faqItem.createMany({ data: toCreate })
+    for (const u of toUpdate) {
+      await prisma.faqItem.update({ where: { id: u.id }, data: u.patch })
+    }
   }
 }
 

@@ -1,21 +1,23 @@
 export const contactFaqs = [
   {
-    q: 'Quanto tempo demora o envio?',
-    a: 'Os envios são processados em 1-3 dias úteis. A entrega demora entre 2-5 dias úteis para Portugal continental.',
+    q: 'Como faço para agendar?',
+    a: 'Vá em “Agendamento” no menu, escolha o serviço e selecione a data e o horário disponíveis. Se preferir, também pode falar connosco pelo WhatsApp.',
   },
   {
-    q: 'Posso devolver um produto?',
-    a: 'Sim, aceitamos devoluções até 14 dias após a receção, desde que o produto esteja em perfeitas condições e na embalagem original.',
+    q: 'O atendimento é presencial?',
+    a: 'Sim. As consultas e terapias são presenciais. Em alguns casos, também podemos orientar por mensagem para dúvidas rápidas.',
   },
-  { q: 'Os preços incluem IVA?', a: 'Sim, todos os preços apresentados já incluem IVA.' },
   {
-    q: 'O envio está incluído no preço?',
-    a: 'O valor do envio não está incluído no preço do produto. Envio grátis para encomendas acima de 50€.',
+    q: 'Quanto tempo demora a entrega dos produtos?',
+    a: 'Normalmente preparamos e enviamos em 1–3 dias úteis. O prazo final depende da localização e da transportadora.',
   },
-  { q: 'Quais são os métodos de pagamento?', a: 'Aceitamos MB WAY, Transferência Bancária, Multibanco e PayPal.' },
   {
-    q: 'As peças são resistentes à água?',
-    a: 'As peças em aço inoxidável são resistentes à água. No entanto, recomendamos evitar o contacto prolongado com água para manter o brilho.',
+    q: 'Posso trocar ou devolver um produto?',
+    a: 'Se houver algum problema com a encomenda, contacte-nos pelo Suporte/WhatsApp para tratarmos rapidamente do caso.',
+  },
+  {
+    q: 'Quais são os métodos de pagamento?',
+    a: 'Os métodos disponíveis aparecem no checkout. Se tiver dúvidas, fale connosco antes de finalizar a compra.',
   },
 ];
 
