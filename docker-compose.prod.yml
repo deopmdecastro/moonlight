@@ -3,13 +3,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-zana}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zana}
-      POSTGRES_DB: ${POSTGRES_DB:-zana}
+      POSTGRES_USER: ${POSTGRES_USER:-moonlight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-moonlight}
+      POSTGRES_DB: ${POSTGRES_DB:-moonlight}
     volumes:
-      - zana_pgdata:/var/lib/postgresql/data
+      - moonlight_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zana} -d ${POSTGRES_DB:-zana}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-moonlight} -d ${POSTGRES_DB:-moonlight}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -24,7 +24,7 @@ services:
         condition: service_healthy
     environment:
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-zana}:${POSTGRES_PASSWORD:-zana}@db:5432/${POSTGRES_DB:-zana}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-moonlight}:${POSTGRES_PASSWORD:-moonlight}@db:5432/${POSTGRES_DB:-moonlight}
       AUTH_SECRET: ${AUTH_SECRET}
       CORS_ORIGIN: https://${DOMAIN}
       APP_BASE_URL: https://${DOMAIN}
@@ -55,7 +55,6 @@ services:
       - caddy_config:/config
 
 volumes:
-  zana_pgdata:
+  moonlight_pgdata:
   caddy_data:
   caddy_config:
-

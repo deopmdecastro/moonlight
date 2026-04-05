@@ -202,7 +202,7 @@ export default function Auth() {
                 : 'Cole o token e defina uma nova palavra-passe.'
               : isLogin
                 ? 'Aceda à sua área de cliente.'
-                : 'Junte-se à Zana Acessórios.'}
+                : 'Junte-se à Moonlight.'}
           </p>
         </div>
 

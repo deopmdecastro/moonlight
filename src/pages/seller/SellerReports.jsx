@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import EmptyState from '@/components/ui/empty-state';
-import zanaLogoPrimary from '@/img/zana_logo_primary.svg';
+import moonlightLogoPrimary from '@/img/moonlight_logo_primary.svg';
 import { useBranding } from '@/lib/useBranding';
 import { downloadBlob, exportSellerReportsExcel, exportSellerReportsPdf } from '@/lib/reportExport';
 
@@ -106,7 +106,7 @@ export default function SellerReports() {
   const isNarrowChart = useMediaQuery('(max-width: 640px)');
   const [days, setDays] = useState(30);
   const { branding } = useBranding();
-  const reportLogoUrl = String(branding?.logo_primary_url ?? '').trim() || zanaLogoPrimary;
+  const reportLogoUrl = String(branding?.logo_primary_url ?? '').trim() || moonlightLogoPrimary;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['seller-reports-summary', days],

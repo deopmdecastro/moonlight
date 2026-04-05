@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getErrorMessage } from '@/lib/toast';
 
 const DEFAULT_EMAILS = {
-  from_name: 'Zana',
+  from_name: 'Moonlight',
   welcome: { enabled: true, subject: '', html: '', text: '' },
   order: { enabled: true, subject: '', html: '', text: '' },
   campaign: { enabled: true, subject: '', html: '', text: '' },
@@ -67,7 +67,7 @@ export default function MarketingAdmin() {
 
   const [campaign, setCampaign] = useState({
     audience: 'all',
-    subject: 'Novidades Zana',
+    subject: 'Novidades Moonlight',
     content: '',
     test_email: '',
   });
@@ -128,7 +128,7 @@ export default function MarketingAdmin() {
                   value={emailForm.from_name ?? ''}
                   onChange={(e) => setEmailForm((p) => ({ ...p, from_name: e.target.value }))}
                   className="rounded-none mt-1"
-                  placeholder="Zana"
+                  placeholder="Moonlight"
                 />
               </div>
             </div>

@@ -17,8 +17,8 @@ const defaults = {
   theme_color: '#782641',
   background_color: '#f8f5f2',
   secondary_color: '#f1e7db',
-  site_name: 'Zana',
-  contact_email: 'info@zanaacessorios.com',
+  site_name: 'Moonlight',
+  contact_email: 'info@moonlightacessorios.com',
   instagram_handle: '',
   contact_address: 'Portugal',
   footer_rights_text: '',
@@ -201,7 +201,7 @@ export default function BrandingAdmin() {
                   value={form.contact_email ?? ''}
                   onChange={(e) => setForm((p) => ({ ...p, contact_email: e.target.value }))}
                   className="rounded-none mt-1"
-                  placeholder="ex.: info@zanaacessorios.com"
+                  placeholder="ex.: info@moonlightacessorios.com"
                 />
               </div>
               <div>
@@ -210,7 +210,7 @@ export default function BrandingAdmin() {
                   value={form.instagram_handle ?? ''}
                   onChange={(e) => setForm((p) => ({ ...p, instagram_handle: e.target.value }))}
                   className="rounded-none mt-1"
-                  placeholder="@zana.acessorios_"
+                  placeholder="@moonlight.acessorios_"
                 />
               </div>
               <div className="lg:col-span-2">

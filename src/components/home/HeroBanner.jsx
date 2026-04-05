@@ -46,7 +46,7 @@ export default function HeroBanner({ content } = {}) {
       <div className="absolute inset-0">
         <ImageWithFallback
           src={hero.image_url}
-          alt="Zana Acessórios - Coleção"
+          alt="Moonlight - Coleção"
           className="w-full h-full object-cover opacity-30"
           iconClassName="w-16 h-16 text-white/20"
         />

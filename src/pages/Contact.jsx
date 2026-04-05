@@ -16,7 +16,7 @@ export default function Contact() {
   const [sending, setSending] = useState(false);
   const { branding } = useBranding();
 
-  const email = String(branding?.contact_email ?? '').trim() || 'info@zanaacessorios.com';
+  const email = String(branding?.contact_email ?? '').trim() || 'info@moonlightacessorios.com';
   const instagramHandleRaw = String(branding?.instagram_handle ?? '').trim();
   const instagramHandle = instagramHandleRaw ? (instagramHandleRaw.startsWith('@') ? instagramHandleRaw : `@${instagramHandleRaw}`) : '';
   const instagramUrl = instagramHandle ? `https://instagram.com/${instagramHandle.replace(/^@/, '')}` : '';

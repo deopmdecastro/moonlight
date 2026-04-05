@@ -37,7 +37,7 @@ const sendgridApiKey = process.env.SENDGRID_API_KEY ? String(process.env.SENDGRI
 const sendgridFrom = process.env.SENDGRID_FROM ? String(process.env.SENDGRID_FROM).trim() : undefined
 const sendgridTimeoutMs = Number.parseInt(process.env.SENDGRID_TIMEOUT_MS ?? '20000', 10)
 
-const storeName = process.env.STORE_NAME ? String(process.env.STORE_NAME).trim() : 'Zana'
+const storeName = process.env.STORE_NAME ? String(process.env.STORE_NAME).trim() : 'Moonlight'
 const storeEmail = process.env.STORE_EMAIL ? String(process.env.STORE_EMAIL).trim() : smtpUser ?? ''
 const storePhone = process.env.STORE_PHONE ? String(process.env.STORE_PHONE).trim() : ''
 const storeAddress = process.env.STORE_ADDRESS ? String(process.env.STORE_ADDRESS).trim() : ''
@@ -819,7 +819,7 @@ async function sendTemplatedEmail({ to, subject, text, html, fromName }) {
 }
 
 const defaultEmailContent = {
-  from_name: 'Zana',
+  from_name: 'Moonlight',
   welcome: {
     enabled: true,
     subject: 'Bem-vindo(a) à {{store_name}}, {{first_name}}!',
@@ -1556,7 +1556,7 @@ const orderItemPayloadSchema = z.object({
 async function upsertCustomerFromOrderPayload(data) {
   const email = String(data?.customer_email ?? '').trim().toLowerCase()
   if (!email) return { ok: false, action: 'skipped', reason: 'missing_email' }
-  if (email === 'balcao@zana.local') return { ok: true, action: 'skipped', reason: 'placeholder' }
+  if (email === 'balcao@moonlight.local') return { ok: true, action: 'skipped', reason: 'placeholder' }
 
   const existingUser = await prisma.user.findUnique({ where: { email } })
   if (existingUser) {
@@ -3832,7 +3832,7 @@ function toPublicBlogCommentReply(r, comment) {
     id: r.id,
     comment_id: r.commentId,
     author_type: r.authorType,
-    author_name: r.authorType === 'admin' ? 'Zana' : comment.authorName,
+    author_name: r.authorType === 'admin' ? 'Moonlight' : comment.authorName,
     message: r.message,
     created_date: r.createdAt,
   }
@@ -5480,7 +5480,7 @@ app.get('/api/notifications', async (req, res) => {
     ...welcomeLogs.map((l) => ({
       id: `welcome:${l.id}`,
       type: 'welcome',
-      title: 'Bem-vindo(a) à ZANA',
+      title: 'Bem-vindo(a) à Moonlight',
       text: 'Obrigado por criar conta. Pode gerir endereços e acompanhar encomendas em Minha Conta.',
       link: '/conta',
       created_date: l.createdAt,
@@ -6783,7 +6783,7 @@ app.get('/api/staff/customers', async (req, res) => {
       new Set(
         orders
           .map((o) => String(o.customerEmail ?? '').trim().toLowerCase())
-          .filter((e) => e && e !== 'balcao@zana.local'),
+          .filter((e) => e && e !== 'balcao@moonlight.local'),
       ),
     )
     if (!emails.length) return res.json([])
@@ -7111,7 +7111,7 @@ app.post('/api/admin/users', async (req, res) => {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-zA-Z0-9]+/g, '')
-      .toLowerCase() || 'zana'
+      .toLowerCase() || 'moonlight'
     const suffix = String(created.id ?? '').slice(-6)
     const password = `@${slugStore}${suffix}`
 
@@ -7184,7 +7184,7 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     if (adminCount <= 1) return res.status(409).json({ error: 'cannot_delete_last_admin' })
   }
 
-  const tombstoneEmail = `deleted+${target.id}@zana.local`
+  const tombstoneEmail = `deleted+${target.id}@moonlight.local`
   const { saltHex, hashHex } = hashPassword(crypto.randomUUID() + crypto.randomUUID())
 
   await prisma.$transaction(async (tx) => {
@@ -7289,7 +7289,7 @@ app.post('/api/admin/users/backfill-from-orders', async (req, res) => {
   for (const o of orders) {
     const email = String(o.customerEmail ?? '').trim().toLowerCase()
     if (!email) continue
-    if (email === 'balcao@zana.local') continue
+    if (email === 'balcao@moonlight.local') continue
     if (!byEmail.has(email)) {
       byEmail.set(email, {
         customer_name: o.customerName ?? '',
@@ -8356,7 +8356,7 @@ app.post('/api/admin/orders', async (req, res) => {
 
   const candidate = req.body && typeof req.body === 'object' ? { ...req.body } : {}
   if (!String(candidate.customer_name ?? '').trim()) candidate.customer_name = 'Cliente Balcão'
-  if (!String(candidate.customer_email ?? '').trim()) candidate.customer_email = 'balcao@zana.local'
+  if (!String(candidate.customer_email ?? '').trim()) candidate.customer_email = 'balcao@moonlight.local'
 
   const parsed = orderPayloadSchema.safeParse(candidate)
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues })
@@ -9477,7 +9477,7 @@ app.post('/api/admin/smtp/test', async (req, res) => {
   if (parsed.data.verify_only) return res.json({ ok: true, verified: true, provider: sendgridApiKey ? 'sendgrid' : 'smtp' })
 
   const to = normalizeEmail(parsed.data.to)
-  const subject = String(parsed.data.subject ?? 'Teste SMTP - Zana').trim() || 'Teste SMTP - Zana'
+  const subject = String(parsed.data.subject ?? 'Teste SMTP - Moonlight').trim() || 'Teste SMTP - Moonlight'
   const messageText =
     parsed.data.text === null || parsed.data.text === undefined
       ? `Email de teste enviado em ${new Date().toISOString()}`

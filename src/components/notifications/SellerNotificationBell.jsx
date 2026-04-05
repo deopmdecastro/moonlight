@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const SELLER_NOTIFICATIONS_READ_KEY = 'zana_seller_notifications_read';
+const SELLER_NOTIFICATIONS_READ_KEY = 'moonlight_seller_notifications_read';
 
 function readStoredIds() {
   if (typeof window === 'undefined') return [];

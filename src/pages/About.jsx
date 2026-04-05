@@ -13,7 +13,7 @@ export default function About() {
 
   const content = data?.content ?? null;
 
-  const heroTitle = content?.hero_title ?? 'Sobre a Zana';
+  const heroTitle = content?.hero_title ?? 'Sobre a Moonlight';
   const heroSubtitle = content?.hero_subtitle ?? 'Celebrar a beleza, autenticidade e essência da mulher moderna.';
   const storyTitle = content?.story_title ?? 'A Nossa Essência';
   const storyImageUrl =
@@ -24,9 +24,9 @@ export default function About() {
     const p = content?.story_paragraphs;
     if (Array.isArray(p) && p.length) return p;
     return [
-      'A Zana nasce com a missão de celebrar o universo feminino, oferecendo às mulheres produtos pensados para o seu dia a dia, com praticidade, estilo e personalidade.',
-      'Mais do que uma marca, a Zana é um convite para que cada mulher se sinta única, confiante e inspirada.',
-      'Com o lançamento da Zana Acessórios, apresentamos bijuterias e outros artigos que vão desde opções simples e elegantes até peças exclusivas e personalizadas. O propósito da marca é proporcionar não apenas produtos, mas experiências que traduzam beleza, autenticidade e a essência da mulher moderna.',
+      'A Moonlight nasce com a missão de celebrar o universo feminino, oferecendo às mulheres produtos pensados para o seu dia a dia, com praticidade, estilo e personalidade.',
+      'Mais do que uma marca, a Moonlight é um convite para que cada mulher se sinta única, confiante e inspirada.',
+      'Com o lançamento da Moonlight, apresentamos bijuterias e outros artigos que vão desde opções simples e elegantes até peças exclusivas e personalizadas. O propósito da marca é proporcionar não apenas produtos, mas experiências que traduzam beleza, autenticidade e a essência da mulher moderna.',
     ];
   }, [content]);
 
@@ -67,7 +67,7 @@ export default function About() {
           <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
             <ImageWithFallback
               src={storyImageUrl}
-              alt="Zana Acessórios"
+              alt="Moonlight"
               className="rounded-lg w-full aspect-[4/3] object-cover"
               iconClassName="w-12 h-12 text-muted-foreground/40"
             />

@@ -10,14 +10,14 @@ import { toast } from 'sonner';
 import { getErrorMessage, toastApiPromise } from '@/lib/toast';
 
 const defaultAbout = {
-  hero_title: 'Sobre a Zana',
+  hero_title: 'Sobre a Moonlight',
   hero_subtitle: 'Celebrar a beleza, autenticidade e essência da mulher moderna.',
   story_title: 'A Nossa Essência',
   story_image_url: 'https://media.base44.com/images/public/69c68e1a7672ae1454387e62/0912c9232_generated_fe47a609.png',
   story_paragraphs: [
-    'A Zana nasce com a missão de celebrar o universo feminino, oferecendo às mulheres produtos pensados para o seu dia a dia, com praticidade, estilo e personalidade.',
-    'Mais do que uma marca, a Zana é um convite para que cada mulher se sinta única, confiante e inspirada.',
-    'Com o lançamento da Zana Acessórios, apresentamos bijuterias e outros artigos que vão desde opções simples e elegantes até peças exclusivas e personalizadas. O propósito da marca é proporcionar não apenas produtos, mas experiências que traduzam beleza, autenticidade e a essência da mulher moderna.',
+    'A Moonlight nasce com a missão de celebrar o universo feminino, oferecendo às mulheres produtos pensados para o seu dia a dia, com praticidade, estilo e personalidade.',
+    'Mais do que uma marca, a Moonlight é um convite para que cada mulher se sinta única, confiante e inspirada.',
+    'Com o lançamento da Moonlight, apresentamos bijuterias e outros artigos que vão desde opções simples e elegantes até peças exclusivas e personalizadas. O propósito da marca é proporcionar não apenas produtos, mas experiências que traduzam beleza, autenticidade e a essência da mulher moderna.',
   ],
   values: [
     {
@@ -244,4 +244,3 @@ export default function AboutAdmin() {
     </div>
   );
 }
-

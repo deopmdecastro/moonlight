@@ -23,7 +23,7 @@ let supportChatApiSupported = null;
 let supportChatApiLastCheckedAt = 0;
 try {
   if (typeof window !== 'undefined' && window?.localStorage?.getItem) {
-    const saved = window.localStorage.getItem('zana_supportChatApiSupported');
+    const saved = window.localStorage.getItem('moonlight_supportChatApiSupported');
     if (saved === 'true') supportChatApiSupported = true;
     if (saved === 'false') supportChatApiSupported = false;
   }
@@ -33,8 +33,8 @@ function markSupportChatApiSupported(next) {
   supportChatApiLastCheckedAt = Date.now();
   try {
     if (typeof window === 'undefined' || !window?.localStorage) return;
-    if (supportChatApiSupported === null) window.localStorage.removeItem('zana_supportChatApiSupported');
-    else window.localStorage.setItem('zana_supportChatApiSupported', supportChatApiSupported ? 'true' : 'false');
+    if (supportChatApiSupported === null) window.localStorage.removeItem('moonlight_supportChatApiSupported');
+    else window.localStorage.setItem('moonlight_supportChatApiSupported', supportChatApiSupported ? 'true' : 'false');
   } catch {}
 }
 
@@ -244,7 +244,7 @@ export default function SupportChatWidget() {
   };
 
   return (
-    <div className="fixed right-5 z-50" style={{ bottom: 'calc(20px + var(--zana-cookie-banner-offset, 0px))' }}>
+    <div className="fixed right-5 z-50" style={{ bottom: 'calc(20px + var(--moonlight-cookie-banner-offset, 0px))' }}>
       {!open ? (
         <Button className="rounded-full h-12 px-4 font-body text-sm tracking-wide shadow-lg gap-2" onClick={handleOpen}>
           <MessageSquare className="w-4 h-4" />

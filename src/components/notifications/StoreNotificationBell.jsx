@@ -25,7 +25,7 @@ const statusLabel = {
   cancelled: 'Cancelada',
 };
 
-const READ_STORAGE_KEY = 'zana_notifications_read';
+const READ_STORAGE_KEY = 'moonlight_notifications_read';
 
 export default function StoreNotificationBell() {
   const { user } = useAuth();

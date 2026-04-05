@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 
 import { base44 } from '@/api/base44Client';
-import zanaLogoPrimary from '@/img/zana_logo_primary.svg';
+import moonlightLogoPrimary from '@/img/moonlight_logo_primary.svg';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { downloadBlob, exportFinanceExcel, exportFinancePdf } from '@/lib/reportExport';
@@ -433,7 +433,7 @@ export default function AdminFinance() {
       const blob = await exportFinancePdf({
         filename: outName,
         title,
-        logoUrl: zanaLogoPrimary,
+        logoUrl: moonlightLogoPrimary,
         createdAt: new Date(),
         stats,
         mode: 'blob',
@@ -463,7 +463,7 @@ export default function AdminFinance() {
       await exportFinanceExcel({
         filename: `financeiro_${date}.xls`,
         title,
-        logoUrl: zanaLogoPrimary,
+        logoUrl: moonlightLogoPrimary,
         createdAt: new Date(),
         stats,
       });

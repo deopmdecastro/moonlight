@@ -33,7 +33,7 @@ export default function BackupPanel({ showTitle = true } = {}) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `zana-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `moonlight-backup-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -187,7 +187,7 @@ export default function BackupPanel({ showTitle = true } = {}) {
                                 const url = URL.createObjectURL(blob);
                                 const link = document.createElement('a');
                                 link.href = url;
-                                link.download = `zana-backup-historico-${String(b.id).slice(0, 8)}.json`;
+                                link.download = `moonlight-backup-historico-${String(b.id).slice(0, 8)}.json`;
                                 document.body.appendChild(link);
                                 link.click();
                                 link.remove();

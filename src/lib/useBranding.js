@@ -7,7 +7,7 @@ import iconZ from '@/img/icon_z.svg';
 let currentManifestObjectUrl = null;
 
 const defaults = {
-  site_name: 'Zana',
+  site_name: 'Moonlight',
   logo_primary_url: '',
   logo_url: '',
   favicon_url: '',
@@ -16,7 +16,7 @@ const defaults = {
   theme_color: '#782641',
   background_color: '#f8f5f2',
   secondary_color: '#f1e7db',
-  contact_email: 'info@zanaacessorios.com',
+  contact_email: 'info@moonlightacessorios.com',
   instagram_handle: '',
   contact_address: 'Portugal',
   footer_rights_text: '',
@@ -158,8 +158,8 @@ function createDynamicManifest(branding) {
   const iconUrl = resolveManifestUrl(rawIconUrl) || new URL('/icons/icon_z.svg', window.location.origin).toString();
   const startUrl = new URL('/', window.location.origin).toString();
   const manifest = {
-    name: String(branding.site_name ?? 'Zana Acessórios').trim() || 'Zana Acessórios',
-    short_name: String(branding.site_name ?? 'Zana').trim() || 'Zana',
+    name: String(branding.site_name ?? 'Moonlight').trim() || 'Moonlight',
+    short_name: String(branding.site_name ?? 'Moonlight').trim() || 'Moonlight',
     start_url: startUrl,
     display: 'standalone',
     background_color: String(branding.background_color ?? branding.theme_color ?? '#fbfaf8'),
@@ -259,7 +259,7 @@ export function useBranding() {
     const name = String(branding.site_name ?? '').trim();
     if (!name) return;
     if (typeof document === 'undefined') return;
-    if (!document.title || document.title === 'Zana') document.title = name;
+    if (!document.title || document.title === 'Moonlight') document.title = name;
   }, [branding.site_name]);
 
   return { ...query, branding };

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, LogOut, Menu, ShoppingBag, ShoppingCart, Users, Bell, BarChart3, CalendarClock, User, Package, Tag, CreditCard } from 'lucide-react';
 
-import zanaLogo from '@/img/zana_logo_primary.svg';
+import moonlightLogo from '@/img/moonlight_logo_primary.svg';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,8 @@ export default function SellerLayout() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { branding } = useBranding();
-  const logoSrc = String(branding?.logo_primary_url ?? '').trim() || zanaLogo;
+  const siteName = String(branding?.site_name ?? 'Moonlight').trim() || 'Moonlight';
+  const logoSrc = String(branding?.logo_primary_url ?? '').trim() || moonlightLogo;
 
   React.useEffect(() => {
     const updateThemeColor = () => {
@@ -73,7 +74,7 @@ export default function SellerLayout() {
   );
 
   return (
-    <div className="h-[var(--app-height,100vh)] overflow-hidden bg-background flex flex-col">
+    <div className="seller-theme h-[var(--app-height,100vh)] overflow-hidden bg-background flex flex-col">
       <div
         id="seller-topbar"
         className="relative bg-card/95 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between shrink-0"
@@ -94,7 +95,7 @@ export default function SellerLayout() {
                 <div className="px-4 py-3 border-b border-border flex items-center gap-3">
                   <ImageWithFallback
                     src={logoSrc}
-                    alt="Zana"
+                    alt={siteName}
                     className="h-6 w-auto"
                     loading="eager"
                     iconClassName="w-6 h-6 text-muted-foreground/40"
@@ -131,7 +132,7 @@ export default function SellerLayout() {
           <div className="hidden md:flex items-center gap-3">
             <ImageWithFallback
               src={logoSrc}
-              alt="Zana"
+              alt={siteName}
               className="h-7 w-auto"
               loading="eager"
               iconClassName="w-7 h-7 text-muted-foreground/40"

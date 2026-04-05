@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 
 const AuthContext = createContext();
 
-const LAST_ACTIVE_KEY = 'zana_last_active_at';
+const LAST_ACTIVE_KEY = 'moonlight_last_active_at';
 const MAX_IDLE_MS = 5 * 60 * 60 * 1000; // 5h
 
 function readLastActiveMs() {

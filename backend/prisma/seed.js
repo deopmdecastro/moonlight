@@ -30,13 +30,13 @@ async function main() {
   // Sample appointments data
   const staff1 = await prisma.staffMember.upsert({
     where: { name: 'João Silva' },
-    create: { name: 'João Silva', email: 'joao@zana.com', phone: '+351 912345678', is_active: true },
+    create: { name: 'João Silva', email: 'joao@moonlight.com', phone: '+351 912345678', is_active: true },
     update: {},
   });
 
   const staff2 = await prisma.staffMember.upsert({
     where: { name: 'Maria Santos' },
-    create: { name: 'Maria Santos', email: 'maria@zana.com', is_active: true },
+    create: { name: 'Maria Santos', email: 'maria@moonlight.com', is_active: true },
     update: {},
   });
 

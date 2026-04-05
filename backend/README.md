@@ -1,4 +1,4 @@
-# Zana Backend (local)
+# Moonlight Backend (local)
 
 Backend local em Node/Express + Postgres (via Prisma).
 
@@ -11,7 +11,7 @@ Backend local em Node/Express + Postgres (via Prisma).
 
 Na raiz do repo:
 
-- `docker compose up -d` (sobe em `localhost:5433` para evitar conflito com Postgres local)
+- `docker compose up -d` (sobe em `localhost:5434` para evitar conflito e poder rodar em paralelo com o stack antigo)
 
 ## Setup
 

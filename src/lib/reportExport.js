@@ -322,7 +322,7 @@ function createPdfHtmlReportElement({
   const whenLabel = when.toLocaleString('pt-PT');
 
   const root = document.createElement('div');
-  root.className = 'zana-pdf-report';
+  root.className = 'moonlight-pdf-report';
   root.style.position = 'fixed';
   root.style.left = '-10000px';
   root.style.top = '0';
@@ -331,8 +331,8 @@ function createPdfHtmlReportElement({
   root.style.zIndex = '-1';
 
   const headerLogoHtml = logoDataUrl
-    ? `<img src="${escapeHtml(logoDataUrl)}" alt="ZANA" style="height:34px;width:auto;display:block" />`
-    : `<div class="logo">ZANA <small>acessórios</small></div>`;
+    ? `<img src="${escapeHtml(logoDataUrl)}" alt="Moonlight" style="height:34px;width:auto;display:block" />`
+    : `<div class="logo">Moonlight <small>acessórios</small></div>`;
 
   const summaryHtml = (summaryCards ?? [])
     .map((c) => {
@@ -387,7 +387,7 @@ function createPdfHtmlReportElement({
 
   root.innerHTML = `
     <style>
-      .zana-pdf-report {
+      .moonlight-pdf-report {
         --primary-color: ${brandHex};
         --bg-light: #f6f7f9;
         --text-dark: #333;
@@ -400,8 +400,8 @@ function createPdfHtmlReportElement({
         color: var(--text-dark);
         box-sizing: border-box;
       }
-      .zana-pdf-report * { box-sizing: border-box; }
-      .zana-pdf-report .report-container {
+      .moonlight-pdf-report * { box-sizing: border-box; }
+      .moonlight-pdf-report .report-container {
         width: 100%;
         margin: 0;
         background: #fff;
@@ -412,7 +412,7 @@ function createPdfHtmlReportElement({
         display: flex;
         flex-direction: column;
       }
-      .zana-pdf-report header {
+      .moonlight-pdf-report header {
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -421,53 +421,53 @@ function createPdfHtmlReportElement({
         margin-bottom: 30px;
         gap: 20px;
       }
-      .zana-pdf-report .logo { font-size: 26px; font-weight: bold; letter-spacing: 2px; color: var(--primary-color); }
-      .zana-pdf-report .logo small { font-size: 10px; display: block; font-weight: normal; letter-spacing: 0; margin-top: 2px; }
-      .zana-pdf-report .report-info { text-align: right; }
-      .zana-pdf-report .report-info h1 { margin: 0; font-size: 20px; color: var(--primary-color); letter-spacing: .5px; }
-      .zana-pdf-report .report-info span { font-size: 11px; color: #777; }
+      .moonlight-pdf-report .logo { font-size: 26px; font-weight: bold; letter-spacing: 2px; color: var(--primary-color); }
+      .moonlight-pdf-report .logo small { font-size: 10px; display: block; font-weight: normal; letter-spacing: 0; margin-top: 2px; }
+      .moonlight-pdf-report .report-info { text-align: right; }
+      .moonlight-pdf-report .report-info h1 { margin: 0; font-size: 20px; color: var(--primary-color); letter-spacing: .5px; }
+      .moonlight-pdf-report .report-info span { font-size: 11px; color: #777; }
 
       /* Important for pagination: allow flex child to shrink to page height */
-      .zana-pdf-report .report-body { flex: 1; min-height: 0; overflow: hidden; }
+      .moonlight-pdf-report .report-body { flex: 1; min-height: 0; overflow: hidden; }
 
-      .zana-pdf-report .section-title {
+      .moonlight-pdf-report .section-title {
         font-size: 16px;
         text-align: center;
         border-left: 0;
         padding-left: 0;
         margin: 30px 0 20px;
       }
-      .zana-pdf-report .stats-grid {
+      .moonlight-pdf-report .stats-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px 16px;
       }
-      .zana-pdf-report .stat-card {
+      .moonlight-pdf-report .stat-card {
         background: var(--bg-light);
         padding: 16px 18px;
         border-radius: 0;
         border: 1px solid var(--border);
       }
-      .zana-pdf-report .stat-card label {
+      .moonlight-pdf-report .stat-card label {
         display: block;
         font-size: 12px;
         color: #666;
         margin-bottom: 5px;
       }
-      .zana-pdf-report .stat-card .value {
+      .moonlight-pdf-report .stat-card .value {
         font-size: 22px;
         font-weight: bold;
         color: var(--primary-color);
         letter-spacing: .2px;
       }
-      .zana-pdf-report table {
+      .moonlight-pdf-report table {
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 30px;
         background: #fff;
         table-layout: fixed;
       }
-      .zana-pdf-report th {
+      .moonlight-pdf-report th {
         background-color: var(--primary-color);
         color: white;
         text-align: left;
@@ -480,16 +480,16 @@ function createPdfHtmlReportElement({
         line-height: 32px;
         white-space: nowrap;
       }
-      .zana-pdf-report td {
+      .moonlight-pdf-report td {
         padding: 10px 12px;
         border-bottom: 1px solid #eee;
         font-size: 12px;
         vertical-align: top;
         word-break: break-word;
       }
-      .zana-pdf-report tr:nth-child(even) { background-color: #fafafa; }
+      .moonlight-pdf-report tr:nth-child(even) { background-color: #fafafa; }
 
-      .zana-pdf-report .report-footer {
+      .moonlight-pdf-report .report-footer {
         margin-top: 18px;
         padding-top: 12px;
         border-top: 1px solid var(--border);
@@ -499,7 +499,7 @@ function createPdfHtmlReportElement({
         font-size: 10px;
         color: #888;
       }
-      .zana-pdf-report .report-footer .brand {
+      .moonlight-pdf-report .report-footer .brand {
         color: var(--primary-color);
         letter-spacing: 1px;
         font-weight: 600;
@@ -525,7 +525,7 @@ function createPdfHtmlReportElement({
       </div>
 
       <div class="report-footer">
-        <div class="brand">ZANA</div>
+        <div class="brand">Moonlight</div>
         <div>Relatório gerado automaticamente</div>
       </div>
     </div>
@@ -546,7 +546,7 @@ function createPdfHtmlInvoiceElement({ order, createdAt, logoDataUrl, title = 'F
   const money = (v) => `€ ${moneyPt(v)}`;
 
   const root = document.createElement('div');
-  root.className = 'zana-pdf-invoice';
+  root.className = 'moonlight-pdf-invoice';
   root.style.position = 'fixed';
   root.style.left = '-10000px';
   root.style.top = '0';
@@ -554,8 +554,8 @@ function createPdfHtmlInvoiceElement({ order, createdAt, logoDataUrl, title = 'F
   root.style.zIndex = '-1';
 
   const headerLogoHtml = logoDataUrl
-    ? `<img src="${escapeHtml(logoDataUrl)}" alt="ZANA" style="height:34px;width:auto;display:block" />`
-    : `<div class="logo">ZANA <small>acessórios</small></div>`;
+    ? `<img src="${escapeHtml(logoDataUrl)}" alt="Moonlight" style="height:34px;width:auto;display:block" />`
+    : `<div class="logo">Moonlight <small>acessórios</small></div>`;
 
   const customer = [
     order?.customer_name ? String(order.customer_name) : '',
@@ -601,7 +601,7 @@ function createPdfHtmlInvoiceElement({ order, createdAt, logoDataUrl, title = 'F
 
   root.innerHTML = `
     <style>
-      .zana-pdf-invoice {
+      .moonlight-pdf-invoice {
         --primary-color: ${brandHex};
         --bg-light: #f6f7f9;
         --text-dark: #333;
@@ -613,9 +613,9 @@ function createPdfHtmlInvoiceElement({ order, createdAt, logoDataUrl, title = 'F
         color: var(--text-dark);
         box-sizing: border-box;
       }
-      .zana-pdf-invoice * { box-sizing: border-box; }
-      .zana-pdf-invoice .container { padding: 32px 34px; }
-      .zana-pdf-invoice header {
+      .moonlight-pdf-invoice * { box-sizing: border-box; }
+      .moonlight-pdf-invoice .container { padding: 32px 34px; }
+      .moonlight-pdf-invoice header {
         display:flex;
         justify-content:space-between;
         align-items:flex-start;
@@ -624,26 +624,26 @@ function createPdfHtmlInvoiceElement({ order, createdAt, logoDataUrl, title = 'F
         margin-bottom:20px;
         gap:18px;
       }
-      .zana-pdf-invoice .logo { font-size: 26px; font-weight: bold; letter-spacing: 2px; color: var(--primary-color); }
-      .zana-pdf-invoice .logo small { font-size: 10px; display: block; font-weight: normal; letter-spacing: 0; margin-top: 2px; }
-      .zana-pdf-invoice .right { text-align:right; }
-      .zana-pdf-invoice .right h1 { margin:0; font-size:20px; color:var(--primary-color); letter-spacing:.5px; }
-      .zana-pdf-invoice .muted { font-size:11px; color:#777; line-height:1.6; }
-      .zana-pdf-invoice .grid {
+      .moonlight-pdf-invoice .logo { font-size: 26px; font-weight: bold; letter-spacing: 2px; color: var(--primary-color); }
+      .moonlight-pdf-invoice .logo small { font-size: 10px; display: block; font-weight: normal; letter-spacing: 0; margin-top: 2px; }
+      .moonlight-pdf-invoice .right { text-align:right; }
+      .moonlight-pdf-invoice .right h1 { margin:0; font-size:20px; color:var(--primary-color); letter-spacing:.5px; }
+      .moonlight-pdf-invoice .muted { font-size:11px; color:#777; line-height:1.6; }
+      .moonlight-pdf-invoice .grid {
         display:grid;
         grid-template-columns: 1fr 1fr;
         gap:14px 18px;
         margin-bottom:18px;
       }
-      .zana-pdf-invoice .box {
+      .moonlight-pdf-invoice .box {
         border:1px solid var(--border);
         background: var(--bg-light);
         padding:12px 14px;
       }
-      .zana-pdf-invoice .label { font-size:11px; color:#666; letter-spacing:.4px; text-transform:uppercase; margin-bottom:6px; }
-      .zana-pdf-invoice .value { font-size:12px; color:#222; line-height:1.6; }
-      .zana-pdf-invoice table { width:100%; border-collapse:collapse; table-layout:fixed; }
-      .zana-pdf-invoice th {
+      .moonlight-pdf-invoice .label { font-size:11px; color:#666; letter-spacing:.4px; text-transform:uppercase; margin-bottom:6px; }
+      .moonlight-pdf-invoice .value { font-size:12px; color:#222; line-height:1.6; }
+      .moonlight-pdf-invoice table { width:100%; border-collapse:collapse; table-layout:fixed; }
+      .moonlight-pdf-invoice th {
         background-color: var(--primary-color);
         color:white;
         text-align:left;
@@ -656,25 +656,25 @@ function createPdfHtmlInvoiceElement({ order, createdAt, logoDataUrl, title = 'F
         line-height:32px;
         white-space:nowrap;
       }
-      .zana-pdf-invoice td {
+      .moonlight-pdf-invoice td {
         padding:10px 12px;
         border-bottom:1px solid #eee;
         font-size:12px;
         vertical-align:top;
         word-break:break-word;
       }
-      .zana-pdf-invoice tbody tr:nth-child(even) { background-color:#fafafa; }
-      .zana-pdf-invoice .totals {
+      .moonlight-pdf-invoice tbody tr:nth-child(even) { background-color:#fafafa; }
+      .moonlight-pdf-invoice .totals {
         margin-top:14px;
         display:flex;
         justify-content:flex-end;
       }
-      .zana-pdf-invoice .totals table { width:320px; }
-      .zana-pdf-invoice .totals td { border-bottom:0; padding:6px 0; }
-      .zana-pdf-invoice .totals .tlabel { color:#666; font-size:12px; }
-      .zana-pdf-invoice .totals .tvalue { text-align:right; font-weight:700; font-size:12px; white-space:nowrap; }
-      .zana-pdf-invoice .totals .grand { color: var(--primary-color); font-size:14px; font-weight:900; }
-      .zana-pdf-invoice .footer {
+      .moonlight-pdf-invoice .totals table { width:320px; }
+      .moonlight-pdf-invoice .totals td { border-bottom:0; padding:6px 0; }
+      .moonlight-pdf-invoice .totals .tlabel { color:#666; font-size:12px; }
+      .moonlight-pdf-invoice .totals .tvalue { text-align:right; font-weight:700; font-size:12px; white-space:nowrap; }
+      .moonlight-pdf-invoice .totals .grand { color: var(--primary-color); font-size:14px; font-weight:900; }
+      .moonlight-pdf-invoice .footer {
         margin-top:18px;
         padding-top:12px;
         border-top:1px solid var(--border);
@@ -684,7 +684,7 @@ function createPdfHtmlInvoiceElement({ order, createdAt, logoDataUrl, title = 'F
         font-size:10px;
         color:#888;
       }
-      .zana-pdf-invoice .footer .brand { color: var(--primary-color); letter-spacing: 1px; font-weight: 600; }
+      .moonlight-pdf-invoice .footer .brand { color: var(--primary-color); letter-spacing: 1px; font-weight: 600; }
     </style>
 
     <div class="container">
@@ -741,7 +741,7 @@ function createPdfHtmlInvoiceElement({ order, createdAt, logoDataUrl, title = 'F
       </div>
 
       <div class="footer">
-        <div class="brand">ZANA</div>
+        <div class="brand">Moonlight</div>
         <div>Documento gerado automaticamente</div>
       </div>
     </div>
@@ -878,7 +878,7 @@ function ensureXlsFilename(filename, fallbackBase) {
   return `${fallbackBase}.xls`;
 }
 
-function buildExcelHtml({ sheetName = 'ZANA', title, createdAt, logoDataUrl, sections = [] } = {}) {
+function buildExcelHtml({ sheetName = 'Moonlight', title, createdAt, logoDataUrl, sections = [] } = {}) {
   const primary = getThemeColorHex('--primary', '340 52% 31%');
   const foreground = getThemeColorHex('--foreground', '222.2 84% 4.9%');
   const muted = getThemeColorHex('--muted-foreground', '215.4 16.3% 46.9%');
@@ -1333,7 +1333,7 @@ export async function exportOrderInvoicePdf({ filename, title = 'Fatura', logoUr
       : '';
   const qrPayload = origin
     ? `${origin}/admin/encomendas?ref=${encodeURIComponent(id)}`
-    : `ZANA|FATURA|${id}|${moneyPt(order?.total ?? 0)}|${new Date(when).toISOString()}`;
+    : `MOONLIGHT|FATURA|${id}|${moneyPt(order?.total ?? 0)}|${new Date(when).toISOString()}`;
   const qrUrl = `https://quickchart.io/qr?size=160&text=${encodeURIComponent(qrPayload)}`;
 
   const element = createPdfHtmlReportElement({
@@ -1603,7 +1603,7 @@ export async function exportElementToPdf(element, filename, { title, mode = 'dow
   const contentWidth = pageWidth - margin * 2;
   const contentHeight = pageHeight - contentTop - margin;
 
-  // If it's a ZANA report, paginate by section/table rows so content isn't cut mid-table.
+  // If it's a Moonlight report, paginate by section/table rows so content isn't cut mid-table.
   const pages = paginateReport(element);
   const targets = pages?.length ? pages : [element];
 

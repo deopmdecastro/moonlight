@@ -402,7 +402,7 @@ export default function AdminUsers() {
                   value={createForm.email}
                   onChange={(e) => setCreateForm((p) => ({ ...p, email: e.target.value }))}
                   className="rounded-none mt-1"
-                  placeholder="ex: vendedor@zana.local"
+                  placeholder="ex: vendedor@moonlight.local"
                 />
               </div>
               <div>

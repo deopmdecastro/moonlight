@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/AuthContext';
 import EmptyState from '@/components/ui/empty-state';
 import Auth from './Auth';
 
-const READ_STORAGE_KEY = 'zana_notifications_read';
+const READ_STORAGE_KEY = 'moonlight_notifications_read';
 
 function readStoredReadIds() {
   if (typeof window === 'undefined') return [];

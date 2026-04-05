@@ -1,103 +1,85 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, Mail, MapPin } from 'lucide-react';
-import zanaLogo from '@/img/zana_logo.svg';
-import ImageWithFallback from '@/components/ui/image-with-fallback';
+
 import { useBranding } from '@/lib/useBranding';
 
 export default function Footer() {
   const { branding } = useBranding();
-  const logoSrc = String(branding?.logo_url ?? '').trim() || zanaLogo;
-  const email = String(branding?.contact_email ?? '').trim() || 'info@zanaacessorios.com';
+  const siteName = String(branding?.site_name ?? 'Moonlight').trim() || 'Moonlight';
+  const email = String(branding?.contact_email ?? '').trim() || 'info@moonlightacessorios.com';
   const instagramHandleRaw = String(branding?.instagram_handle ?? '').trim();
   const instagramHandle = instagramHandleRaw ? (instagramHandleRaw.startsWith('@') ? instagramHandleRaw : `@${instagramHandleRaw}`) : '';
   const instagramUrl = instagramHandle ? `https://instagram.com/${instagramHandle.replace(/^@/, '')}` : '';
-  const address = String(branding?.contact_address ?? '').trim() || 'Portugal';
+
   const year = new Date().getFullYear();
-  const rightsTemplate = String(branding?.footer_rights_text ?? '').trim();
-  const rightsText = (rightsTemplate || '© {{year}} {{site_name}}. Todos os direitos reservados.')
-    .replaceAll('{{year}}', String(year))
-    .replaceAll('{{site_name}}', String(branding?.site_name ?? 'Zana'))
-    .replaceAll('{{store_name}}', String(branding?.site_name ?? 'Zana'));
+
   return (
-    <footer className="bg-primary text-primary-foreground">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div className="md:col-span-1">
-            <ImageWithFallback
-              src={logoSrc}
-              alt={String(branding?.site_name ?? 'Zana')}
-              className="h-10 w-auto mb-4"
-              loading="lazy"
-              iconClassName="w-10 h-10 text-muted-foreground/40"
-            />
-            <p className="text-sm opacity-80 leading-relaxed">
-              Elegância em cada detalhe. Bijuterias que celebram a essência da mulher moderna.
+    <footer className="border-t border-border bg-background">
+      <div className="max-w-7xl mx-auto px-6 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative w-8 h-8">
+                <div className="absolute inset-0 rounded-full bg-accent/60" />
+                <div className="absolute top-0 right-0 w-6 h-6 rounded-full bg-primary" />
+              </div>
+              <span className="font-display text-xl text-foreground">{siteName}</span>
+            </div>
+            <p className="font-mono text-xs text-muted-foreground leading-relaxed max-w-xs">
+              Bijuterias elegantes para acompanhar o seu dia a dia — com intenção, cuidado e beleza em cada detalhe.
             </p>
           </div>
 
-          {/* Links */}
           <div>
-            <h4 className="font-heading text-lg mb-4">Navegação</h4>
-            <div className="space-y-2">
-              {[
-                { to: '/catalogo', label: 'Catálogo' },
-                { to: '/sobre', label: 'Sobre Nós' },
-                { to: '/blog', label: 'Blog' },
-                { to: '/contacto', label: 'Contacto' },
-              ].map(link => (
-                <Link key={link.to} to={link.to} className="block text-sm opacity-70 hover:opacity-100 transition-opacity">
-                  {link.label}
-                </Link>
-              ))}
+            <h4 className="font-mono text-xs uppercase tracking-widest text-primary mb-4">Navegação</h4>
+            <div className="flex flex-col gap-3">
+              <Link to="/" className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Início
+              </Link>
+              <Link to="/sobre" className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Sobre
+              </Link>
+              <Link to="/produtos" className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Produtos
+              </Link>
+              <Link to="/loja" className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Loja
+              </Link>
+              <Link to="/guia" className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Guia
+              </Link>
+              <Link to="/contacto" className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Contacto
+              </Link>
             </div>
           </div>
 
-          {/* Support */}
           <div>
-            <h4 className="font-heading text-lg mb-4">Apoio ao Cliente</h4>
-            <div className="space-y-2">
-              {[
-                { to: '/faq', label: 'FAQ' },
-                { to: '/suporte', label: 'Suporte' },
-                { to: '/politica-privacidade', label: 'Política de Privacidade' },
-                { to: '/cookies', label: 'Política de Cookies' },
-                { to: '/termos', label: 'Termos e Condições' },
-              ].map((link, i) => (
-                <Link key={i} to={link.to} className="block text-sm opacity-70 hover:opacity-100 transition-opacity">
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className="font-heading text-lg mb-4">Contacto</h4>
-            <div className="space-y-3">
-              <a href={`mailto:${email}`} className="flex items-center gap-2 text-sm opacity-70 hover:opacity-100">
-                <Mail className="w-4 h-4" /> {email}
+            <h4 className="font-mono text-xs uppercase tracking-widest text-primary mb-4">Contacto</h4>
+            <div className="flex flex-col gap-3">
+              <a
+                href={`mailto:${email}`}
+                className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors break-all"
+              >
+                {email}
               </a>
-              {instagramHandle ? (
+              {instagramUrl ? (
                 <a
                   href={instagramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm opacity-70 hover:opacity-100"
+                  className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <Instagram className="w-4 h-4" /> {instagramHandle}
+                  {instagramHandle}
                 </a>
               ) : null}
-              <div className="flex items-center gap-2 text-sm opacity-70">
-                <MapPin className="w-4 h-4" /> {address}
-              </div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-primary-foreground/20 mt-10 pt-6 text-center">
-          <p className="text-xs opacity-60">{rightsText}</p>
+        <div className="mt-16 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="font-mono text-xs text-muted-foreground">© {year} {siteName}. Todos os direitos reservados.</p>
+          <p className="font-mono text-xs text-muted-foreground italic">"Elegância em cada detalhe"</p>
         </div>
       </div>
     </footer>

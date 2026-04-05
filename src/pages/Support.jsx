@@ -115,7 +115,7 @@ export default function Support() {
           <p className="font-body text-xs tracking-[0.3em] uppercase text-primary-foreground/60 mb-2">Ajuda</p>
           <h1 className="font-heading text-4xl md:text-6xl text-primary-foreground font-light">Suporte</h1>
           <p className="font-body text-sm text-primary-foreground/70 mt-3 max-w-2xl">
-            Acompanhe as suas mensagens com a equipa Zana num só lugar.
+            Acompanhe as suas mensagens com a equipa Moonlight num só lugar.
           </p>
         </div>
       </div>

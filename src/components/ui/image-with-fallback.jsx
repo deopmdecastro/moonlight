@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import zIcon from '@/img/Z.svg';
+import moonlightLogoPrimary from '@/img/moonlight_logo_primary.svg';
 
 const API_BASE_URL = (() => {
   try {
@@ -45,7 +45,7 @@ export default function ImageWithFallback({
     return (
       <div className={fallbackWrapperClassName}>
         <img
-          src={zIcon}
+          src={moonlightLogoPrimary}
           alt=""
           aria-hidden="true"
           className={cn('pointer-events-none select-none object-contain opacity-30', iconClassName)}

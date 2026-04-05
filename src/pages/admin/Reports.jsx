@@ -5,7 +5,7 @@ import { Download, Eye, Euro, Package, Search, TrendingUp, AlertTriangle, Calend
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { base44 } from '@/api/base44Client';
-import zanaLogoPrimary from '@/img/zana_logo_primary.svg';
+import moonlightLogoPrimary from '@/img/moonlight_logo_primary.svg';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -78,7 +78,7 @@ const orderStatusBadgeClassName = {
 
 export default function AdminReports({ title = 'Relatórios' } = {}) {
   const { branding } = useBranding();
-  const reportLogoUrl = String(branding?.logo_primary_url ?? '').trim() || zanaLogoPrimary;
+  const reportLogoUrl = String(branding?.logo_primary_url ?? '').trim() || moonlightLogoPrimary;
   const sellerDays = 30;
 
   const { data: inventory = [] } = useQuery({

@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 
-const STORAGE_KEY = 'zana_cookie_consent_v1';
-const CSS_VAR = '--zana-cookie-banner-offset';
+const STORAGE_KEY = 'moonlight_cookie_consent_v1';
+const CSS_VAR = '--moonlight-cookie-banner-offset';
 
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false);

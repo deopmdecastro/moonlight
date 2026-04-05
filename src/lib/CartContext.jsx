@@ -3,7 +3,7 @@ import { getPrimaryImage } from '@/lib/images';
 
 const CartContext = createContext(null);
 
-const STORAGE_KEY = 'zana_cart';
+const STORAGE_KEY = 'moonlight_cart';
 
 const safeParse = (raw) => {
   try {

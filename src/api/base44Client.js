@@ -3,7 +3,7 @@
 
 const TOKEN_KEYS = ['base44_access_token', 'token'];
 const USER_KEY = 'mock_user';
-const LAST_ACTIVE_KEY = 'zana_last_active_at';
+const LAST_ACTIVE_KEY = 'moonlight_last_active_at';
 
 const hasWindow = typeof window !== 'undefined';
 

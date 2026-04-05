@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zana-app-shell-v1';
+const CACHE_NAME = 'moonlight-app-shell-v1';
 const ASSETS = [
   '/',
   '/index.html',

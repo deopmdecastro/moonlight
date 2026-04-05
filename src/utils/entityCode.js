@@ -33,6 +33,5 @@ export function entityCode({ entityType, entityId, createdDate } = {}) {
   const raw = String(entityId ?? '');
   const base = fnv1a32(raw).toString(36).padStart(6, '0').slice(0, 6);
   const dotted = `${base.slice(0, 2)}.${base.slice(2, 4)}.${base.slice(4, 6)}`;
-  return `zana_${type}_${datePart}_${dotted}`;
+  return `moonlight_${type}_${datePart}_${dotted}`;
 }
-

@@ -8,8 +8,8 @@ const fallbackBrand = {
   eyebrow: 'A Nossa Essência',
   title: 'Celebrar a beleza em cada mulher',
   paragraphs: [
-    'A Zana nasce com a missão de celebrar o universo feminino, oferecendo às mulheres produtos pensados para o seu dia a dia, com praticidade, estilo e personalidade.',
-    'Mais do que uma marca, a Zana é um convite para que cada mulher se sinta única, confiante e inspirada.',
+    'A Moonlight nasce com a missão de celebrar o universo feminino, oferecendo às mulheres produtos pensados para o seu dia a dia, com praticidade, estilo e personalidade.',
+    'Mais do que uma marca, a Moonlight é um convite para que cada mulher se sinta única, confiante e inspirada.',
   ],
   link_label: 'Conhecer a história →',
   link_to: '/sobre',
@@ -35,7 +35,7 @@ export default function BrandBanner({ content } = {}) {
         >
           <ImageWithFallback
             src={brand.image_url}
-            alt="Zana Acessórios - A nossa história"
+            alt="Moonlight - A nossa história"
             className="rounded-lg w-full aspect-[4/3] object-cover"
             iconClassName="w-12 h-12 text-muted-foreground/40"
           />

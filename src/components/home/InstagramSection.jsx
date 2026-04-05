@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Instagram, Play } from 'lucide-react';
 
-import zIcon from '@/img/Z.svg';
 import { base44 } from '@/api/base44Client';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
 import EmptyState from '@/components/ui/empty-state';
@@ -92,23 +91,13 @@ export default function InstagramSection() {
                 aria-label="Abrir no Instagram"
               >
                 <div className={`relative ${card.type === 'reel' ? 'aspect-[9/16]' : 'aspect-square'} bg-secondary/30`}>
-                  {card.cover_url ? (
-                    <ImageWithFallback
-                      src={card.cover_url}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover"
-                      wrapperClassName="absolute inset-0"
-                      iconClassName="w-16 h-16 opacity-[0.10] text-white/20"
-                    />
-                  ) : (
-                    <ImageWithFallback
-                      src={zIcon}
-                      alt=""
-                      className="absolute inset-0 m-auto w-16 opacity-[0.10]"
-                      wrapperClassName="absolute inset-0"
-                      iconClassName="w-16 h-16 opacity-[0.10] text-white"
-                    />
-                  )}
+                  <ImageWithFallback
+                    src={card.cover_url}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    wrapperClassName="absolute inset-0"
+                    iconClassName="w-16 h-16 opacity-[0.10] text-white/20"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
                   {card.type === 'reel' && (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -139,4 +128,3 @@ export default function InstagramSection() {
     </section>
   );
 }
-

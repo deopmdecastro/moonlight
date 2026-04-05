@@ -8,7 +8,7 @@ import EmptyState from '@/components/ui/empty-state';
 import LoadMoreControls from '@/components/ui/load-more-controls';
 import { getAppointmentStatusLabel } from '@/lib/appointmentStatus';
 
-const READ_KEY = 'zana_seller_notifications_read';
+const READ_KEY = 'moonlight_seller_notifications_read';
 
 function readStoredIds() {
   if (typeof window === 'undefined') return [];

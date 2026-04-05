@@ -27,13 +27,13 @@ import {
   Settings,
   Users,
 } from 'lucide-react';
-import zanaLogo from '@/img/zana_logo_primary.svg';
-import ImageWithFallback from '@/components/ui/image-with-fallback';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
 import AdminNotificationBell from '@/components/notifications/AdminNotificationBell';
 import { useBranding } from '@/lib/useBranding';
+import moonlightLogo from '@/img/moonlight_logo_primary.svg';
+import ImageWithFallback from '@/components/ui/image-with-fallback';
 
 const navSections = [
   {
@@ -94,7 +94,8 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { branding } = useBranding();
-  const logoSrc = String(branding?.logo_primary_url ?? '').trim() || zanaLogo;
+  const siteName = String(branding?.site_name ?? 'Moonlight').trim() || 'Moonlight';
+  const logoSrc = String(branding?.logo_primary_url ?? '').trim() || moonlightLogo;
 
   React.useEffect(() => {
     const updateThemeColor = () => {
@@ -170,7 +171,7 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="h-[var(--app-height,100vh)] overflow-hidden bg-background flex flex-col">
+    <div className="admin-theme h-[var(--app-height,100vh)] overflow-hidden bg-background flex flex-col">
       <div id="admin-topbar" className="relative bg-card/95 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="md:hidden">
@@ -188,10 +189,10 @@ export default function AdminLayout() {
                 <div className="px-4 py-3 border-b border-border flex items-center gap-3">
                   <ImageWithFallback
                     src={logoSrc}
-                    alt="Zana"
-                    className="h-6 w-auto"
+                    alt={siteName}
+                    className="h-7 w-auto"
                     loading="eager"
-                    iconClassName="w-6 h-6 text-muted-foreground/40"
+                    iconClassName="w-7 h-7 text-muted-foreground/40"
                   />
                   <div className="min-w-0">
                     <div className="font-heading text-base">Admin</div>
@@ -227,7 +228,7 @@ export default function AdminLayout() {
           <div className="hidden md:block">
             <ImageWithFallback
               src={logoSrc}
-              alt="Zana"
+              alt={siteName}
               className="h-7 w-auto"
               loading="eager"
               iconClassName="w-7 h-7 text-muted-foreground/40"
@@ -239,7 +240,7 @@ export default function AdminLayout() {
           <div className="md:hidden absolute left-1/2 -translate-x-1/2">
             <ImageWithFallback
               src={logoSrc}
-              alt="Zana"
+              alt={siteName}
               className="h-7 w-auto"
               loading="eager"
               iconClassName="w-7 h-7 text-muted-foreground/40"

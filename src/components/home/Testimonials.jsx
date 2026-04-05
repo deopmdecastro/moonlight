@@ -29,7 +29,7 @@ const fallbackTestimonials = [
   },
   {
     name: 'Sofia L.',
-    text: 'Adoro as novidades que a Zana traz sempre. As peças são modernas e versáteis, uso no dia a dia e em eventos.',
+    text: 'Adoro as novidades que a Moonlight traz sempre. As peças são modernas e versáteis, uso no dia a dia e em eventos.',
     rating: 5,
   },
 ];

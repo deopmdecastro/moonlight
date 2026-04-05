@@ -52,7 +52,7 @@ function logCode(log) {
   const raw = String(log?.id ?? '');
   const base = fnv1a32(raw).toString(36).padStart(6, '0').slice(0, 6);
   const dotted = `${base.slice(0, 2)}.${base.slice(2, 4)}.${base.slice(4, 6)}`;
-  return `zana_logs_${datePart}_${dotted}`;
+  return `moonlight_logs_${datePart}_${dotted}`;
 }
 
 function actionLabel(action) {

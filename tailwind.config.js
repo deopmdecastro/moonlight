@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const defaultTheme = require('tailwindcss/defaultTheme');
+
 module.exports = {
     darkMode: ["class"],
     content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
@@ -7,6 +9,8 @@ module.exports = {
       fontFamily: {
         heading: ['var(--font-heading)'],
         body: ['var(--font-body)'],
+        display: ['var(--font-display)'],
+        mono: ['var(--font-mono)', ...defaultTheme.fontFamily.mono],
       },
   		borderRadius: {
   			lg: 'var(--radius)',

@@ -1,4 +1,4 @@
-export const ADMIN_NOTIFICATIONS_READ_STORAGE_KEY = 'zana_admin_notifications_read';
+export const ADMIN_NOTIFICATIONS_READ_STORAGE_KEY = 'moonlight_admin_notifications_read';
 
 export function formatWhen(value) {
   try {

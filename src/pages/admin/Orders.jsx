@@ -21,7 +21,7 @@ import ImageWithFallback from '@/components/ui/image-with-fallback';
 import DeleteIcon from '@/components/ui/delete-icon';
 import LoadMoreControls from '@/components/ui/load-more-controls';
 import EmptyState from '@/components/ui/empty-state';
-import zanaLogoPrimary from '@/img/zana_logo_primary.svg';
+import moonlightLogoPrimary from '@/img/moonlight_logo_primary.svg';
 import { downloadBlob, exportOrderInvoicePdf } from '@/lib/reportExport';
 
 const statusLabels = {
@@ -118,7 +118,7 @@ export default function AdminOrders() {
   const [customerChoice, setCustomerChoice] = useState('__counter__');
   const [saleForm, setSaleForm] = useState({
     customer_name: 'Cliente Balcão',
-    customer_email: 'balcao@zana.local',
+    customer_email: 'balcao@moonlight.local',
     customer_phone: '',
     shipping_address: '',
     shipping_city: '',
@@ -186,7 +186,7 @@ export default function AdminOrders() {
     });
 
     return [
-      { value: '__counter__', label: 'Cliente Balcão (balcao@zana.local)' },
+      { value: '__counter__', label: 'Cliente Balcão (balcao@moonlight.local)' },
       ...mapped,
       { value: '__new__', label: 'Novo cliente (criar)' },
     ];
@@ -207,14 +207,14 @@ export default function AdminOrders() {
       const nextStatus = vars?.data?.status ? String(vars.data.status) : null;
       if (!nextStatus) return;
       if (!updated?.customer_email) return;
-      if (String(updated.customer_email).trim().toLowerCase() === 'balcao@zana.local') return;
+      if (String(updated.customer_email).trim().toLowerCase() === 'balcao@moonlight.local') return;
 
       if (nextStatus === 'delivered' || nextStatus === 'confirmed') {
         try {
           const invoiceBlob = await toastApiPromise(
             exportOrderInvoicePdf({
               order: updated,
-              logoUrl: zanaLogoPrimary,
+              logoUrl: moonlightLogoPrimary,
               title: 'Fatura',
               mode: 'blob',
             }),
@@ -278,7 +278,7 @@ export default function AdminOrders() {
   useEffect(() => {
     if (!saleOpen) return;
     const email = String(saleForm.customer_email ?? '').trim().toLowerCase();
-    if (!email || email === 'balcao@zana.local') return setCustomerChoice('__counter__');
+    if (!email || email === 'balcao@moonlight.local') return setCustomerChoice('__counter__');
 
     const match = (customers ?? []).find((u) => String(u?.email ?? '').trim().toLowerCase() === email);
     setCustomerChoice(match ? String(match.id) : '__new__');
@@ -296,7 +296,7 @@ export default function AdminOrders() {
     }
 
     if (value === '__counter__' || !value) {
-      setSaleForm((p) => ({ ...p, customer_name: 'Cliente Balcão', customer_email: 'balcao@zana.local', customer_phone: '' }));
+      setSaleForm((p) => ({ ...p, customer_name: 'Cliente Balcão', customer_email: 'balcao@moonlight.local', customer_phone: '' }));
       return;
     }
 
@@ -384,8 +384,8 @@ export default function AdminOrders() {
     }
 
     const customerName = saleForm.customer_name.trim() || 'Cliente Balcão';
-    const customerEmail = saleForm.customer_email.trim() || 'balcao@zana.local';
-    const isPlaceholderCustomer = customerEmail.toLowerCase() === 'balcao@zana.local';
+    const customerEmail = saleForm.customer_email.trim() || 'balcao@moonlight.local';
+    const isPlaceholderCustomer = customerEmail.toLowerCase() === 'balcao@moonlight.local';
 
     const payload = {
       customer_name: customerName,
@@ -426,7 +426,7 @@ export default function AdminOrders() {
       const invoiceBlob = await toastApiPromise(
         exportOrderInvoicePdf({
           order: created,
-          logoUrl: zanaLogoPrimary,
+          logoUrl: moonlightLogoPrimary,
           title: 'Fatura',
           mode: 'blob',
         }),
@@ -467,7 +467,7 @@ export default function AdminOrders() {
     const invoiceBlob = await toastApiPromise(
       exportOrderInvoicePdf({
         order,
-        logoUrl: zanaLogoPrimary,
+        logoUrl: moonlightLogoPrimary,
         title: 'Fatura',
         mode: 'blob',
       }),

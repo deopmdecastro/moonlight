@@ -4,7 +4,7 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 // import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import zanaLogo from '@/img/zana_logo_primary.svg';
+import moonlightLogo from '@/img/moonlight_logo_primary.svg';
 import ImageWithFallback from '@/components/ui/image-with-fallback';
 
 
@@ -33,6 +33,11 @@ const SellerLayout = lazy(() => import('@/components/layout/SellerLayout'));
 
 // Pages
 const Home = lazy(() => import('@/pages/Home'));
+const Sobre = lazy(() => import('@/pages/Sobre'));
+const Produtos = lazy(() => import('@/pages/Produtos'));
+const Loja = lazy(() => import('@/pages/Loja'));
+const Guia = lazy(() => import('@/pages/Guia'));
+const Agendamento = lazy(() => import('@/pages/Agendamento'));
 const Catalog = lazy(() => import('@/pages/Catalog'));
 const ProductDetail = lazy(() => import('@/pages/ProductDetail'));
 const Cart = lazy(() => import('@/pages/Cart'));
@@ -114,8 +119,8 @@ const AuthenticatedApp = () => {
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
           <ImageWithFallback
-            src={zanaLogo}
-            alt="Zana"
+            src={moonlightLogo}
+            alt="Moonlight"
             className="h-12 w-auto"
             loading="eager"
             iconClassName="w-12 h-12 text-primary/40"
@@ -139,11 +144,15 @@ const AuthenticatedApp = () => {
       {/* Store Layout */}
       <Route element={<StoreLayout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/produtos" element={<Produtos />} />
+        <Route path="/loja" element={<Loja />} />
+        <Route path="/guia" element={<Guia />} />
+        <Route path="/agendamento" element={<Agendamento />} />
         <Route path="/catalogo" element={<Catalog />} />
         <Route path="/produto/:id" element={<ProductDetail />} />
         <Route path="/carrinho" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
-        <Route path="/sobre" element={<About />} />
+        <Route path="/sobre" element={<Sobre />} />
 	        <Route path="/blog" element={<Blog />} />
 	        <Route path="/blog/:id" element={<BlogPostPage />} />
 	        <Route path="/suporte" element={<Support />} />
