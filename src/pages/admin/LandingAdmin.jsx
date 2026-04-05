@@ -43,7 +43,9 @@ export default function LandingAdmin() {
     queryFn: () => base44.admin.content.landing.get(),
   });
 
-  const legacy = data?.content && typeof data.content === 'object' ? data.content : {};
+  // Importante: não usar `{}` como fallback aqui, porque cria um novo objeto a cada render
+  // e faz o `initial` mudar continuamente, resetando o form e impedindo a escrita.
+  const legacy = data?.content && typeof data.content === 'object' ? data.content : null;
   const existingV2 = getExistingV2(legacy) ?? null;
 
   const initial = useMemo(() => {

@@ -29,7 +29,7 @@ export default function ContentLayout() {
           {tabs.map((t) => (
             <NavLink
               key={t.to}
-              to={t.to}
+              to={`/admin/conteudo/${t.to}`}
               className={({ isActive }) =>
                 `inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-body transition-colors whitespace-nowrap shrink-0 ${
                   isActive ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-secondary'
@@ -48,4 +48,3 @@ export default function ContentLayout() {
     </div>
   );
 }
-

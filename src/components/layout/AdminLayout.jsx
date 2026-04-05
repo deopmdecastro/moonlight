@@ -98,6 +98,28 @@ export default function AdminLayout() {
   const logoSrc = String(branding?.logo_primary_url ?? '').trim() || moonlightLogo;
 
   React.useEffect(() => {
+    // Evita overlay do menu mobile "preso" quando o ecrã muda para desktop.
+    if (typeof window === 'undefined') return undefined;
+
+    const mq = window.matchMedia?.('(min-width: 768px)'); // Tailwind md
+    const closeIfDesktop = () => {
+      if (mq?.matches) setMobileOpen(false);
+    };
+
+    closeIfDesktop();
+
+    if (mq?.addEventListener) mq.addEventListener('change', closeIfDesktop);
+    else if (mq?.addListener) mq.addListener(closeIfDesktop);
+    window.addEventListener('resize', closeIfDesktop);
+
+    return () => {
+      if (mq?.removeEventListener) mq.removeEventListener('change', closeIfDesktop);
+      else if (mq?.removeListener) mq.removeListener(closeIfDesktop);
+      window.removeEventListener('resize', closeIfDesktop);
+    };
+  }, []);
+
+  React.useEffect(() => {
     const updateThemeColor = () => {
       const meta = document.querySelector('meta[name="theme-color"]');
       const nav = document.getElementById('admin-topbar');

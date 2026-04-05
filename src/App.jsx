@@ -253,7 +253,7 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <CartProvider>
-          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Router future={{ v7_relativeSplatPath: true }}>
             <Suspense fallback={<PageLoader label="A carregar..." />}>
               <AuthenticatedApp />
             </Suspense>

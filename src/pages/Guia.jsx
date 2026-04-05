@@ -1,15 +1,23 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Droplets, Leaf, Shield } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
+import { getErrorMessage } from '@/lib/toast';
 import { useGuideContent } from '@/lib/useGuideContent';
 
 const iconByIndex = [Droplets, Leaf, Shield];
 
 export default function Guia() {
+  const { user } = useAuth();
   const { guide } = useGuideContent();
 
   const { data: faqItems = [], isLoading: isLoadingFaq } = useQuery({
@@ -34,6 +42,22 @@ export default function Guia() {
         a: String(it.answer ?? ''),
       }));
   }, [faqItems]);
+
+  const [questionForm, setQuestionForm] = useState({
+    author_name: user?.full_name || '',
+    author_email: user?.email || '',
+    question: '',
+  });
+
+  useEffect(() => {
+    setQuestionForm((p) => ({
+      ...p,
+      author_name: user?.full_name || '',
+      author_email: user?.email || '',
+    }));
+  }, [user?.full_name, user?.email]);
+
+  const [isSendingQuestion, setIsSendingQuestion] = useState(false);
 
   return (
     <div className="pt-24">
@@ -156,6 +180,70 @@ export default function Guia() {
               </div>
             ) : null}
           </Accordion>
+
+          <div className="mt-10 bg-card border border-border rounded-2xl p-6 md:p-8">
+            <h3 className="font-display text-2xl text-foreground">Fazer uma pergunta</h3>
+            <p className="font-mono text-sm text-muted-foreground mt-2">
+              Não encontrou a resposta? Envie a sua pergunta — a equipa responde e, se fizer sentido, publicamos no FAQ.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <div>
+                <Label className="font-body text-xs">Nome (opcional)</Label>
+                <Input
+                  value={questionForm.author_name}
+                  onChange={(e) => setQuestionForm((p) => ({ ...p, author_name: e.target.value }))}
+                  className="rounded-none mt-1"
+                  placeholder="O seu nome"
+                />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Email (opcional)</Label>
+                <Input
+                  type="email"
+                  value={questionForm.author_email}
+                  onChange={(e) => setQuestionForm((p) => ({ ...p, author_email: e.target.value }))}
+                  className="rounded-none mt-1"
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <Label className="font-body text-xs">Pergunta *</Label>
+              <Textarea
+                value={questionForm.question}
+                onChange={(e) => setQuestionForm((p) => ({ ...p, question: e.target.value }))}
+                className="rounded-none mt-1 min-h-[120px]"
+                placeholder="Escreva a sua dúvida…"
+              />
+            </div>
+
+            <Button
+              className="mt-4 w-full rounded-none font-body text-sm tracking-wider"
+              disabled={isSendingQuestion}
+              onClick={async () => {
+                const q = String(questionForm.question ?? '').trim();
+                if (q.length < 5) return toast.error('Escreva uma pergunta (mín. 5 caracteres).');
+                try {
+                  setIsSendingQuestion(true);
+                  await base44.faq.questions.create({
+                    question: q,
+                    author_name: String(questionForm.author_name ?? '').trim() || null,
+                    author_email: String(questionForm.author_email ?? '').trim() || null,
+                  });
+                  toast.success('Questão enviada.');
+                  setQuestionForm((p) => ({ ...p, question: '' }));
+                } catch (err) {
+                  toast.error(getErrorMessage(err, 'Não foi possível enviar.'));
+                } finally {
+                  setIsSendingQuestion(false);
+                }
+              }}
+            >
+              {isSendingQuestion ? 'A enviar…' : 'Enviar questão'}
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -187,4 +275,3 @@ export default function Guia() {
     </div>
   );
 }
-
